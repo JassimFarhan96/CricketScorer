@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.cricket.scorer">
+
+    <!-- Required for WhatsApp share (opens browser/WhatsApp) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:name=".activities.CricketApp"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.CricketScorer">
+
+        <!-- HOME — launcher activity -->
+        <activity
+            android:name=".activities.HomeActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+            PLAYER COUNT — new first step after "Track new match".
+            Collects number of players per team before showing SetupActivity.
+            Parent: HomeActivity (back arrow returns home)
+        -->
+        <activity
+            android:name=".activities.PlayerCountActivity"
+            android:exported="false"
+            android:label="Team Size"
+            android:parentActivityName=".activities.HomeActivity" />
+
+        <!-- SETUP — team names, player names, overs, toss -->
+        <activity
+            android:name=".activities.SetupActivity"
+            android:exported="false"
+            android:label="Match Setup"
+            android:parentActivityName=".activities.PlayerCountActivity" />
+
+        <!-- INNINGS — live match tracking (both 1st and 2nd innings) -->
+        <activity
+            android:name=".activities.InningsActivity"
+            android:exported="false"
+            android:label="Live Match" />
+
+        <!-- INNINGS BREAK — displayed between the two innings -->
+        <activity
+            android:name=".activities.InningsBreakActivity"
+            android:exported="false"
+            android:label="Innings Break" />
+
+        <!-- STATS — final scorecard and WhatsApp share -->
+        <activity
+            android:name=".activities.StatsActivity"
+            android:exported="false"
+            android:label="Match Statistics" />
+
+    </application>
+
+</manifest>

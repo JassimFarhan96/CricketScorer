@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Cricket Scorer</string>
+
+    <!-- Home -->
+    <string name="home_title">Cricket Scorer</string>
+    <string name="home_subtitle">Track live match scores, overs &amp; stats</string>
+    <string name="menu_track_match">Track new match</string>
+    <string name="menu_track_match_sub">Set up teams and overs</string>
+    <string name="menu_recent">Recent matches</string>
+    <string name="menu_recent_sub">View past scorecards</string>
+    <string name="menu_stats">Match statistics</string>
+    <string name="menu_stats_sub">Full scorecard &amp; analysis</string>
+
+    <!-- Setup -->
+    <string name="setup_home_team_hint">e.g. Mumbai</string>
+    <string name="setup_away_team_hint">e.g. Delhi</string>
+    <string name="setup_start_match">Start Match</string>
+
+    <!-- Innings -->
+    <string name="first_innings">1st Innings</string>
+    <string name="second_innings">2nd Innings</string>
+    <string name="batting_label">BATTING</string>
+    <string name="over_history_label">OVER HISTORY</string>
+    <string name="btn_dot">Dot</string>
+    <string name="btn_wide">Wide</string>
+    <string name="btn_noball">No Ball</string>
+    <string name="btn_wicket">Wicket</string>
+    <string name="btn_undo">↩ Undo</string>
+
+    <!-- Break -->
+    <string name="innings_complete">Innings Complete</string>
+    <string name="start_second_innings">Start 2nd Innings</string>
+
+    <!-- Stats -->
+    <string name="match_statistics">Match Statistics</string>
+    <string name="share_whatsapp">Share on WhatsApp</string>
+    <string name="share_other">Share via other apps…</string>
+    <string name="new_match">Start new match</string>
+    <string name="whatsapp_hint">+91 9876543210</string>
+
+    <!-- Errors -->
+    <string name="error_enter_home_team">Enter home team name</string>
+    <string name="error_enter_away_team">Enter away team name</string>
+    <string name="error_same_team">Team names must be different</string>
+    <string name="error_no_match">No completed match to show.</string>
+    <string name="error_enter_number">Enter a WhatsApp number</string>
+    <string name="error_nothing_to_undo">Nothing to undo</string>
+    <string name="no_recent_matches">No recent matches saved.</string>
+</resources>

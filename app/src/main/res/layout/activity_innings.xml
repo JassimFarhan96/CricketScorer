@@ -1,0 +1,347 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    activity_innings.xml
+    CHANGE: Added tv_mode_badge in the scoreboard header to show
+            "Single bat" or "Two bat" so the scorer knows the active mode.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#FAFAFA">
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- SCOREBOARD HEADER                                                   -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#085041">
+
+        <!-- Row: innings label + mode badge -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingTop="10dp">
+
+            <TextView
+                android:id="@+id/tv_innings_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="1st Innings"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:alpha="0.85" />
+
+            <!--
+                Mode badge: shows "Single bat" or "Two bat".
+                Small pill in the top-right of the scoreboard.
+            -->
+            <TextView
+                android:id="@+id/tv_mode_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Two bat"
+                android:textColor="#085041"
+                android:textSize="11sp"
+                android:fontFamily="sans-serif-medium"
+                android:background="@drawable/bg_mode_badge"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:paddingTop="3dp"
+                android:paddingBottom="3dp"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <!-- Score row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="14dp"
+            android:paddingTop="2dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tv_score"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0/0"
+                    android:textColor="#FFFFFF"
+                    android:textSize="34sp"
+                    android:fontFamily="sans-serif-medium" />
+
+                <TextView
+                    android:id="@+id/tv_overs_info"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Ov 0.0 / 20"
+                    android:textColor="#AADECE"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="end">
+
+                <TextView
+                    android:id="@+id/tv_crr"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="CRR: 0.00"
+                    android:textColor="#AADECE"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/tv_rrr"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="RRR: —"
+                    android:textColor="#AADECE"
+                    android:textSize="12sp"
+                    android:visibility="gone" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- TARGET BANNER (2nd innings only)                                   -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <LinearLayout
+        android:id="@+id/layout_target_banner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="#633806"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/tv_target_info"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Target: —"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-medium" />
+
+        <TextView
+            android:id="@+id/tv_required_balls"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="#F5C475"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- TOP HALF: BATTING PANEL                                             -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#FFFFFF">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="BATTING"
+                android:textSize="11sp"
+                android:textColor="#888780"
+                android:letterSpacing="0.08"
+                android:fontFamily="sans-serif-medium"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="4dp" />
+
+            <TableLayout
+                android:id="@+id/table_batsmen"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:stretchColumns="0"
+                android:shrinkColumns="0"
+                android:layout_marginBottom="8dp" />
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- BOTTOM HALF: OVER TRACKER                                           -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:background="#F5F5F3"
+        android:elevation="4dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="6dp">
+
+            <TextView
+                android:id="@+id/tv_current_over_label"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Over 1"
+                android:textSize="12sp"
+                android:fontFamily="sans-serif-medium"
+                android:textColor="#444441"
+                android:textAllCaps="true"
+                android:letterSpacing="0.06" />
+
+            <TextView
+                android:id="@+id/tv_balls_remaining"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="6 balls left"
+                android:textSize="12sp"
+                android:textColor="#888780" />
+        </LinearLayout>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rv_current_over_balls"
+            android:layout_width="match_parent"
+            android:layout_height="58dp"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:clipToPadding="false"
+            android:overScrollMode="never" />
+
+        <com.google.android.flexbox.FlexboxLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            app:flexWrap="wrap"
+            app:justifyContent="flex_start"
+            xmlns:app="http://schemas.android.com/apk/res-auto">
+
+            <Button android:id="@+id/btn_dot"
+                style="@style/Widget.AppCompat.Button.Borderless"
+                android:layout_width="wrap_content" android:layout_height="36dp"
+                android:text="Dot" android:textSize="13sp" android:textColor="#111111"
+                android:background="@drawable/bg_ball_btn_default"
+                android:layout_margin="3dp" android:paddingStart="14dp" android:paddingEnd="14dp"/>
+
+            <Button android:id="@+id/btn_1"
+                style="@style/Widget.AppCompat.Button.Borderless"
+                android:layout_width="wrap_content" android:layout_height="36dp"
+                android:text="1" android:textSize="13sp" android:textColor="#111111"
+                android:background="@drawable/bg_ball_btn_default"
+                android:layout_margin="3dp" android:paddingStart="14dp" android:paddingEnd="14dp"/>
+
+            <Button android:id="@+id/btn_2"
+                style="@style/Widget.AppCompat.Button.Borderless"
+                android:layout_width="wrap_content" android:layout_height="36dp"
+                android:text="2" android:textSize="13sp" android:textColor="#111111"
+                android:background="@drawable/bg_ball_btn_default"
+                android:layout_margin="3dp" android:paddingStart="14dp" android:paddingEnd="14dp"/>
+
+            <Button android:id="@+id/btn_3"
+                style="@style/Widget.AppCompat.Button.Borderless"
+                android:layout_width="wrap_content" android:layout_height="36dp"
+                android:text="3" android:textSize="13sp" android:textColor="#111111"
+                android:background="@drawable/bg_ball_btn_default"
+                android:layout_margin="3dp" android:paddingStart="14dp" android:paddingEnd="14dp"/>
+
+            <Button android:id="@+id/btn_4"
+                style="@style/Widget.AppCompat.Button.Borderless"
+                android:layout_width="wrap_content" android:layout_height="36dp"
+                android:text="4" android:textSize="13sp" android:textColor="#185FA5"
+                android:background="@drawable/bg_ball_btn_four"
+                android:layout_margin="3dp" android:paddingStart="14dp" android:paddingEnd="14dp"/>
+
+            <Button android:id="@+id/btn_6"
+                style="@style/Widget.AppCompat.Button.Borderless"
+                android:layout_width="wrap_content" android:layout_height="36dp"
+                android:text="6" android:textSize="13sp" android:textColor="#FFFFFF"
+                android:background="@drawable/bg_ball_btn_six"
+                android:layout_margin="3dp" android:paddingStart="14dp" android:paddingEnd="14dp"/>
+
+            <Button android:id="@+id/btn_wide"
+                style="@style/Widget.AppCompat.Button.Borderless"
+                android:layout_width="wrap_content" android:layout_height="36dp"
+                android:text="Wide" android:textSize="13sp" android:textColor="#633806"
+                android:background="@drawable/bg_ball_btn_wide"
+                android:layout_margin="3dp" android:paddingStart="14dp" android:paddingEnd="14dp"/>
+
+            <Button android:id="@+id/btn_noball"
+                style="@style/Widget.AppCompat.Button.Borderless"
+                android:layout_width="wrap_content" android:layout_height="36dp"
+                android:text="No Ball" android:textSize="13sp" android:textColor="#E24B4A"
+                android:background="@drawable/bg_ball_btn_noball"
+                android:layout_margin="3dp" android:paddingStart="14dp" android:paddingEnd="14dp"/>
+
+            <Button android:id="@+id/btn_wicket"
+                style="@style/Widget.AppCompat.Button.Borderless"
+                android:layout_width="wrap_content" android:layout_height="36dp"
+                android:text="Wicket" android:textSize="13sp" android:textColor="#FFFFFF"
+                android:background="@drawable/bg_ball_btn_wicket"
+                android:layout_margin="3dp" android:paddingStart="14dp" android:paddingEnd="14dp"/>
+
+            <Button android:id="@+id/btn_undo"
+                style="@style/Widget.AppCompat.Button.Borderless"
+                android:layout_width="wrap_content" android:layout_height="36dp"
+                android:text="↩ Undo" android:textSize="13sp" android:textColor="#888780"
+                android:background="@drawable/bg_ball_btn_undo"
+                android:layout_margin="3dp" android:paddingStart="14dp" android:paddingEnd="14dp"/>
+
+        </com.google.android.flexbox.FlexboxLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="OVER HISTORY"
+            android:textSize="10sp"
+            android:textColor="#888780"
+            android:letterSpacing="0.08"
+            android:fontFamily="sans-serif-medium"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="2dp" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rv_over_history"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:overScrollMode="never"
+            android:clipToPadding="false" />
+    </LinearLayout>
+
+</LinearLayout>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    ic_launcher_foreground.xml
+    Adaptive icon foreground — a cricket ball on a dark green background circle.
+    Used by all mipmap densities via ic_launcher.xml adaptive icon.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Dark green background circle -->
+    <path
+        android:fillColor="#085041"
+        android:pathData="M0,0 L108,0 L108,108 L0,108 Z" />
+
+    <!-- Cricket ball (red circle) -->
+    <path
+        android:fillColor="#C0392B"
+        android:pathData="M54,24 A30,30 0 1,1 53.99,24 Z" />
+
+    <!-- Ball seam - horizontal curve -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M28,54 Q54,40 80,54" />
+
+    <!-- Ball seam - vertical curve -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M54,28 Q40,54 54,80" />
+</vector>

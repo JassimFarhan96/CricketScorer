@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+        Theme.CricketScorer
+        FIX: editTextStyle parent changed from
+             Widget.MaterialComponents.TextInputEditText  (NOT always available)
+          to Widget.AppCompat.EditText                   (always available)
+        This eliminates the AAPT "resource style not found" error.
+    -->
+    <style name="Theme.CricketScorer" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+
+        <!-- Primary brand colour (dark green) -->
+        <item name="colorPrimary">@color/green_dark</item>
+        <item name="colorPrimaryVariant">@color/green_mid</item>
+        <item name="colorOnPrimary">@color/text_white</item>
+
+        <!-- Secondary (amber) -->
+        <item name="colorSecondary">@color/amber_mid</item>
+        <item name="colorSecondaryVariant">@color/amber_dark</item>
+        <item name="colorOnSecondary">@color/text_white</item>
+
+        <!-- Page + surface background -->
+        <item name="android:colorBackground">@color/bg_page</item>
+        <item name="colorSurface">@color/bg_card</item>
+        <item name="colorOnBackground">@color/text_primary</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+
+        <!-- Status bar -->
+        <item name="android:statusBarColor">@color/status_bar</item>
+        <item name="android:windowLightStatusBar">false</item>
+
+        <!--
+            Global EditText style — forces black text + gray hint on every
+            EditText in every Activity. Parent is Widget.AppCompat.EditText
+            which is guaranteed to exist with androidx.appcompat:appcompat.
+        -->
+        <item name="editTextStyle">@style/Widget.CricketScorer.EditText</item>
+        <item name="android:editTextStyle">@style/Widget.CricketScorer.EditText</item>
+
+        <!-- Spinner text colours (overs / toss dropdowns) -->
+        <item name="android:spinnerItemStyle">@style/Widget.CricketScorer.SpinnerItem</item>
+        <item name="android:spinnerDropDownItemStyle">@style/Widget.CricketScorer.SpinnerDropDownItem</item>
+
+        <!-- Button style -->
+        <item name="materialButtonStyle">@style/Widget.CricketScorer.Button</item>
+    </style>
+
+    <!--
+        EditText: always black text, gray hint, white background.
+        Parent: Widget.AppCompat.EditText  ← guaranteed to exist
+    -->
+    <style name="Widget.CricketScorer.EditText" parent="Widget.AppCompat.EditText">
+        <item name="android:textColor">#111111</item>
+        <item name="android:textColorHint">#999999</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:background">@drawable/bg_input_field</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+        <item name="android:paddingTop">12dp</item>
+        <item name="android:paddingBottom">12dp</item>
+    </style>
+
+    <!-- Spinner selected-item text -->
+    <style name="Widget.CricketScorer.SpinnerItem" parent="Widget.AppCompat.TextView.SpinnerItem">
+        <item name="android:textColor">#111111</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:padding">12dp</item>
+    </style>
+
+    <!-- Spinner drop-down list items -->
+    <style name="Widget.CricketScorer.SpinnerDropDownItem" parent="Widget.AppCompat.DropDownItem.Spinner">
+        <item name="android:textColor">#111111</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:padding">12dp</item>
+    </style>
+
+    <!-- Rounded button: no ALL CAPS -->
+    <style name="Widget.CricketScorer.Button" parent="Widget.MaterialComponents.Button">
+        <item name="cornerRadius">8dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:letterSpacing">0</item>
+    </style>
+
+    <!-- Alert dialog (wicket selection dialog in InningsActivity) -->
+    <style name="Theme.CricketScorer.Dialog" parent="ThemeOverlay.MaterialComponents.Dialog.Alert">
+        <item name="colorPrimary">@color/green_dark</item>
+    </style>
+
+</resources>

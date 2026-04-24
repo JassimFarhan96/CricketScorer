@@ -1,0 +1,318 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    activity_player_count.xml
+    CHANGE: Added a "Batting Mode" section below the player-count picker.
+    Two selectable cards:
+      ① Single batsman (only striker, no non-striker)
+      ② Two batsmen   (striker + non-striker, standard)
+-->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F5F5F3"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- ── Dark green header ─────────────────────────────────────────── -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#085041"
+            android:padding="24dp"
+            android:paddingTop="40dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Team setup"
+                android:textColor="#AADECE"
+                android:textSize="13sp"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Configure your match"
+                android:textColor="#FFFFFF"
+                android:textSize="22sp"
+                android:fontFamily="sans-serif-medium" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Same settings apply to both teams"
+                android:textColor="#AADECE"
+                android:textSize="13sp"
+                android:layout_marginTop="6dp" />
+        </LinearLayout>
+
+        <!-- ══════════════════════════════════════════════════════════════ -->
+        <!-- SECTION 1: Players per team                                   -->
+        <!-- ══════════════════════════════════════════════════════════════ -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="PLAYERS PER TEAM"
+            android:textSize="11sp"
+            android:textColor="#888780"
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="0.08"
+            android:layout_marginStart="20dp"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="10dp" />
+
+        <androidx.cardview.widget.CardView
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="2dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="24dp"
+                android:gravity="center">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🏏"
+                    android:textSize="32sp"
+                    android:layout_marginBottom="16dp" />
+
+                <!-- Minus / Count / Plus row -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <ImageButton
+                        android:id="@+id/btn_minus"
+                        android:layout_width="52dp"
+                        android:layout_height="52dp"
+                        android:background="@drawable/bg_counter_btn"
+                        android:src="@drawable/ic_minus"
+                        android:scaleType="center"
+                        android:contentDescription="Decrease" />
+
+                    <TextView
+                        android:id="@+id/tv_player_count"
+                        android:layout_width="110dp"
+                        android:layout_height="wrap_content"
+                        android:text="11"
+                        android:textSize="64sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:textColor="#085041"
+                        android:gravity="center"
+                        android:includeFontPadding="false" />
+
+                    <ImageButton
+                        android:id="@+id/btn_plus"
+                        android:layout_width="52dp"
+                        android:layout_height="52dp"
+                        android:background="@drawable/bg_counter_btn"
+                        android:src="@drawable/ic_plus"
+                        android:scaleType="center"
+                        android:contentDescription="Increase" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tv_count_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="players per team"
+                    android:textSize="14sp"
+                    android:textColor="#888780"
+                    android:layout_marginTop="6dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Choose between 2 and 11"
+                    android:textSize="12sp"
+                    android:textColor="#BBBBBB"
+                    android:layout_marginTop="10dp" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- ══════════════════════════════════════════════════════════════ -->
+        <!-- SECTION 2: Batting mode                                       -->
+        <!-- ══════════════════════════════════════════════════════════════ -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="BATTING MODE"
+            android:textSize="11sp"
+            android:textColor="#888780"
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="0.08"
+            android:layout_marginStart="20dp"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="10dp" />
+
+        <!-- Two mode cards side by side -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp">
+
+            <!-- ── Single batsman card ─────────────────────────────────── -->
+            <LinearLayout
+                android:id="@+id/card_mode_single"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="16dp"
+                android:layout_marginEnd="6dp"
+                android:background="@drawable/bg_mode_card_default"
+                android:clickable="true"
+                android:focusable="true">
+
+                <!-- Checkmark (visible when selected) -->
+                <TextView
+                    android:id="@+id/tv_single_check"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="✓"
+                    android:textSize="14sp"
+                    android:textColor="#085041"
+                    android:fontFamily="sans-serif-medium"
+                    android:layout_gravity="end"
+                    android:visibility="invisible" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🧍"
+                    android:textSize="36sp"
+                    android:gravity="center"
+                    android:layout_marginTop="4dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Single"
+                    android:textSize="15sp"
+                    android:fontFamily="sans-serif-medium"
+                    android:textColor="#111111"
+                    android:gravity="center"
+                    android:layout_marginTop="10dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Striker only"
+                    android:textSize="12sp"
+                    android:textColor="#888780"
+                    android:gravity="center"
+                    android:layout_marginTop="4dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="No strike rotation"
+                    android:textSize="11sp"
+                    android:textColor="#AAAAAA"
+                    android:gravity="center"
+                    android:layout_marginTop="2dp" />
+            </LinearLayout>
+
+            <!-- ── Two batsmen card ────────────────────────────────────── -->
+            <LinearLayout
+                android:id="@+id/card_mode_two"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="16dp"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/bg_mode_card_selected"
+                android:clickable="true"
+                android:focusable="true">
+
+                <TextView
+                    android:id="@+id/tv_two_check"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="✓"
+                    android:textSize="14sp"
+                    android:textColor="#085041"
+                    android:fontFamily="sans-serif-medium"
+                    android:layout_gravity="end"
+                    android:visibility="visible" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🧍🧍"
+                    android:textSize="36sp"
+                    android:gravity="center"
+                    android:layout_marginTop="4dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Two"
+                    android:textSize="15sp"
+                    android:fontFamily="sans-serif-medium"
+                    android:textColor="#111111"
+                    android:gravity="center"
+                    android:layout_marginTop="10dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Striker + Non-striker"
+                    android:textSize="12sp"
+                    android:textColor="#888780"
+                    android:gravity="center"
+                    android:layout_marginTop="4dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Strike rotates on odd runs"
+                    android:textSize="11sp"
+                    android:textColor="#AAAAAA"
+                    android:gravity="center"
+                    android:layout_marginTop="2dp" />
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- Spacing before button -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="32dp" />
+
+        <!-- ── Continue button ────────────────────────────────────────── -->
+        <Button
+            android:id="@+id/btn_continue"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="Continue →"
+            android:textSize="17sp"
+            android:fontFamily="sans-serif-medium"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#085041"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="32dp" />
+
+    </LinearLayout>
+</ScrollView>

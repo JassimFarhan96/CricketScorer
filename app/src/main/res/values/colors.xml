@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand greens -->
+    <color name="green_dark">#085041</color>
+    <color name="green_mid">#1D9E75</color>
+    <color name="green_light">#E1F5EE</color>
+
+    <!-- Amber / warning -->
+    <color name="amber_dark">#633806</color>
+    <color name="amber_mid">#BA7517</color>
+    <color name="amber_light">#FAEEDA</color>
+
+    <!-- Red / danger -->
+    <color name="red_mid">#E24B4A</color>
+    <color name="red_light">#FCEBEB</color>
+
+    <!-- Blue -->
+    <color name="blue_dark">#185FA5</color>
+    <color name="blue_mid">#378ADD</color>
+    <color name="blue_light">#E6F1FB</color>
+
+    <!-- Gray -->
+    <color name="gray_mid">#888780</color>
+    <color name="gray_light">#F1EFE8</color>
+    <color name="gray_dark">#444441</color>
+
+    <!-- WhatsApp -->
+    <color name="whatsapp_green">#25D366</color>
+
+    <!-- Backgrounds -->
+    <color name="bg_page">#F5F5F3</color>
+    <color name="bg_card">#FFFFFF</color>
+
+    <!-- Text -->
+    <color name="text_primary">#111111</color>
+    <color name="text_secondary">#888780</color>
+    <color name="text_white">#FFFFFF</color>
+
+    <!-- Status bar colour (matches dark green header) -->
+    <color name="status_bar">#064033</color>
+</resources>

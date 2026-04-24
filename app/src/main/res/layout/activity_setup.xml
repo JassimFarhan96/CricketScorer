@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    activity_setup.xml
+    CHANGE: "Number of Overs" is now a numeric EditText (1–50)
+            instead of a pre-defined Spinner dropdown.
+-->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FAFAFA">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- ── Team names row ────────────────────────────────────────────── -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="12dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="HOME TEAM"
+                    android:textSize="11sp"
+                    android:textColor="#888780"
+                    android:letterSpacing="0.08"
+                    android:layout_marginBottom="5dp" />
+
+                <EditText
+                    android:id="@+id/et_home_team"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="e.g. Mumbai"
+                    android:maxLength="20"
+                    android:inputType="textCapWords"
+                    android:background="@drawable/bg_input_field"
+                    android:padding="12dp"
+                    android:textSize="14sp"
+                    android:textColor="#111111"
+                    android:textColorHint="#999999" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="VS"
+                android:textSize="12sp"
+                android:fontFamily="sans-serif-medium"
+                android:textColor="#888780"
+                android:background="@drawable/bg_vs_badge"
+                android:padding="8dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
+                android:layout_marginTop="18dp" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="AWAY TEAM"
+                    android:textSize="11sp"
+                    android:textColor="#888780"
+                    android:letterSpacing="0.08"
+                    android:layout_marginBottom="5dp" />
+
+                <EditText
+                    android:id="@+id/et_away_team"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="e.g. Delhi"
+                    android:maxLength="20"
+                    android:inputType="textCapWords"
+                    android:background="@drawable/bg_input_field"
+                    android:padding="12dp"
+                    android:textSize="14sp"
+                    android:textColor="#111111"
+                    android:textColorHint="#999999" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- ── Number of overs (EditText, replaces Spinner) ──────────────── -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="NUMBER OF OVERS"
+            android:textSize="11sp"
+            android:textColor="#888780"
+            android:letterSpacing="0.08"
+            android:layout_marginBottom="5dp" />
+
+        <EditText
+            android:id="@+id/et_overs"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Enter overs (1 – 50)"
+            android:inputType="number"
+            android:maxLength="2"
+            android:background="@drawable/bg_input_field"
+            android:padding="12dp"
+            android:textSize="14sp"
+            android:textColor="#111111"
+            android:textColorHint="#999999"
+            android:layout_marginBottom="14dp" />
+
+        <!-- ── Toss ───────────────────────────────────────────────────────── -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="TOSS — BATS FIRST"
+            android:textSize="11sp"
+            android:textColor="#888780"
+            android:letterSpacing="0.08"
+            android:layout_marginBottom="5dp" />
+
+        <Spinner
+            android:id="@+id/spinner_toss"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_input_field"
+            android:layout_marginBottom="20dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:popupBackground="#FFFFFF" />
+
+        <!-- ── Home players ───────────────────────────────────────────────── -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="HOME TEAM PLAYERS"
+            android:textSize="11sp"
+            android:textColor="#888780"
+            android:letterSpacing="0.08"
+            android:layout_marginBottom="8dp" />
+
+        <LinearLayout
+            android:id="@+id/container_home_players"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="20dp" />
+
+        <!-- ── Away players ───────────────────────────────────────────────── -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="AWAY TEAM PLAYERS"
+            android:textSize="11sp"
+            android:textColor="#888780"
+            android:letterSpacing="0.08"
+            android:layout_marginBottom="8dp" />
+
+        <LinearLayout
+            android:id="@+id/container_away_players"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="24dp" />
+
+        <!-- ── Start button ───────────────────────────────────────────────── -->
+        <Button
+            android:id="@+id/btn_start_match"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="Start Match"
+            android:textSize="16sp"
+            android:fontFamily="sans-serif-medium"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#085041"
+            android:layout_marginBottom="24dp" />
+
+    </LinearLayout>
+</ScrollView>
