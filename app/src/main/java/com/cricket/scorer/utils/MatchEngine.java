@@ -11,19 +11,27 @@ import java.util.List;
 
 /**
  * MatchEngine.java
- * Central business-logic controller for a cricket match.
  *
- * CHANGES for batting mode:
+ * BUG FIX — all-out wicket threshold:
  *
- * Single-batsman mode (match.isSingleBatsmanMode() == true):
- *   - Only strikerIndex is valid; nonStrikerIndex == -1
- *   - Strike NEVER rotates (handled inside Innings.recordNormalBall)
- *   - At end of over: no rotation (Innings.completeCurrentOver skips swap)
- *   - Wicket: incoming batsman takes striker's slot; no non-striker to worry about
- *   - getAvailableBatsmen(): excludes only striker (not non-striker)
+ * Two-batsman mode (standard cricket):
+ *   Two players are always on the field together (striker + non-striker).
+ *   The last batsman cannot bat alone, so the innings ends when
+ *   (totalPlayers - 1) wickets have fallen.
+ *   e.g. 11 players → all out after 10 wickets.
  *
- * Two-batsman mode (standard, match.isSingleBatsmanMode() == false):
- *   - Unchanged behaviour from before
+ * Single-batsman mode:
+ *   Only the striker is on the field at any time — there is no partner.
+ *   Every player bats individually, so the innings ends only when ALL
+ *   players have been dismissed.
+ *   e.g. 11 players → all out after 11 wickets.
+ *   e.g.  5 players → all out after  5 wickets.
+ *
+ * The fix is in deliverWicket(): the threshold is now computed by
+ * allOutThreshold(batters) which returns the correct value per mode.
+ *
+ * The same fix is applied to endMatch() where wicketsLeft is calculated
+ * for the result description string.
  */
 public class MatchEngine {
 
@@ -43,8 +51,8 @@ public class MatchEngine {
     // ─── Delivery processing ──────────────────────────────────────────────────
 
     public MatchState deliverNormalBall(int runs) {
-        Innings innings  = match.getCurrentInningsData();
-        Player  striker  = getStriker();
+        Innings innings = match.getCurrentInningsData();
+        Player  striker = getStriker();
         innings.recordNormalBall(runs, striker);
         return checkAfterValidBall(innings);
     }
@@ -62,41 +70,56 @@ public class MatchEngine {
     /**
      * Records a wicket and brings in the next batsman.
      *
-     * Two-batsman mode:
-     *   The striker is out; newBatsmanIndex fills the striker's slot.
-     *   The non-striker remains unchanged.
+     * All-out threshold (THE BUG FIX):
+     *   Two-batsman mode → innings ends at (N - 1) wickets
+     *   Single-batsman mode → innings ends at N wickets
      *
-     * Single-batsman mode:
-     *   The striker is out; newBatsmanIndex fills the striker's slot.
-     *   (Same logic — just no non-striker to worry about.)
+     * @param newBatsmanIndex index of the incoming batsman in the batting list,
+     *                        ignored when the team is all out
      */
     public MatchState deliverWicket(int newBatsmanIndex) {
-        Innings        innings  = match.getCurrentInningsData();
-        Player         striker  = getStriker();
-        List<Player>   batters  = match.getCurrentBattingPlayers();
+        Innings      innings = match.getCurrentInningsData();
+        Player       striker = getStriker();
+        List<Player> batters = match.getCurrentBattingPlayers();
 
         innings.recordWicket(striker);
 
-        // Put the incoming batsman at the striker's end
+        // ── All-out check (FIXED) ──────────────────────────────────────
+        int threshold = allOutThreshold(batters);
+        if (innings.getTotalWickets() >= threshold) {
+            // Everyone is out — end the innings immediately
+            // Do NOT try to bring in a new batsman
+            return endInnings(innings);
+        }
+
+        // ── Bring in the next batsman ──────────────────────────────────
         innings.setStrikerIndex(newBatsmanIndex);
         if (newBatsmanIndex < batters.size()) {
             batters.get(newBatsmanIndex).setHasNotBatted(false);
         }
-
-        // Advance the "next to come in" pointer past the chosen player
         if (innings.getNextBatsmanIndex() <= newBatsmanIndex) {
             innings.setNextBatsmanIndex(newBatsmanIndex + 1);
         }
 
-        // All out?
-        if (innings.getTotalWickets() >= batters.size() - 1) {
-            // All out = (total players - 1) wickets
-            // e.g. 11 players → out after 10 wickets
-            // single-batsman: every player gets to bat (no partner needed)
-            return endInnings(innings);
-        }
-
         return checkAfterValidBall(innings);
+    }
+
+    /**
+     * Returns the number of wickets at which the batting team is all out.
+     *
+     * Two-batsman mode : N - 1
+     *   The last remaining batsman has no partner so cannot continue.
+     *
+     * Single-batsman mode : N
+     *   Each of the N players bats alone; all N can and must be dismissed
+     *   before the innings ends via wickets.
+     */
+    private int allOutThreshold(List<Player> batters) {
+        if (match.isSingleBatsmanMode()) {
+            return batters.size();       // e.g. 11 players → 11 wickets
+        } else {
+            return batters.size() - 1;  // e.g. 11 players → 10 wickets
+        }
     }
 
     /** Undoes the last delivery, reversing all stat changes. */
@@ -109,11 +132,10 @@ public class MatchEngine {
         Ball lastBall = currentOver.getBalls().get(currentOver.getBalls().size() - 1);
 
         if (lastBall.getType() == Ball.BallType.WICKET) {
-            // Reverse the dismissed player's status
-            int currentStrikerIdx = innings.getStrikerIndex();
-            Player currentStriker = match.getCurrentBattingPlayers().get(currentStrikerIdx);
-            currentStriker.setOut(false);
-            currentStriker.setDismissalInfo("");
+            int    strikerIdx = innings.getStrikerIndex();
+            Player striker    = match.getCurrentBattingPlayers().get(strikerIdx);
+            striker.setOut(false);
+            striker.setDismissalInfo("");
             if (innings.getNextBatsmanIndex() > innings.getNonStrikerIndex() + 1) {
                 innings.setNextBatsmanIndex(innings.getNextBatsmanIndex() - 1);
             }
@@ -134,7 +156,7 @@ public class MatchEngine {
 
         // Over complete?
         if (innings.getCurrentOver().isComplete()) {
-            innings.completeCurrentOver(); // swap only in two-batsman mode
+            innings.completeCurrentOver();
             int oversCompleted = innings.getCompletedOvers().size();
             if (oversCompleted >= match.getMaxOvers()) {
                 return endInnings(innings);
@@ -150,16 +172,11 @@ public class MatchEngine {
 
         if (match.getCurrentInnings() == 1) {
             match.setCurrentInnings(2);
-
-            // Create 2nd innings with the same batting mode
             Innings second = new Innings(2, match.isSingleBatsmanMode());
             match.setSecondInnings(second);
-
-            // Reset the chasing team's player stats
             for (Player p : match.getCurrentBattingPlayers()) {
                 p.resetForNewInnings();
             }
-
             return MatchState.INNINGS_COMPLETE;
         }
         return endMatch(innings);
@@ -169,14 +186,18 @@ public class MatchEngine {
         secondInnings.setComplete(true);
         match.setMatchCompleted(true);
 
-        int    target       = match.getTarget();
-        int    runsScored   = secondInnings.getTotalRuns();
-        int    wicketsLeft  = match.getCurrentBattingPlayers().size()
-                              - 1 - secondInnings.getTotalWickets();
-        String bat1Name     = match.getBattingFirstTeam().equals("home")
-                              ? match.getHomeTeamName() : match.getAwayTeamName();
-        String bat2Name     = match.getBattingFirstTeam().equals("home")
-                              ? match.getAwayTeamName() : match.getHomeTeamName();
+        int          target     = match.getTarget();
+        int          runsScored = secondInnings.getTotalRuns();
+        List<Player> chasers    = match.getCurrentBattingPlayers();
+
+        // wicketsLeft uses the same mode-aware threshold (FIXED)
+        int threshold   = allOutThreshold(chasers);
+        int wicketsLeft = threshold - secondInnings.getTotalWickets();
+
+        String bat1Name = match.getBattingFirstTeam().equals("home")
+                ? match.getHomeTeamName() : match.getAwayTeamName();
+        String bat2Name = match.getBattingFirstTeam().equals("home")
+                ? match.getAwayTeamName() : match.getHomeTeamName();
 
         if (runsScored >= target) {
             match.setWinnerTeam(match.getBattingFirstTeam().equals("home") ? "away" : "home");
@@ -207,7 +228,7 @@ public class MatchEngine {
     }
 
     public Player getNonStriker() {
-        if (match.isSingleBatsmanMode()) return null; // no non-striker
+        if (match.isSingleBatsmanMode()) return null;
         Innings      innings = match.getCurrentInningsData();
         List<Player> batters = match.getCurrentBattingPlayers();
         int          idx     = innings.getNonStrikerIndex();
@@ -215,20 +236,20 @@ public class MatchEngine {
     }
 
     /**
-     * Returns players who can come in as the next batsman after a wicket.
+     * Returns players available to come in after a wicket.
      *
-     * Two-batsman mode: excludes striker AND non-striker (both at crease).
+     * Two-batsman mode: excludes striker AND non-striker.
      * Single-batsman mode: excludes only the striker (no non-striker).
      */
     public List<Player> getAvailableBatsmen() {
-        Innings      innings        = match.getCurrentInningsData();
-        List<Player> batters        = match.getCurrentBattingPlayers();
-        List<Player> available      = new ArrayList<>();
-        int          strikerIdx     = innings.getStrikerIndex();
-        int          nonStrikerIdx  = innings.getNonStrikerIndex(); // -1 in single mode
+        Innings      innings       = match.getCurrentInningsData();
+        List<Player> batters       = match.getCurrentBattingPlayers();
+        List<Player> available     = new ArrayList<>();
+        int          strikerIdx    = innings.getStrikerIndex();
+        int          nonStrikerIdx = innings.getNonStrikerIndex(); // -1 in single mode
 
         for (int i = 0; i < batters.size(); i++) {
-            Player p = batters.get(i);
+            Player  p          = batters.get(i);
             boolean isAtCrease = (i == strikerIdx) || (i == nonStrikerIdx);
             if (!isAtCrease && !p.isOut()) {
                 available.add(p);
