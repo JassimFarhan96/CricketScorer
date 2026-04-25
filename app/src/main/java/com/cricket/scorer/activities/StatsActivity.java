@@ -4,7 +4,6 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
-import android.text.TextUtils;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -20,61 +19,79 @@ import com.cricket.scorer.R;
 import com.cricket.scorer.models.Innings;
 import com.cricket.scorer.models.Match;
 import com.cricket.scorer.models.Player;
+import com.cricket.scorer.utils.MatchStorage;
 import com.cricket.scorer.utils.ShareUtils;
 
+import java.io.File;
 import java.util.List;
 import java.util.Locale;
 
 /**
  * StatsActivity.java
- * Displays the full match scorecard and allows sharing via WhatsApp.
  *
- * Sections:
- *  1. Winner banner (team name + margin)
- *  2. Summary cards (runs/wickets for both teams)
- *  3. 1st innings batting table
- *  4. 2nd innings batting table
- *  5. WhatsApp share section (phone number + share button)
- *  6. New match button
+ * CHANGE: Added "Save Match" button at the top of the screen.
+ * Tapping it calls MatchStorage.saveMatch() which writes a JSON file
+ * to the app's internal recent_matches/ directory.
+ * After saving, the button is disabled and labelled "Saved ✓".
  *
- * Layout: activity_stats.xml
+ * Can also be launched from MatchSelectActivity (Recent/Stats flow)
+ * by passing EXTRA_SAVED_FILE_NAME — in that case the Match is loaded
+ * from disk instead of from CricketApp, and the Save button is hidden.
  */
 public class StatsActivity extends AppCompatActivity {
 
+    /** When launched from MatchSelectActivity, this extra holds the filename. */
+    public static final String EXTRA_SAVED_FILE_NAME = "saved_file_name";
+
     // ─── Views ────────────────────────────────────────────────────────────────
     private LinearLayout layoutWinnerBanner;
-    private TextView tvWinnerText;
-    private TextView tvWinnerSub;
-
-    private TextView tvTeam1Summary;
-    private TextView tvTeam1Score;
-    private TextView tvTeam1CRR;
-    private TextView tvTeam2Summary;
-    private TextView tvTeam2Score;
-    private TextView tvTeam2CRR;
-
-    private TableLayout tableFirstInnings;
-    private TableLayout tableSecondInnings;
-
-    private EditText etWhatsappNumber;
-    private Button btnShareWhatsApp;
-    private Button btnShareGeneral;
-    private Button btnNewMatch;
+    private TextView     tvWinnerText;
+    private TextView     tvWinnerSub;
+    private TextView     tvTeam1Name, tvTeam1Score, tvTeam1Crr;
+    private TextView     tvTeam2Name, tvTeam2Score, tvTeam2Crr;
+    private TableLayout  tableFirstInnings;
+    private TableLayout  tableSecondInnings;
+    private EditText     etWhatsappNumber;
+    private Button       btnSaveMatch;
+    private Button       btnShareWhatsApp;
+    private Button       btnShareGeneral;
+    private Button       btnNewMatch;
 
     // ─── Data ─────────────────────────────────────────────────────────────────
-    private Match match;
+    private Match   match;
+    private boolean isViewingFromDisk = false; // true when opened from Recent/Stats menu
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_stats);
 
-        CricketApp app = (CricketApp) getApplication();
-        match = app.getCurrentMatch();
-
-        if (match == null) { finish(); return; }
-
         bindViews();
+
+        // Determine source: live match just completed, or loaded from disk?
+        String savedFile = getIntent().getStringExtra(EXTRA_SAVED_FILE_NAME);
+        if (savedFile != null) {
+            // Launched from MatchSelectActivity — load from disk
+            isViewingFromDisk = true;
+            List<Match> all = MatchStorage.loadAllMatches(this);
+            for (Match m : all) {
+                if (savedFile.equals(m.getSavedFileName())) {
+                    match = m;
+                    break;
+                }
+            }
+        } else {
+            // Launched after live match completed
+            CricketApp app = (CricketApp) getApplication();
+            match = app.getCurrentMatch();
+        }
+
+        if (match == null) {
+            Toast.makeText(this, "Match data not found", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+
         populateStats();
         setClickListeners();
     }
@@ -82,58 +99,56 @@ public class StatsActivity extends AppCompatActivity {
     // ─── View binding ─────────────────────────────────────────────────────────
 
     private void bindViews() {
-        layoutWinnerBanner   = findViewById(R.id.layout_winner_banner);
-        tvWinnerText         = findViewById(R.id.tv_winner_text);
-        tvWinnerSub          = findViewById(R.id.tv_winner_sub);
-
-        tvTeam1Summary       = findViewById(R.id.tv_team1_name);
-        tvTeam1Score         = findViewById(R.id.tv_team1_score);
-        tvTeam1CRR           = findViewById(R.id.tv_team1_crr);
-        tvTeam2Summary       = findViewById(R.id.tv_team2_name);
-        tvTeam2Score         = findViewById(R.id.tv_team2_score);
-        tvTeam2CRR           = findViewById(R.id.tv_team2_crr);
-
-        tableFirstInnings    = findViewById(R.id.table_first_innings);
-        tableSecondInnings   = findViewById(R.id.table_second_innings);
-
-        etWhatsappNumber     = findViewById(R.id.et_whatsapp_number);
-        btnShareWhatsApp     = findViewById(R.id.btn_share_whatsapp);
-        btnShareGeneral      = findViewById(R.id.btn_share_general);
-        btnNewMatch          = findViewById(R.id.btn_new_match);
+        layoutWinnerBanner = findViewById(R.id.layout_winner_banner);
+        tvWinnerText       = findViewById(R.id.tv_winner_text);
+        tvWinnerSub        = findViewById(R.id.tv_winner_sub);
+        tvTeam1Name        = findViewById(R.id.tv_team1_name);
+        tvTeam1Score       = findViewById(R.id.tv_team1_score);
+        tvTeam1Crr         = findViewById(R.id.tv_team1_crr);
+        tvTeam2Name        = findViewById(R.id.tv_team2_name);
+        tvTeam2Score       = findViewById(R.id.tv_team2_score);
+        tvTeam2Crr         = findViewById(R.id.tv_team2_crr);
+        tableFirstInnings  = findViewById(R.id.table_first_innings);
+        tableSecondInnings = findViewById(R.id.table_second_innings);
+        etWhatsappNumber   = findViewById(R.id.et_whatsapp_number);
+        btnSaveMatch       = findViewById(R.id.btn_save_match);
+        btnShareWhatsApp   = findViewById(R.id.btn_share_whatsapp);
+        btnShareGeneral    = findViewById(R.id.btn_share_general);
+        btnNewMatch        = findViewById(R.id.btn_new_match);
     }
 
     // ─── Data population ──────────────────────────────────────────────────────
 
     private void populateStats() {
-        Innings i1 = match.getFirstInnings();
-        Innings i2 = match.getSecondInnings();
+        Innings i1   = match.getFirstInnings();
+        Innings i2   = match.getSecondInnings();
+        String  bat1 = match.getBattingFirstTeam().equals("home")
+                       ? match.getHomeTeamName() : match.getAwayTeamName();
+        String  bat2 = match.getBattingFirstTeam().equals("home")
+                       ? match.getAwayTeamName() : match.getHomeTeamName();
 
-        String bat1 = match.getBattingFirstTeam().equals("home")
-                ? match.getHomeTeamName() : match.getAwayTeamName();
-        String bat2 = match.getBattingFirstTeam().equals("home")
-                ? match.getAwayTeamName() : match.getHomeTeamName();
-
-        // ── Winner banner ──────────────────────────────────────────────────
+        // ── Winner banner ──────────────────────────────────────────────
         layoutWinnerBanner.setVisibility(View.VISIBLE);
-        tvWinnerText.setText(match.getResultDescription());
+        tvWinnerText.setText(match.getResultDescription() != null
+                ? match.getResultDescription() : "Match in progress");
         tvWinnerSub.setText(match.getHomeTeamName() + " vs " + match.getAwayTeamName()
                 + " · " + match.getMaxOvers() + " overs");
 
-        // ── Team summary cards ─────────────────────────────────────────────
+        // ── Summary cards ──────────────────────────────────────────────
         if (i1 != null) {
-            tvTeam1Summary.setText(bat1);
+            tvTeam1Name.setText(bat1);
             tvTeam1Score.setText(i1.getScoreString());
-            tvTeam1CRR.setText(String.format(Locale.US,
+            tvTeam1Crr.setText(String.format(Locale.US,
                     "%s ov · CRR %.2f", i1.getOversString(), i1.getCurrentRunRate()));
         }
         if (i2 != null) {
-            tvTeam2Summary.setText(bat2);
+            tvTeam2Name.setText(bat2);
             tvTeam2Score.setText(i2.getScoreString());
-            tvTeam2CRR.setText(String.format(Locale.US,
+            tvTeam2Crr.setText(String.format(Locale.US,
                     "%s ov · CRR %.2f", i2.getOversString(), i2.getCurrentRunRate()));
         }
 
-        // ── Batting tables ─────────────────────────────────────────────────
+        // ── Batting tables ─────────────────────────────────────────────
         List<Player> bat1Players = match.getBattingFirstTeam().equals("home")
                 ? match.getHomePlayers() : match.getAwayPlayers();
         List<Player> bat2Players = match.getBattingFirstTeam().equals("home")
@@ -141,22 +156,23 @@ public class StatsActivity extends AppCompatActivity {
 
         buildBattingTable(tableFirstInnings, bat1Players);
         buildBattingTable(tableSecondInnings, bat2Players);
+
+        // ── Save button visibility ─────────────────────────────────────
+        if (isViewingFromDisk) {
+            // Already on disk — hide save button
+            btnSaveMatch.setVisibility(View.GONE);
+        } else {
+            btnSaveMatch.setVisibility(View.VISIBLE);
+        }
     }
 
-    /** Builds a full batting scorecard table for one innings */
     private void buildBattingTable(TableLayout table, List<Player> players) {
         table.removeAllViews();
-
-        // Header
         addTableRow(table, new String[]{"Batsman", "R", "B", "4s", "6s", "SR", "Status"}, true);
-
         for (Player p : players) {
             if (p.isHasNotBatted() && p.getBallsFaced() == 0 && p.getRunsScored() == 0) continue;
-
             String sr = p.getBallsFaced() > 0
                     ? String.format(Locale.US, "%.1f", p.getStrikeRate()) : "-";
-            String status = p.isOut() ? "Out" : "Not out";
-
             addTableRow(table, new String[]{
                     p.getName(),
                     String.valueOf(p.getRunsScored()),
@@ -164,7 +180,7 @@ public class StatsActivity extends AppCompatActivity {
                     String.valueOf(p.getFours()),
                     String.valueOf(p.getSixes()),
                     sr,
-                    status
+                    p.isOut() ? "Out" : "Not out"
             }, false);
         }
     }
@@ -172,16 +188,13 @@ public class StatsActivity extends AppCompatActivity {
     private void addTableRow(TableLayout table, String[] cells, boolean isHeader) {
         TableRow row = new TableRow(this);
         row.setLayoutParams(new TableRow.LayoutParams(
-                TableRow.LayoutParams.MATCH_PARENT,
-                TableRow.LayoutParams.WRAP_CONTENT));
-
+                TableRow.LayoutParams.MATCH_PARENT, TableRow.LayoutParams.WRAP_CONTENT));
         if (isHeader) row.setBackgroundColor(Color.parseColor("#F1EFE8"));
-
         int[] weights = {3, 1, 1, 1, 1, 1, 2};
         for (int i = 0; i < cells.length; i++) {
             TextView tv = new TextView(this);
-            tv.setLayoutParams(new TableRow.LayoutParams(0,
-                    TableRow.LayoutParams.WRAP_CONTENT, weights[i]));
+            tv.setLayoutParams(new TableRow.LayoutParams(
+                    0, TableRow.LayoutParams.WRAP_CONTENT, weights[i]));
             tv.setText(cells[i]);
             tv.setPadding(10, 8, 10, 8);
             tv.setTextSize(11.5f);
@@ -196,10 +209,25 @@ public class StatsActivity extends AppCompatActivity {
 
     private void setClickListeners() {
 
-        // ── WhatsApp share ─────────────────────────────────────────────────
+        // ── Save match to disk ─────────────────────────────────────────
+        btnSaveMatch.setOnClickListener(v -> {
+            File saved = MatchStorage.saveMatch(this, match);
+            if (saved != null) {
+                btnSaveMatch.setEnabled(false);
+                btnSaveMatch.setText("Saved ✓");
+                btnSaveMatch.setBackgroundTintList(
+                        android.content.res.ColorStateList.valueOf(Color.parseColor("#1D9E75")));
+                Toast.makeText(this,
+                        "Match saved to recent_matches/", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "Failed to save match", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // ── WhatsApp share ─────────────────────────────────────────────
         btnShareWhatsApp.setOnClickListener(v -> {
             String number = etWhatsappNumber.getText().toString().trim();
-            if (TextUtils.isEmpty(number)) {
+            if (number.isEmpty()) {
                 Toast.makeText(this, "Enter a WhatsApp number", Toast.LENGTH_SHORT).show();
                 return;
             }
@@ -207,26 +235,28 @@ public class StatsActivity extends AppCompatActivity {
             ShareUtils.shareViaWhatsApp(this, number, match);
         });
 
-        // ── Generic share (any app) ────────────────────────────────────────
+        // ── Generic share ──────────────────────────────────────────────
         btnShareGeneral.setOnClickListener(v -> ShareUtils.shareAsText(this, match));
 
-        // ── New match ──────────────────────────────────────────────────────
+        // ── New match ──────────────────────────────────────────────────
         btnNewMatch.setOnClickListener(v -> {
             CricketApp app = (CricketApp) getApplication();
             app.clearMatch();
-            Intent intent = new Intent(StatsActivity.this, HomeActivity.class);
+            Intent intent = new Intent(this, HomeActivity.class);
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(intent);
             finish();
         });
     }
 
-    /** Prevent navigating back into the completed innings */
     @Override
     public void onBackPressed() {
-        // Let user go back to home if they want
-        CricketApp app = (CricketApp) getApplication();
-        app.clearMatch();
-        super.onBackPressed();
+        if (isViewingFromDisk) {
+            super.onBackPressed(); // allow normal back to MatchSelectActivity
+        } else {
+            CricketApp app = (CricketApp) getApplication();
+            app.clearMatch();
+            super.onBackPressed();
+        }
     }
 }

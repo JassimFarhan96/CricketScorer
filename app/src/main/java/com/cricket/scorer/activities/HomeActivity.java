@@ -4,7 +4,6 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.LinearLayout;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -12,18 +11,10 @@ import com.cricket.scorer.R;
 
 /**
  * HomeActivity.java
- * The launcher / home screen of the Cricket Scorer app.
  *
- * CHANGE: "Track new match" now navigates to PlayerCountActivity first,
- * which collects the number of players before showing SetupActivity.
- *
- * Flow:
- *   HomeActivity
- *     → PlayerCountActivity  (choose number of players)
- *       → SetupActivity      (team names, overs, player names)
- *         → InningsActivity  (live tracking)
- *
- * Layout: activity_home.xml
+ * CHANGE:
+ *   "Recent Matches" → RecentMatchesActivity (paginated saved match list)
+ *   "Match Statistics" → MatchSelectActivity (pick a match → view full stats)
  */
 public class HomeActivity extends AppCompatActivity {
 
@@ -36,49 +27,20 @@ public class HomeActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
 
-        bindViews();
-        setClickListeners();
-    }
-
-    private void bindViews() {
         layoutTrackMatch    = findViewById(R.id.layout_track_match);
         layoutRecentMatches = findViewById(R.id.layout_recent_matches);
         layoutStatistics    = findViewById(R.id.layout_statistics);
-    }
 
-    private void setClickListeners() {
+        // Track new match → PlayerCountActivity
+        layoutTrackMatch.setOnClickListener(v ->
+                startActivity(new Intent(this, PlayerCountActivity.class)));
 
-        // ── Track new match → PlayerCountActivity first ────────────────
-        layoutTrackMatch.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent(HomeActivity.this, PlayerCountActivity.class);
-                startActivity(intent);
-            }
-        });
+        // Recent matches → paginated list of saved matches
+        layoutRecentMatches.setOnClickListener(v ->
+                startActivity(new Intent(this, RecentMatchesActivity.class)));
 
-        // ── Recent matches (stub) ──────────────────────────────────────
-        layoutRecentMatches.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Toast.makeText(HomeActivity.this,
-                        "No recent matches saved.", Toast.LENGTH_SHORT).show();
-            }
-        });
-
-        // ── Statistics ─────────────────────────────────────────────────
-        layoutStatistics.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                CricketApp app = (CricketApp) getApplication();
-                if (app.getCurrentMatch() == null || !app.getCurrentMatch().isMatchCompleted()) {
-                    Toast.makeText(HomeActivity.this,
-                            "No completed match to show.", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                Intent intent = new Intent(HomeActivity.this, StatsActivity.class);
-                startActivity(intent);
-            }
-        });
+        // Match statistics → pick a saved match, then view full scorecard
+        layoutStatistics.setOnClickListener(v ->
+                startActivity(new Intent(this, MatchSelectActivity.class)));
     }
 }

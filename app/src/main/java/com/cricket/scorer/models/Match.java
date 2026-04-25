@@ -6,92 +6,83 @@ import java.util.List;
 
 /**
  * Match.java
- * Core model representing a full cricket match.
- *
- * CHANGE: Added singleBatsmanMode (boolean).
- *   true  → only the striker bats; no non-striker exists.
- *           Strike never rotates. Only one batsman shown in the batting table.
- *   false → standard: striker + non-striker. Strike rotates on odd runs
- *           and at the end of each over.
+ * CHANGE: Added savedFileName (transient — not persisted inside the JSON,
+ * just tagged by MatchStorage after loading so Activities can reference
+ * the file by name for deletion or selection).
  */
 public class Match implements Serializable {
 
-    // ─── Match metadata ───────────────────────────────────────────────────────
-    private String homeTeamName;
-    private String awayTeamName;
-    private int    maxOvers;
-    private String battingFirstTeam;    // "home" or "away"
-    private int    currentInnings;      // 1 or 2
-
-    /**
-     * SINGLE BATSMAN MODE flag.
-     * true  → only one batsman at the crease (striker only).
-     * false → two batsmen (striker + non-striker), standard cricket.
-     * Set once in SetupActivity and never changed during the match.
-     */
+    private String  homeTeamName;
+    private String  awayTeamName;
+    private int     maxOvers;
+    private String  battingFirstTeam;
+    private int     currentInnings;
     private boolean singleBatsmanMode;
 
-    // ─── Players ──────────────────────────────────────────────────────────────
     private List<Player> homePlayers;
     private List<Player> awayPlayers;
 
-    // ─── Innings data ─────────────────────────────────────────────────────────
     private Innings firstInnings;
     private Innings secondInnings;
 
-    // ─── Match result ─────────────────────────────────────────────────────────
     private boolean matchCompleted;
     private String  winnerTeam;
     private String  resultDescription;
+
+    /** Set by MatchStorage after loading — the .json filename on disk. */
+    private String savedFileName;
 
     public Match() {
         homePlayers       = new ArrayList<>();
         awayPlayers       = new ArrayList<>();
         currentInnings    = 1;
         matchCompleted    = false;
-        singleBatsmanMode = false; // default: standard two-batsman mode
+        singleBatsmanMode = false;
     }
 
     // ─── Getters & Setters ────────────────────────────────────────────────────
 
-    public String getHomeTeamName()  { return homeTeamName; }
-    public void setHomeTeamName(String v) { homeTeamName = v; }
+    public String getHomeTeamName()              { return homeTeamName; }
+    public void   setHomeTeamName(String v)      { homeTeamName = v; }
 
-    public String getAwayTeamName()  { return awayTeamName; }
-    public void setAwayTeamName(String v) { awayTeamName = v; }
+    public String getAwayTeamName()              { return awayTeamName; }
+    public void   setAwayTeamName(String v)      { awayTeamName = v; }
 
-    public int getMaxOvers()         { return maxOvers; }
-    public void setMaxOvers(int v)   { maxOvers = v; }
+    public int    getMaxOvers()                  { return maxOvers; }
+    public void   setMaxOvers(int v)             { maxOvers = v; }
 
-    public String getBattingFirstTeam()       { return battingFirstTeam; }
-    public void setBattingFirstTeam(String v) { battingFirstTeam = v; }
+    public String getBattingFirstTeam()          { return battingFirstTeam; }
+    public void   setBattingFirstTeam(String v)  { battingFirstTeam = v; }
 
-    public int getCurrentInnings()       { return currentInnings; }
-    public void setCurrentInnings(int v) { currentInnings = v; }
+    public int    getCurrentInnings()            { return currentInnings; }
+    public void   setCurrentInnings(int v)       { currentInnings = v; }
 
     public boolean isSingleBatsmanMode()         { return singleBatsmanMode; }
-    public void setSingleBatsmanMode(boolean v)  { singleBatsmanMode = v; }
+    public void    setSingleBatsmanMode(boolean v){ singleBatsmanMode = v; }
 
     public List<Player> getHomePlayers()         { return homePlayers; }
-    public void setHomePlayers(List<Player> v)   { homePlayers = v; }
+    public void         setHomePlayers(List<Player> v) { homePlayers = v; }
 
     public List<Player> getAwayPlayers()         { return awayPlayers; }
-    public void setAwayPlayers(List<Player> v)   { awayPlayers = v; }
+    public void         setAwayPlayers(List<Player> v) { awayPlayers = v; }
 
     public Innings getFirstInnings()             { return firstInnings; }
-    public void setFirstInnings(Innings v)       { firstInnings = v; }
+    public void    setFirstInnings(Innings v)    { firstInnings = v; }
 
     public Innings getSecondInnings()            { return secondInnings; }
-    public void setSecondInnings(Innings v)      { secondInnings = v; }
+    public void    setSecondInnings(Innings v)   { secondInnings = v; }
 
     public boolean isMatchCompleted()            { return matchCompleted; }
-    public void setMatchCompleted(boolean v)     { matchCompleted = v; }
+    public void    setMatchCompleted(boolean v)  { matchCompleted = v; }
 
     public String getWinnerTeam()                { return winnerTeam; }
-    public void setWinnerTeam(String v)          { winnerTeam = v; }
+    public void   setWinnerTeam(String v)        { winnerTeam = v; }
 
     public String getResultDescription()         { return resultDescription; }
-    public void setResultDescription(String v)   { resultDescription = v; }
+    public void   setResultDescription(String v) { resultDescription = v; }
+
+    public String getSavedFileName()             { return savedFileName; }
+    public void   setSavedFileName(String v)     { savedFileName = v; }
 
     // ─── Convenience helpers ──────────────────────────────────────────────────
 
@@ -119,5 +110,10 @@ public class Match implements Serializable {
 
     public int getTarget() {
         return firstInnings == null ? 0 : firstInnings.getTotalRuns() + 1;
+    }
+
+    /** Short summary string for list items: "Mumbai vs Delhi — 23 Apr 2026" */
+    public String getSummaryTitle() {
+        return homeTeamName + " vs " + awayTeamName;
     }
 }
