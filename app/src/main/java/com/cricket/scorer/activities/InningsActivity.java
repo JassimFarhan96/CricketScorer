@@ -24,6 +24,7 @@ import com.cricket.scorer.models.Innings;
 import com.cricket.scorer.models.Match;
 import com.cricket.scorer.models.Over;
 import com.cricket.scorer.models.Player;
+import com.cricket.scorer.utils.LiveMatchState;
 import com.cricket.scorer.utils.MatchEngine;
 
 import java.util.ArrayList;
@@ -33,26 +34,18 @@ import java.util.Locale;
 /**
  * InningsActivity.java
  *
- * CHANGES for batting mode:
- *
- * Batting table:
- *   - Single mode: only the striker row is shown (no non-striker row).
- *   - Two mode: both striker and non-striker rows shown as before.
- *     The striker row is highlighted green; ⚡ prefix marks the striker.
- *
- * Wicket dialog:
- *   - Single mode: "Next batsman" dialog still appears to choose who comes in.
- *   - Two mode: same as before.
- *
- * Mode badge:
- *   - A small label in the scoreboard shows "Single bat" or "Two bat"
- *     so the scorer always knows which mode is active.
+ * CHANGE: Calls LiveMatchState.persist(context, match) after every
+ * delivery so the state is always up-to-date on disk.
+ * Also persists in onPause() as a safety net (covers the case where
+ * the app is killed before the next ball is bowled).
+ * LiveMatchState.clear() is called when the match completes so the
+ * file is empty for the next match.
  */
 public class InningsActivity extends AppCompatActivity {
 
-    private CricketApp   app;
-    private Match        match;
-    private MatchEngine  engine;
+    private CricketApp  app;
+    private Match       match;
+    private MatchEngine engine;
 
     // ── Scoreboard ─────────────────────────────────────────────────────────────
     private TextView     tvInningsTitle;
@@ -69,8 +62,8 @@ public class InningsActivity extends AppCompatActivity {
     private TableLayout tableBatsmen;
 
     // ── Over tracker ──────────────────────────────────────────────────────────
-    private TextView    tvCurrentOverLabel;
-    private TextView    tvBallsRemaining;
+    private TextView     tvCurrentOverLabel;
+    private TextView     tvBallsRemaining;
     private RecyclerView rvCurrentOverBalls;
     private RecyclerView rvOverHistory;
 
@@ -81,6 +74,8 @@ public class InningsActivity extends AppCompatActivity {
     // ── Adapters ───────────────────────────────────────────────────────────────
     private BallAdapter        ballAdapter;
     private OverHistoryAdapter overHistoryAdapter;
+
+    // ─── Lifecycle ────────────────────────────────────────────────────────────
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -97,6 +92,21 @@ public class InningsActivity extends AppCompatActivity {
         setupAdapters();
         setClickListeners();
         refreshUI();
+    }
+
+    /**
+     * onPause is called whenever the Activity loses focus — app backgrounded,
+     * screen locked, or another Activity comes to the front.
+     * Persisting here is the safety net that catches any state not yet
+     * written by a ball delivery (e.g. if the user never bowled a ball
+     * before closing the app).
+     */
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (match != null && !match.isMatchCompleted()) {
+            LiveMatchState.persist(this, match);
+        }
     }
 
     // ─── View binding ─────────────────────────────────────────────────────────
@@ -143,19 +153,22 @@ public class InningsActivity extends AppCompatActivity {
     // ─── Click listeners ──────────────────────────────────────────────────────
 
     private void setClickListeners() {
-        btnDot.setOnClickListener(v -> handleBall(0));
-        btn1.setOnClickListener(v -> handleBall(1));
-        btn2.setOnClickListener(v -> handleBall(2));
-        btn3.setOnClickListener(v -> handleBall(3));
-        btn4.setOnClickListener(v -> handleBall(4));
-        btn6.setOnClickListener(v -> handleBall(6));
-        btnWide.setOnClickListener(v -> handleMatchState(engine.deliverWide()));
+        btnDot.setOnClickListener(v    -> handleBall(0));
+        btn1.setOnClickListener(v      -> handleBall(1));
+        btn2.setOnClickListener(v      -> handleBall(2));
+        btn3.setOnClickListener(v      -> handleBall(3));
+        btn4.setOnClickListener(v      -> handleBall(4));
+        btn6.setOnClickListener(v      -> handleBall(6));
+        btnWide.setOnClickListener(v   -> handleMatchState(engine.deliverWide()));
         btnNoBall.setOnClickListener(v -> handleMatchState(engine.deliverNoBall()));
         btnWicket.setOnClickListener(v -> showWicketDialog());
-        btnUndo.setOnClickListener(v -> {
+        btnUndo.setOnClickListener(v   -> {
             if (!engine.undoLastBall())
                 Toast.makeText(this, "Nothing to undo", Toast.LENGTH_SHORT).show();
-            else refreshUI();
+            else {
+                LiveMatchState.persist(this, match); // persist after undo too
+                refreshUI();
+            }
         });
     }
 
@@ -165,18 +178,10 @@ public class InningsActivity extends AppCompatActivity {
         handleMatchState(engine.deliverNormalBall(runs));
     }
 
-    /**
-     * Wicket dialog.
-     *
-     * Both modes: shows a list of available (not yet out, not at crease) players.
-     * Single mode: "at crease" means only the striker — non-striker is never in the list.
-     * Two mode: both striker and non-striker are excluded from the list.
-     */
     private void showWicketDialog() {
         List<Player> available = engine.getAvailableBatsmen();
 
         if (available.isEmpty()) {
-            // No one left — all out
             handleMatchState(engine.deliverWicket(engine.getNextBatsmanIndex()));
             return;
         }
@@ -186,15 +191,14 @@ public class InningsActivity extends AppCompatActivity {
         for (int i = 0; i < available.size(); i++) {
             names[i] = (i + 1) + ". " + available.get(i).getName();
         }
-
-        final int[] chosenIndex = {0};
+        final int[] chosen = {0};
         new AlertDialog.Builder(this)
                 .setTitle("Wicket — choose next batsman")
-                .setSingleChoiceItems(names, 0, (dialog, which) -> chosenIndex[0] = which)
-                .setPositiveButton("Confirm", (dialog, which) -> {
-                    Player chosen    = available.get(chosenIndex[0]);
-                    int    globalIdx = batters.indexOf(chosen);
-                    handleMatchState(engine.deliverWicket(globalIdx));
+                .setSingleChoiceItems(names, 0, (d, which) -> chosen[0] = which)
+                .setPositiveButton("Confirm", (d, which) -> {
+                    Player p   = available.get(chosen[0]);
+                    int    idx = batters.indexOf(p);
+                    handleMatchState(engine.deliverWicket(idx));
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
@@ -202,22 +206,36 @@ public class InningsActivity extends AppCompatActivity {
 
     // ─── Match state routing ──────────────────────────────────────────────────
 
+    /**
+     * Called after every delivery. Persists state BEFORE navigating away
+     * so the file is always consistent with what the user last saw.
+     */
     private void handleMatchState(MatchEngine.MatchState state) {
         switch (state) {
+
             case BALL_RECORDED:
+                LiveMatchState.persist(this, match); // ← persist every ball
                 refreshUI();
                 break;
+
             case OVER_COMPLETE:
+                LiveMatchState.persist(this, match); // ← persist end of over
                 refreshUI();
                 Toast.makeText(this,
                         "Over " + match.getCurrentInningsData().getCompletedOvers().size()
                                 + " complete!", Toast.LENGTH_SHORT).show();
                 break;
+
             case INNINGS_COMPLETE:
+                // Persist the innings-break state before showing break screen
+                LiveMatchState.persist(this, match);
                 startActivity(new Intent(this, InningsBreakActivity.class));
                 finish();
                 break;
+
             case MATCH_COMPLETE:
+                // Match is over — clear the live file so no stale state remains
+                LiveMatchState.clear(this);
                 startActivity(new Intent(this, StatsActivity.class));
                 finish();
                 break;
@@ -231,18 +249,15 @@ public class InningsActivity extends AppCompatActivity {
         int     inningsNum = match.getCurrentInnings();
         boolean isSingle   = match.isSingleBatsmanMode();
 
-        // ── Scoreboard ──────────────────────────────────────────────────
         tvInningsTitle.setText(inningsNum == 1 ? "1st Innings" : "2nd Innings");
         tvScore.setText(innings.getScoreString());
         tvOversInfo.setText(String.format(Locale.US, "Ov %s / %d",
                 innings.getOversString(), match.getMaxOvers()));
         tvCRR.setText(String.format(Locale.US, "CRR: %.2f", innings.getCurrentRunRate()));
 
-        // Mode badge — quick reminder for the scorer
         tvModeBadge.setText(isSingle ? "Single bat" : "Two bat");
         tvModeBadge.setVisibility(View.VISIBLE);
 
-        // ── Target banner (2nd innings only) ────────────────────────────
         if (inningsNum == 2) {
             int   target     = match.getTarget();
             int   runsNeeded = innings.getRunsNeeded(target);
@@ -258,48 +273,28 @@ public class InningsActivity extends AppCompatActivity {
             tvRRR.setVisibility(View.GONE);
         }
 
-        // ── Batting table ────────────────────────────────────────────────
         refreshBattingTable(innings, isSingle);
-
-        // ── Current over ─────────────────────────────────────────────────
         refreshCurrentOver(innings);
-
-        // ── Over history ─────────────────────────────────────────────────
         overHistoryAdapter.updateData(innings.getCompletedOvers());
     }
 
-    /**
-     * Rebuilds the batting scorecard table.
-     *
-     * Single-batsman mode:
-     *   Only the striker row is shown. No non-striker row.
-     *   Previously out batsmen are also shown for historical reference.
-     *
-     * Two-batsman mode:
-     *   Striker (highlighted green) + non-striker + previously out batsmen.
-     */
     private void refreshBattingTable(Innings innings, boolean isSingle) {
         tableBatsmen.removeAllViews();
-
-        // Header
         addTableRow(tableBatsmen,
                 new String[]{"Batsman", "R", "B", "4s", "6s", "SR"},
                 true, false, false);
 
         List<Player> players      = match.getCurrentBattingPlayers();
         int          strikerIdx   = innings.getStrikerIndex();
-        int          nonStrikerIdx = innings.getNonStrikerIndex(); // -1 in single mode
+        int          nonStrikerIdx = innings.getNonStrikerIndex();
 
         for (int i = 0; i < players.size(); i++) {
             Player  p            = players.get(i);
             boolean isStriker    = (i == strikerIdx);
-            boolean isNonStriker = (!isSingle) && (i == nonStrikerIdx);
+            boolean isNonStriker = !isSingle && (i == nonStrikerIdx);
             boolean atCrease     = (isStriker || isNonStriker) && !p.isOut();
 
-            // In single mode, skip non-striker slot entirely
             if (isSingle && isNonStriker) continue;
-
-            // Skip players who haven't batted and aren't at the crease
             if (p.isHasNotBatted() && !atCrease) continue;
 
             String name = (isStriker ? "⚡ " : (isNonStriker ? "  " : "")) + p.getName();
@@ -327,8 +322,8 @@ public class InningsActivity extends AppCompatActivity {
         int[] weights = {3, 1, 1, 1, 1, 1};
         for (int i = 0; i < cells.length; i++) {
             TextView tv = new TextView(this);
-            tv.setLayoutParams(new TableRow.LayoutParams(0,
-                    TableRow.LayoutParams.WRAP_CONTENT, weights[i]));
+            tv.setLayoutParams(new TableRow.LayoutParams(
+                    0, TableRow.LayoutParams.WRAP_CONTENT, weights[i]));
             tv.setText(cells[i]);
             tv.setPadding(12, 10, 12, 10);
             tv.setTextSize(12f);
@@ -355,11 +350,11 @@ public class InningsActivity extends AppCompatActivity {
 
         int validCount = currentOver != null ? currentOver.getValidBallCount() : 0;
         int remaining  = 6 - validCount;
-        tvBallsRemaining.setText(remaining + (remaining == 1 ? " ball left" : " balls left"));
+        tvBallsRemaining.setText(
+                remaining + (remaining == 1 ? " ball left" : " balls left"));
 
         List<Ball> displayBalls = new ArrayList<>();
         if (currentOver != null) displayBalls.addAll(currentOver.getBalls());
-        // Fill remaining slots with null (empty circles)
         for (int i = 0; i < Math.max(0, 6 - validCount); i++) displayBalls.add(null);
         ballAdapter.updateData(displayBalls);
     }
