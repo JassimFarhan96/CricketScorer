@@ -12,30 +12,11 @@ import java.util.List;
 /**
  * MatchEngine.java
  *
- * BUG FIX — second innings opener hasNotBatted flag:
- *
- * Root cause:
- *   In endInnings() → resetForNewInnings() sets hasNotBatted = true for ALL
- *   players in the chasing team. The second innings openers were never marked
- *   hasNotBatted = false (that was only done in SetupActivity for innings 1).
- *
- *   So when the 1st batsman of innings 2 gets out, their state is:
- *     isOut = true, hasNotBatted = true
- *   refreshBattingTable checks:  if (hasNotBatted && !isAtCrease) → skip
- *   Since the dismissed player is no longer at the crease, they are skipped
- *   entirely and don't appear struck-through in the table.
- *
- * Fix (two places):
- *   1. endInnings(): after resetForNewInnings(), explicitly mark the innings-2
- *      openers (strikerIndex=0 and nonStrikerIndex=1 in two mode, or just 0 in
- *      single mode) as hasNotBatted = false — exactly as SetupActivity does
- *      for innings 1.
- *
- *   2. deliverWicket(): set the dismissed striker's hasNotBatted = false
- *      BEFORE calling recordWicket(). This is the belt-and-suspenders guard:
- *      even if a batsman somehow reaches the crease with hasNotBatted still
- *      true (edge case), dismissal guarantees the flag is cleared so they
- *      always render in the table.
+ * CHANGE: endInnings() no longer auto-marks the 2nd innings openers as
+ * hasNotBatted=false. That is now handled by InningsActivity's opener
+ * selection dialog, which fires at the start of every innings before
+ * any ball is bowled. This means ALL players enter innings 2 with
+ * hasNotBatted=true, and the dialog sets the chosen openers to false.
  */
 public class MatchEngine {
 
@@ -57,8 +38,7 @@ public class MatchEngine {
     public MatchState deliverNormalBall(int runs) {
         Innings innings = match.getCurrentInningsData();
         Player  striker = getStriker();
-        // Belt-and-suspenders: mark striker as having batted on first ball faced
-        striker.setHasNotBatted(false);
+        striker.setHasNotBatted(false); // safety: mark as having batted
         innings.recordNormalBall(runs, striker);
         return checkAfterValidBall(innings);
     }
@@ -75,30 +55,22 @@ public class MatchEngine {
 
     /**
      * Records a wicket and brings in the next batsman.
-     *
-     * FIX: Sets dismissed striker's hasNotBatted = false BEFORE recording
-     * the wicket so they always appear in the batting table as struck-through,
-     * even if they faced no balls (e.g. run out first ball).
+     * Sets dismissed striker's hasNotBatted=false before dismissal
+     * so they always appear in the batting table even if they scored 0.
      */
     public MatchState deliverWicket(int newBatsmanIndex) {
         Innings      innings = match.getCurrentInningsData();
         Player       striker = getStriker();
         List<Player> batters = match.getCurrentBattingPlayers();
 
-        // ── FIX: mark striker as having batted before dismissal ────────
-        // This ensures their row is never skipped by the hasNotBatted check
-        // in refreshBattingTable, even if they faced zero balls.
-        striker.setHasNotBatted(false);
-
+        striker.setHasNotBatted(false); // ensure dismissed player shows in table
         innings.recordWicket(striker);
 
-        // All-out check
         int threshold = allOutThreshold(batters);
         if (innings.getTotalWickets() >= threshold) {
             return endInnings(innings);
         }
 
-        // Bring in the new batsman
         innings.setStrikerIndex(newBatsmanIndex);
         if (newBatsmanIndex < batters.size()) {
             batters.get(newBatsmanIndex).setHasNotBatted(false);
@@ -112,14 +84,7 @@ public class MatchEngine {
 
     /**
      * Undoes the last delivery.
-     *
-     * Wicket undo:
-     *   1. Find the dismissed player (isOut==true, not the non-striker).
-     *   2. Restore strikerIndex to them.
-     *   3. Clear their isOut and dismissalInfo.
-     *   4. Send the incoming batsman back (hasNotBatted = true).
-     *   5. Decrement nextBatsmanIndex.
-     *   6. Remove the ball and decrement wicket + validBall counters.
+     * Wicket undo: restores original striker, sends incoming batsman back.
      */
     public boolean undoLastBall() {
         Innings      innings     = match.getCurrentInningsData();
@@ -150,12 +115,7 @@ public class MatchEngine {
                 innings.setStrikerIndex(dismissedIndex);
                 dismissedPlayer.setOut(false);
                 dismissedPlayer.setDismissalInfo("");
-                // The dismissed player was marked hasNotBatted=false in deliverWicket;
-                // keep it false — they DID take the crease even if they scored 0.
-
-                // Send incoming batsman back to pavilion
-                incomingBatter.setHasNotBatted(true);
-
+                incomingBatter.setHasNotBatted(true); // back to pavilion
                 if (innings.getNextBatsmanIndex() > 1) {
                     innings.setNextBatsmanIndex(innings.getNextBatsmanIndex() - 1);
                 }
@@ -165,7 +125,6 @@ public class MatchEngine {
             return true;
         }
 
-        // Normal / Wide / No-ball undo
         innings.undoLastBall(getStriker());
         return true;
     }
@@ -189,12 +148,11 @@ public class MatchEngine {
     }
 
     /**
-     * Ends the current innings.
+     * Ends the current innings and sets up innings 2 if needed.
      *
-     * FIX: After resetForNewInnings(), marks the 2nd innings openers as
-     * hasNotBatted = false — identical to what SetupActivity does for innings 1.
-     * Without this, the first batsman of innings 2 would have hasNotBatted = true
-     * even after being dismissed, causing them to be skipped in the batting table.
+     * CHANGE: No longer auto-marks openers as hasNotBatted=false.
+     * InningsActivity.showOpenerSelectionDialog() handles that when
+     * the new innings screen opens.
      */
     private MatchState endInnings(Innings innings) {
         innings.setComplete(true);
@@ -205,21 +163,12 @@ public class MatchEngine {
             Innings second = new Innings(2, match.isSingleBatsmanMode());
             match.setSecondInnings(second);
 
-            // Reset all chasing team players for the new innings
-            List<Player> chasers = match.getCurrentBattingPlayers();
-            for (Player p : chasers) p.resetForNewInnings();
-
-            // ── FIX: mark the 2nd innings openers as having taken the field ──
-            // This mirrors what SetupActivity does for innings 1 openers and
-            // ensures that if they get out before facing a ball, they still
-            // appear struck-through in the batting table (not skipped).
-            if (!chasers.isEmpty()) {
-                chasers.get(0).setHasNotBatted(false); // striker
+            // Reset all chasing team players — everyone hasNotBatted=true.
+            // The opener selection dialog in InningsActivity will set the
+            // chosen openers to hasNotBatted=false before the first ball.
+            for (Player p : match.getCurrentBattingPlayers()) {
+                p.resetForNewInnings();
             }
-            if (!match.isSingleBatsmanMode() && chasers.size() > 1) {
-                chasers.get(1).setHasNotBatted(false); // non-striker (two mode only)
-            }
-            // ──────────────────────────────────────────────────────────────────
 
             return MatchState.INNINGS_COMPLETE;
         }

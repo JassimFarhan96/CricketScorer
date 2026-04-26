@@ -27,24 +27,20 @@ import java.util.List;
 /**
  * SetupActivity.java
  *
- * CHANGE: Reads KEY_BATTING_MODE from the Intent (set by PlayerCountActivity)
- * and stores it in the Match model as singleBatsmanMode.
- * Also passes the mode to the first Innings constructor.
- *
- * In single-batsman mode only the opener (index 0) is marked as having batted;
- * in two-batsman mode both openers (0 and 1) are marked.
+ * CHANGE: Removed the lines that auto-marked openers as hasNotBatted=false.
+ * All players now start with hasNotBatted=true. InningsActivity shows a
+ * dialog at the start of each innings so the user explicitly picks who bats.
+ * The opener selection dialog in InningsActivity sets hasNotBatted=false
+ * for the chosen striker (and non-striker in two-batsman mode).
  */
 public class SetupActivity extends AppCompatActivity {
 
-    private int     playersPerTeam  = 11;
-    private boolean singleBatsmanMode = false; // read from Intent
+    private int     playersPerTeam    = 11;
+    private boolean singleBatsmanMode = false;
 
-    private EditText     etHomeTeam;
-    private EditText     etAwayTeam;
-    private EditText     etOvers;
+    private EditText     etHomeTeam, etAwayTeam, etOvers;
     private Spinner      spinnerToss;
-    private LinearLayout containerHomePlayers;
-    private LinearLayout containerAwayPlayers;
+    private LinearLayout containerHomePlayers, containerAwayPlayers;
     private Button       btnStartMatch;
 
     private EditText[] homePlayerFields;
@@ -57,7 +53,6 @@ public class SetupActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_setup);
 
-        // Read both extras from PlayerCountActivity
         playersPerTeam    = getIntent().getIntExtra(PlayerCountActivity.KEY_PLAYER_COUNT, 11);
         String mode       = getIntent().getStringExtra(PlayerCountActivity.KEY_BATTING_MODE);
         singleBatsmanMode = PlayerCountActivity.MODE_SINGLE.equals(mode);
@@ -131,8 +126,7 @@ public class SetupActivity extends AppCompatActivity {
     private EditText createPlayerField(int number) {
         EditText et = new EditText(this);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         params.setMargins(0, 4, 0, 4);
         et.setLayoutParams(params);
         et.setHint("Player " + number);
@@ -158,35 +152,28 @@ public class SetupActivity extends AppCompatActivity {
         String oversText = etOvers.getText().toString().trim();
 
         if (TextUtils.isEmpty(homeName)) {
-            etHomeTeam.setError("Enter home team name");
-            etHomeTeam.requestFocus(); return false;
+            etHomeTeam.setError("Enter home team name"); etHomeTeam.requestFocus(); return false;
         }
         if (TextUtils.isEmpty(awayName)) {
-            etAwayTeam.setError("Enter away team name");
-            etAwayTeam.requestFocus(); return false;
+            etAwayTeam.setError("Enter away team name"); etAwayTeam.requestFocus(); return false;
         }
         if (homeName.equalsIgnoreCase(awayName)) {
             Toast.makeText(this, "Team names must be different", Toast.LENGTH_SHORT).show();
             return false;
         }
         if (TextUtils.isEmpty(oversText)) {
-            etOvers.setError("Enter number of overs");
-            etOvers.requestFocus(); return false;
+            etOvers.setError("Enter number of overs"); etOvers.requestFocus(); return false;
         }
         int overs;
-        try {
-            overs = Integer.parseInt(oversText);
-        } catch (NumberFormatException e) {
-            etOvers.setError("Enter a valid number");
-            etOvers.requestFocus(); return false;
+        try { overs = Integer.parseInt(oversText); }
+        catch (NumberFormatException e) {
+            etOvers.setError("Enter a valid number"); etOvers.requestFocus(); return false;
         }
         if (overs <= 0) {
-            etOvers.setError("Overs must be greater than 0");
-            etOvers.requestFocus(); return false;
+            etOvers.setError("Overs must be greater than 0"); etOvers.requestFocus(); return false;
         }
         if (overs > 50) {
-            etOvers.setError("Overs cannot exceed 50");
-            etOvers.requestFocus(); return false;
+            etOvers.setError("Overs cannot exceed 50"); etOvers.requestFocus(); return false;
         }
         return true;
     }
@@ -206,23 +193,16 @@ public class SetupActivity extends AppCompatActivity {
         match.setBattingFirstTeam(battingFirst);
         match.setHomePlayers(homePlayers);
         match.setAwayPlayers(awayPlayers);
-        match.setSingleBatsmanMode(singleBatsmanMode); // ← store batting mode
+        match.setSingleBatsmanMode(singleBatsmanMode);
 
-        // Create 1st innings with the correct mode
+        // Create 1st innings — ALL players have hasNotBatted=true.
+        // InningsActivity will show the opener selection dialog and set
+        // hasNotBatted=false for the chosen openers before any ball is bowled.
         Innings firstInnings = new Innings(1, singleBatsmanMode);
         match.setFirstInnings(firstInnings);
         match.setCurrentInnings(1);
 
-        // Mark openers as having batted
-        List<Player> openers = match.getCurrentBattingPlayers();
-        if (openers.size() > 0) openers.get(0).setHasNotBatted(false);
-        // Only mark second opener in two-batsman mode
-        if (!singleBatsmanMode && openers.size() > 1)
-            openers.get(1).setHasNotBatted(false);
-
-        CricketApp app = (CricketApp) getApplication();
-        app.startNewMatch(match);
-
+        ((CricketApp) getApplication()).startNewMatch(match);
         startActivity(new Intent(this, InningsActivity.class));
         finish();
     }

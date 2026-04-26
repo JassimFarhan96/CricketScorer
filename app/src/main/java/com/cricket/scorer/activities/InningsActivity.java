@@ -34,29 +34,27 @@ import java.util.Locale;
 /**
  * InningsActivity.java
  *
- * BUG FIX — refreshBattingTable():
+ * BUG FIX — opener selection at innings start:
  *
- * Root cause:
- *   The old code used (isStriker || isNonStriker) to decide whether a player
- *   is "at crease". But after a wicket the NEW batsman takes the dismissed
- *   player's strikerIndex slot. So if opener (index 0) is dismissed and the
- *   next batsman comes in at index 0, the dismissed opener's row loses its
- *   "at crease" flag — but the NEW striker also shows at index 0.
- *   Result: the dismissed player's name is replaced by the new striker's name
- *   in the same row instead of appearing as a struck-through entry above it.
+ * Previously, the opening batsmen were always fixed to player indices 0 and 1
+ * (set in SetupActivity / MatchEngine.endInnings). The user had no way to
+ * choose who bats first — they could only pick batsmen AFTER a wicket fell.
  *
  * Fix:
- *   Determine each player's display state purely from their own fields:
- *     - isOut == true            → show struck-through (dismissed, no matter what index)
- *     - index == strikerIndex
- *       AND isOut == false       → show as active striker (⚡ prefix, green highlight)
- *     - index == nonStrikerIdx
- *       AND isOut == false       → show as active non-striker (indent, green highlight)
- *     - hasNotBatted == true     → skip (not yet come to bat)
+ *   showOpenerSelectionDialog() is called from onCreate() whenever
+ *   no balls have been bowled yet in the current innings
+ *   (innings.getTotalValidBalls() == 0 AND completedOvers is empty).
  *
- *   This makes every dismissed player always render as struck-through,
- *   independent of whether a later batsman happens to occupy the same
- *   list index position.
+ *   Two-batsman mode: two sequential dialogs — first pick the striker,
+ *   then pick the non-striker from the remaining players.
+ *
+ *   Single-batsman mode: one dialog — pick the striker only.
+ *
+ *   The ball input buttons are DISABLED until the opener dialog is confirmed,
+ *   preventing scoring before openers are chosen.
+ *
+ *   If the match was restored from LiveMatchState (mid-innings, balls > 0),
+ *   the dialog is skipped entirely — openers were already set.
  */
 public class InningsActivity extends AppCompatActivity {
 
@@ -64,31 +62,23 @@ public class InningsActivity extends AppCompatActivity {
     private Match       match;
     private MatchEngine engine;
 
-    // ── Scoreboard ─────────────────────────────────────────────────────────────
-    private TextView     tvInningsTitle;
-    private TextView     tvScore;
-    private TextView     tvOversInfo;
-    private TextView     tvCRR;
-    private TextView     tvRRR;
-    private TextView     tvModeBadge;
+    // ── Scoreboard ────────────────────────────────────────────────────────────
+    private TextView     tvInningsTitle, tvScore, tvOversInfo, tvCRR, tvRRR, tvModeBadge;
     private LinearLayout layoutTargetBanner;
-    private TextView     tvTargetInfo;
-    private TextView     tvRequiredBalls;
+    private TextView     tvTargetInfo, tvRequiredBalls;
 
-    // ── Batting table ──────────────────────────────────────────────────────────
+    // ── Batting table ─────────────────────────────────────────────────────────
     private TableLayout tableBatsmen;
 
     // ── Over tracker ──────────────────────────────────────────────────────────
-    private TextView     tvCurrentOverLabel;
-    private TextView     tvBallsRemaining;
-    private RecyclerView rvCurrentOverBalls;
-    private RecyclerView rvOverHistory;
+    private TextView     tvCurrentOverLabel, tvBallsRemaining;
+    private RecyclerView rvCurrentOverBalls, rvOverHistory;
 
-    // ── Ball input buttons ─────────────────────────────────────────────────────
+    // ── Ball input buttons ────────────────────────────────────────────────────
     private Button btnDot, btn1, btn2, btn3, btn4, btn6;
     private Button btnWide, btnNoBall, btnWicket, btnUndo;
 
-    // ── Adapters ───────────────────────────────────────────────────────────────
+    // ── Adapters ──────────────────────────────────────────────────────────────
     private BallAdapter        ballAdapter;
     private OverHistoryAdapter overHistoryAdapter;
 
@@ -108,15 +98,154 @@ public class InningsActivity extends AppCompatActivity {
         bindViews();
         setupAdapters();
         setClickListeners();
+
+        // Disable ball buttons until openers are confirmed
+        setBallButtonsEnabled(false);
+
         refreshUI();
+
+        // Show opener selection only if no balls have been bowled yet
+        Innings innings = match.getCurrentInningsData();
+        boolean isInningsJustStarted = innings.getTotalValidBalls() == 0
+                && innings.getCompletedOvers().isEmpty()
+                && (innings.getCurrentOver() == null
+                    || innings.getCurrentOver().getBalls().isEmpty());
+
+        if (isInningsJustStarted) {
+            showOpenerSelectionDialog();
+        } else {
+            // Mid-innings restore — openers already set, enable buttons
+            setBallButtonsEnabled(true);
+        }
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        if (match != null && !match.isMatchCompleted()) {
+        if (match != null && !match.isMatchCompleted())
             LiveMatchState.persist(this, match);
+    }
+
+    // ─── Opener selection dialog ──────────────────────────────────────────────
+
+    /**
+     * Shows a dialog for the user to pick the opening striker.
+     * In two-batsman mode, a second dialog immediately follows to pick
+     * the non-striker from the remaining players.
+     *
+     * Ball buttons remain disabled until both selections are confirmed.
+     */
+    private void showOpenerSelectionDialog() {
+        List<Player> players = match.getCurrentBattingPlayers();
+        Innings      innings = match.getCurrentInningsData();
+        boolean      isSingle = match.isSingleBatsmanMode();
+
+        // Build name list for the striker picker
+        String[] names = new String[players.size()];
+        for (int i = 0; i < players.size(); i++) {
+            names[i] = (i + 1) + ". " + players.get(i).getName();
         }
+
+        final int[] strikerChoice = {0}; // default: first player
+
+        new AlertDialog.Builder(this)
+                .setTitle("Select opening striker")
+                .setCancelable(false) // must choose before scoring
+                .setSingleChoiceItems(names, 0, (d, which) -> strikerChoice[0] = which)
+                .setPositiveButton("Confirm", (d, which) -> {
+                    // Apply striker selection
+                    int strikerIdx = strikerChoice[0];
+                    innings.setStrikerIndex(strikerIdx);
+                    players.get(strikerIdx).setHasNotBatted(false);
+
+                    if (isSingle) {
+                        // Single mode: only one opener needed
+                        innings.setNonStrikerIndex(-1);
+                        innings.setNextBatsmanIndex(nextAvailableIndex(players, strikerIdx, -1));
+                        LiveMatchState.persist(this, match);
+                        setBallButtonsEnabled(true);
+                        refreshUI();
+                    } else {
+                        // Two-batsman mode: now pick the non-striker
+                        showNonStrikerDialog(strikerIdx);
+                    }
+                })
+                .show();
+    }
+
+    /**
+     * Second dialog (two-batsman mode only) — picks the non-striker
+     * from the players who were NOT chosen as striker.
+     *
+     * @param strikerIdx the index already confirmed as the striker
+     */
+    private void showNonStrikerDialog(int strikerIdx) {
+        List<Player> players = match.getCurrentBattingPlayers();
+        Innings      innings = match.getCurrentInningsData();
+
+        // Build list excluding the chosen striker
+        List<Integer> candidateIndices = new ArrayList<>();
+        List<String>  candidateNames   = new ArrayList<>();
+        for (int i = 0; i < players.size(); i++) {
+            if (i != strikerIdx) {
+                candidateIndices.add(i);
+                candidateNames.add((i + 1) + ". " + players.get(i).getName());
+            }
+        }
+
+        String[] names = candidateNames.toArray(new String[0]);
+        final int[] nonStrikerChoice = {0}; // index into candidateIndices
+
+        new AlertDialog.Builder(this)
+                .setTitle("Select non-striker")
+                .setCancelable(false)
+                .setSingleChoiceItems(names, 0, (d, which) -> nonStrikerChoice[0] = which)
+                .setPositiveButton("Confirm", (d, which) -> {
+                    int nonStrikerIdx = candidateIndices.get(nonStrikerChoice[0]);
+                    innings.setNonStrikerIndex(nonStrikerIdx);
+                    players.get(nonStrikerIdx).setHasNotBatted(false);
+
+                    // Next batsman is whoever comes after both openers
+                    innings.setNextBatsmanIndex(
+                            nextAvailableIndex(players, strikerIdx, nonStrikerIdx));
+
+                    LiveMatchState.persist(this, match);
+                    setBallButtonsEnabled(true);
+                    refreshUI();
+                })
+                .show();
+    }
+
+    /**
+     * Returns the index of the first player who is neither the striker
+     * nor the non-striker — i.e., the next one to walk in after a wicket.
+     */
+    private int nextAvailableIndex(List<Player> players, int strikerIdx, int nonStrikerIdx) {
+        for (int i = 0; i < players.size(); i++) {
+            if (i != strikerIdx && i != nonStrikerIdx) return i;
+        }
+        return players.size(); // shouldn't happen with valid team sizes
+    }
+
+    // ─── Enable / disable ball input buttons ──────────────────────────────────
+
+    /**
+     * Enables or disables all ball input buttons.
+     * Disabled during opener selection so the scorer cannot record
+     * a delivery before batsmen have been chosen.
+     */
+    private void setBallButtonsEnabled(boolean enabled) {
+        float alpha = enabled ? 1.0f : 0.35f;
+        btnDot.setEnabled(enabled);    btnDot.setAlpha(alpha);
+        btn1.setEnabled(enabled);      btn1.setAlpha(alpha);
+        btn2.setEnabled(enabled);      btn2.setAlpha(alpha);
+        btn3.setEnabled(enabled);      btn3.setAlpha(alpha);
+        btn4.setEnabled(enabled);      btn4.setAlpha(alpha);
+        btn6.setEnabled(enabled);      btn6.setAlpha(alpha);
+        btnWide.setEnabled(enabled);   btnWide.setAlpha(alpha);
+        btnNoBall.setEnabled(enabled); btnNoBall.setAlpha(alpha);
+        btnWicket.setEnabled(enabled); btnWicket.setAlpha(alpha);
+        btnUndo.setEnabled(enabled);   btnUndo.setAlpha(alpha);
     }
 
     // ─── View binding ─────────────────────────────────────────────────────────
@@ -136,7 +265,6 @@ public class InningsActivity extends AppCompatActivity {
         tvBallsRemaining   = findViewById(R.id.tv_balls_remaining);
         rvCurrentOverBalls = findViewById(R.id.rv_current_over_balls);
         rvOverHistory      = findViewById(R.id.rv_over_history);
-
         btnDot    = findViewById(R.id.btn_dot);
         btn1      = findViewById(R.id.btn_1);
         btn2      = findViewById(R.id.btn_2);
@@ -173,12 +301,9 @@ public class InningsActivity extends AppCompatActivity {
         btnNoBall.setOnClickListener(v -> handleMatchState(engine.deliverNoBall()));
         btnWicket.setOnClickListener(v -> showWicketDialog());
         btnUndo.setOnClickListener(v   -> {
-            if (!engine.undoLastBall()) {
+            if (!engine.undoLastBall())
                 Toast.makeText(this, "Nothing to undo", Toast.LENGTH_SHORT).show();
-            } else {
-                LiveMatchState.persist(this, match);
-                refreshUI();
-            }
+            else { LiveMatchState.persist(this, match); refreshUI(); }
         });
     }
 
@@ -190,26 +315,21 @@ public class InningsActivity extends AppCompatActivity {
 
     private void showWicketDialog() {
         List<Player> available = engine.getAvailableBatsmen();
-
         if (available.isEmpty()) {
             handleMatchState(engine.deliverWicket(engine.getNextBatsmanIndex()));
             return;
         }
-
-        String[]           names   = new String[available.size()];
+        String[] names = new String[available.size()];
         final List<Player> batters = match.getCurrentBattingPlayers();
-        for (int i = 0; i < available.size(); i++) {
+        for (int i = 0; i < available.size(); i++)
             names[i] = (i + 1) + ". " + available.get(i).getName();
-        }
         final int[] chosen = {0};
         new AlertDialog.Builder(this)
                 .setTitle("Wicket — choose next batsman")
-                .setSingleChoiceItems(names, 0, (d, which) -> chosen[0] = which)
-                .setPositiveButton("Confirm", (d, which) -> {
-                    Player p   = available.get(chosen[0]);
-                    int    idx = batters.indexOf(p);
-                    handleMatchState(engine.deliverWicket(idx));
-                })
+                .setSingleChoiceItems(names, 0, (d, w) -> chosen[0] = w)
+                .setPositiveButton("Confirm", (d, w) ->
+                        handleMatchState(engine.deliverWicket(
+                                batters.indexOf(available.get(chosen[0])))))
                 .setNegativeButton("Cancel", null)
                 .show();
     }
@@ -278,103 +398,46 @@ public class InningsActivity extends AppCompatActivity {
         overHistoryAdapter.updateData(innings.getCompletedOvers());
     }
 
-    /**
-     * Rebuilds the batting scorecard table.
-     *
-     * FIXED rendering logic — each player is classified independently:
-     *
-     *   isOut == true
-     *     → always render as struck-through "dismissed" row
-     *       regardless of which index they occupy in the list
-     *
-     *   index == strikerIndex AND isOut == false
-     *     → active striker: ⚡ prefix, green highlight row
-     *
-     *   index == nonStrikerIndex AND isOut == false  (two-batsman mode only)
-     *     → active non-striker: indent, green highlight row
-     *
-     *   hasNotBatted == true
-     *     → skip entirely (not yet come to bat)
-     *
-     * This means the table always shows:
-     *   - Every player who has batted (dismissed or still at crease)
-     *   - Dismissed rows in their original position with strikethrough
-     *   - Current batsmen highlighted green at their actual positions
-     */
     private void refreshBattingTable(Innings innings, boolean isSingle) {
         tableBatsmen.removeAllViews();
-
-        // Header row
-        addTableRow(tableBatsmen,
-                new String[]{"Batsman", "R", "B", "4s", "6s", "SR"},
-                true, false, false);
+        addTableRow(new String[]{"Batsman","R","B","4s","6s","SR"}, true, false, false);
 
         List<Player> players       = match.getCurrentBattingPlayers();
         int          strikerIdx    = innings.getStrikerIndex();
-        int          nonStrikerIdx = innings.getNonStrikerIndex(); // -1 in single mode
+        int          nonStrikerIdx = innings.getNonStrikerIndex();
 
         for (int i = 0; i < players.size(); i++) {
-            Player p = players.get(i);
-
-            // ── Skip players yet to bat ────────────────────────────────
-            // A player has "yet to bat" only if hasNotBatted is true
-            // AND they are not currently at the crease.
-            // Check crease status by index (not by isOut) so we correctly
-            // identify the current striker even after multiple wickets.
-            boolean isCurrentStriker    = (i == strikerIdx)    && !p.isOut();
-            boolean isCurrentNonStriker = (!isSingle)
-                                          && (i == nonStrikerIdx) && !p.isOut();
+            Player  p                   = players.get(i);
+            boolean isCurrentStriker    = (i == strikerIdx) && !p.isOut();
+            boolean isCurrentNonStriker = !isSingle && (i == nonStrikerIdx) && !p.isOut();
             boolean isAtCrease          = isCurrentStriker || isCurrentNonStriker;
 
             if (p.isHasNotBatted() && !isAtCrease) continue;
 
-            // ── Determine display state ────────────────────────────────
-            // isOut drives struck-through display independently of index
-            boolean showDismissed = p.isOut();
-
-            String name;
-            if (isCurrentStriker) {
-                name = "⚡ " + p.getName();
-            } else if (isCurrentNonStriker) {
-                name = "  " + p.getName();
-            } else {
-                name = p.getName();
-            }
-
+            String name = isCurrentStriker    ? "⚡ " + p.getName()
+                        : isCurrentNonStriker ? "  " + p.getName()
+                        : p.getName();
             String sr = p.getBallsFaced() > 0
                     ? String.format(Locale.US, "%.1f", p.getStrikeRate()) : "-";
 
-            addTableRow(tableBatsmen,
-                    new String[]{name,
-                            String.valueOf(p.getRunsScored()),
-                            String.valueOf(p.getBallsFaced()),
-                            String.valueOf(p.getFours()),
-                            String.valueOf(p.getSixes()),
-                            sr},
-                    false,
-                    isAtCrease,    // green highlight
-                    showDismissed  // strikethrough
-            );
+            addTableRow(new String[]{name,
+                    String.valueOf(p.getRunsScored()),
+                    String.valueOf(p.getBallsFaced()),
+                    String.valueOf(p.getFours()),
+                    String.valueOf(p.getSixes()), sr},
+                    false, isAtCrease, p.isOut());
         }
     }
 
-    /**
-     * Creates and adds one row to the batting table.
-     *
-     * @param isActive    true → green background (batsman at crease)
-     * @param isOut       true → grey text + strikethrough on name column
-     */
-    private void addTableRow(TableLayout table, String[] cells,
-                             boolean isHeader, boolean isActive, boolean isOut) {
+    private void addTableRow(String[] cells, boolean isHeader, boolean isActive, boolean isOut) {
         TableRow row = new TableRow(this);
         row.setLayoutParams(new TableRow.LayoutParams(
                 TableRow.LayoutParams.MATCH_PARENT, TableRow.LayoutParams.WRAP_CONTENT));
 
-        if (isActive) {
-            row.setBackgroundColor(Color.parseColor("#E1F5EE"));
-        }
+        if (isActive)      row.setBackgroundColor(Color.parseColor("#E1F5EE"));
+        else if (isHeader) row.setBackgroundColor(Color.parseColor("#F1EFE8"));
 
-        int[] weights = {3, 1, 1, 1, 1, 1};
+        int[] weights = {3,1,1,1,1,1};
         for (int i = 0; i < cells.length; i++) {
             TextView tv = new TextView(this);
             tv.setLayoutParams(new TableRow.LayoutParams(
@@ -382,33 +445,26 @@ public class InningsActivity extends AppCompatActivity {
             tv.setText(cells[i]);
             tv.setPadding(12, 10, 12, 10);
             tv.setTextSize(12f);
-
             if (isHeader) {
                 tv.setTextColor(Color.parseColor("#888780"));
                 tv.setTypeface(null, android.graphics.Typeface.BOLD);
             } else if (isOut) {
-                // Dismissed: grey text, name column gets strikethrough
                 tv.setTextColor(Color.parseColor("#AAAAAA"));
-                if (i == 0) {
-                    tv.setPaintFlags(
-                            tv.getPaintFlags() | android.graphics.Paint.STRIKE_THRU_TEXT_FLAG);
-                }
+                if (i == 0) tv.setPaintFlags(
+                        tv.getPaintFlags() | android.graphics.Paint.STRIKE_THRU_TEXT_FLAG);
             } else {
                 tv.setTextColor(Color.parseColor("#111111"));
             }
             row.addView(tv);
         }
-        table.addView(row);
+        tableBatsmen.addView(row);
     }
-
-    // ─── Current over ─────────────────────────────────────────────────────────
 
     private void refreshCurrentOver(Innings innings) {
         Over currentOver      = innings.getCurrentOver();
         int  completedOverCnt = innings.getCompletedOvers().size();
 
         tvCurrentOverLabel.setText("Over " + (completedOverCnt + 1));
-
         int validCount = currentOver != null ? currentOver.getValidBallCount() : 0;
         int remaining  = 6 - validCount;
         tvBallsRemaining.setText(
