@@ -34,12 +34,29 @@ import java.util.Locale;
 /**
  * InningsActivity.java
  *
- * CHANGE: Calls LiveMatchState.persist(context, match) after every
- * delivery so the state is always up-to-date on disk.
- * Also persists in onPause() as a safety net (covers the case where
- * the app is killed before the next ball is bowled).
- * LiveMatchState.clear() is called when the match completes so the
- * file is empty for the next match.
+ * BUG FIX — refreshBattingTable():
+ *
+ * Root cause:
+ *   The old code used (isStriker || isNonStriker) to decide whether a player
+ *   is "at crease". But after a wicket the NEW batsman takes the dismissed
+ *   player's strikerIndex slot. So if opener (index 0) is dismissed and the
+ *   next batsman comes in at index 0, the dismissed opener's row loses its
+ *   "at crease" flag — but the NEW striker also shows at index 0.
+ *   Result: the dismissed player's name is replaced by the new striker's name
+ *   in the same row instead of appearing as a struck-through entry above it.
+ *
+ * Fix:
+ *   Determine each player's display state purely from their own fields:
+ *     - isOut == true            → show struck-through (dismissed, no matter what index)
+ *     - index == strikerIndex
+ *       AND isOut == false       → show as active striker (⚡ prefix, green highlight)
+ *     - index == nonStrikerIdx
+ *       AND isOut == false       → show as active non-striker (indent, green highlight)
+ *     - hasNotBatted == true     → skip (not yet come to bat)
+ *
+ *   This makes every dismissed player always render as struck-through,
+ *   independent of whether a later batsman happens to occupy the same
+ *   list index position.
  */
 public class InningsActivity extends AppCompatActivity {
 
@@ -94,13 +111,6 @@ public class InningsActivity extends AppCompatActivity {
         refreshUI();
     }
 
-    /**
-     * onPause is called whenever the Activity loses focus — app backgrounded,
-     * screen locked, or another Activity comes to the front.
-     * Persisting here is the safety net that catches any state not yet
-     * written by a ball delivery (e.g. if the user never bowled a ball
-     * before closing the app).
-     */
     @Override
     protected void onPause() {
         super.onPause();
@@ -163,10 +173,10 @@ public class InningsActivity extends AppCompatActivity {
         btnNoBall.setOnClickListener(v -> handleMatchState(engine.deliverNoBall()));
         btnWicket.setOnClickListener(v -> showWicketDialog());
         btnUndo.setOnClickListener(v   -> {
-            if (!engine.undoLastBall())
+            if (!engine.undoLastBall()) {
                 Toast.makeText(this, "Nothing to undo", Toast.LENGTH_SHORT).show();
-            else {
-                LiveMatchState.persist(this, match); // persist after undo too
+            } else {
+                LiveMatchState.persist(this, match);
                 refreshUI();
             }
         });
@@ -186,7 +196,7 @@ public class InningsActivity extends AppCompatActivity {
             return;
         }
 
-        String[] names = new String[available.size()];
+        String[]           names   = new String[available.size()];
         final List<Player> batters = match.getCurrentBattingPlayers();
         for (int i = 0; i < available.size(); i++) {
             names[i] = (i + 1) + ". " + available.get(i).getName();
@@ -206,35 +216,25 @@ public class InningsActivity extends AppCompatActivity {
 
     // ─── Match state routing ──────────────────────────────────────────────────
 
-    /**
-     * Called after every delivery. Persists state BEFORE navigating away
-     * so the file is always consistent with what the user last saw.
-     */
     private void handleMatchState(MatchEngine.MatchState state) {
         switch (state) {
-
             case BALL_RECORDED:
-                LiveMatchState.persist(this, match); // ← persist every ball
+                LiveMatchState.persist(this, match);
                 refreshUI();
                 break;
-
             case OVER_COMPLETE:
-                LiveMatchState.persist(this, match); // ← persist end of over
+                LiveMatchState.persist(this, match);
                 refreshUI();
                 Toast.makeText(this,
                         "Over " + match.getCurrentInningsData().getCompletedOvers().size()
                                 + " complete!", Toast.LENGTH_SHORT).show();
                 break;
-
             case INNINGS_COMPLETE:
-                // Persist the innings-break state before showing break screen
                 LiveMatchState.persist(this, match);
                 startActivity(new Intent(this, InningsBreakActivity.class));
                 finish();
                 break;
-
             case MATCH_COMPLETE:
-                // Match is over — clear the live file so no stale state remains
                 LiveMatchState.clear(this);
                 startActivity(new Intent(this, StatsActivity.class));
                 finish();
@@ -278,27 +278,70 @@ public class InningsActivity extends AppCompatActivity {
         overHistoryAdapter.updateData(innings.getCompletedOvers());
     }
 
+    /**
+     * Rebuilds the batting scorecard table.
+     *
+     * FIXED rendering logic — each player is classified independently:
+     *
+     *   isOut == true
+     *     → always render as struck-through "dismissed" row
+     *       regardless of which index they occupy in the list
+     *
+     *   index == strikerIndex AND isOut == false
+     *     → active striker: ⚡ prefix, green highlight row
+     *
+     *   index == nonStrikerIndex AND isOut == false  (two-batsman mode only)
+     *     → active non-striker: indent, green highlight row
+     *
+     *   hasNotBatted == true
+     *     → skip entirely (not yet come to bat)
+     *
+     * This means the table always shows:
+     *   - Every player who has batted (dismissed or still at crease)
+     *   - Dismissed rows in their original position with strikethrough
+     *   - Current batsmen highlighted green at their actual positions
+     */
     private void refreshBattingTable(Innings innings, boolean isSingle) {
         tableBatsmen.removeAllViews();
+
+        // Header row
         addTableRow(tableBatsmen,
                 new String[]{"Batsman", "R", "B", "4s", "6s", "SR"},
                 true, false, false);
 
-        List<Player> players      = match.getCurrentBattingPlayers();
-        int          strikerIdx   = innings.getStrikerIndex();
-        int          nonStrikerIdx = innings.getNonStrikerIndex();
+        List<Player> players       = match.getCurrentBattingPlayers();
+        int          strikerIdx    = innings.getStrikerIndex();
+        int          nonStrikerIdx = innings.getNonStrikerIndex(); // -1 in single mode
 
         for (int i = 0; i < players.size(); i++) {
-            Player  p            = players.get(i);
-            boolean isStriker    = (i == strikerIdx);
-            boolean isNonStriker = !isSingle && (i == nonStrikerIdx);
-            boolean atCrease     = (isStriker || isNonStriker) && !p.isOut();
+            Player p = players.get(i);
 
-            if (isSingle && isNonStriker) continue;
-            if (p.isHasNotBatted() && !atCrease) continue;
+            // ── Skip players yet to bat ────────────────────────────────
+            // A player has "yet to bat" only if hasNotBatted is true
+            // AND they are not currently at the crease.
+            // Check crease status by index (not by isOut) so we correctly
+            // identify the current striker even after multiple wickets.
+            boolean isCurrentStriker    = (i == strikerIdx)    && !p.isOut();
+            boolean isCurrentNonStriker = (!isSingle)
+                                          && (i == nonStrikerIdx) && !p.isOut();
+            boolean isAtCrease          = isCurrentStriker || isCurrentNonStriker;
 
-            String name = (isStriker ? "⚡ " : (isNonStriker ? "  " : "")) + p.getName();
-            String sr   = p.getBallsFaced() > 0
+            if (p.isHasNotBatted() && !isAtCrease) continue;
+
+            // ── Determine display state ────────────────────────────────
+            // isOut drives struck-through display independently of index
+            boolean showDismissed = p.isOut();
+
+            String name;
+            if (isCurrentStriker) {
+                name = "⚡ " + p.getName();
+            } else if (isCurrentNonStriker) {
+                name = "  " + p.getName();
+            } else {
+                name = p.getName();
+            }
+
+            String sr = p.getBallsFaced() > 0
                     ? String.format(Locale.US, "%.1f", p.getStrikeRate()) : "-";
 
             addTableRow(tableBatsmen,
@@ -308,16 +351,28 @@ public class InningsActivity extends AppCompatActivity {
                             String.valueOf(p.getFours()),
                             String.valueOf(p.getSixes()),
                             sr},
-                    false, atCrease, p.isOut());
+                    false,
+                    isAtCrease,    // green highlight
+                    showDismissed  // strikethrough
+            );
         }
     }
 
+    /**
+     * Creates and adds one row to the batting table.
+     *
+     * @param isActive    true → green background (batsman at crease)
+     * @param isOut       true → grey text + strikethrough on name column
+     */
     private void addTableRow(TableLayout table, String[] cells,
                              boolean isHeader, boolean isActive, boolean isOut) {
         TableRow row = new TableRow(this);
         row.setLayoutParams(new TableRow.LayoutParams(
                 TableRow.LayoutParams.MATCH_PARENT, TableRow.LayoutParams.WRAP_CONTENT));
-        if (isActive) row.setBackgroundColor(Color.parseColor("#E1F5EE"));
+
+        if (isActive) {
+            row.setBackgroundColor(Color.parseColor("#E1F5EE"));
+        }
 
         int[] weights = {3, 1, 1, 1, 1, 1};
         for (int i = 0; i < cells.length; i++) {
@@ -327,13 +382,17 @@ public class InningsActivity extends AppCompatActivity {
             tv.setText(cells[i]);
             tv.setPadding(12, 10, 12, 10);
             tv.setTextSize(12f);
+
             if (isHeader) {
                 tv.setTextColor(Color.parseColor("#888780"));
                 tv.setTypeface(null, android.graphics.Typeface.BOLD);
             } else if (isOut) {
+                // Dismissed: grey text, name column gets strikethrough
                 tv.setTextColor(Color.parseColor("#AAAAAA"));
-                if (i == 0) tv.setPaintFlags(
-                        tv.getPaintFlags() | android.graphics.Paint.STRIKE_THRU_TEXT_FLAG);
+                if (i == 0) {
+                    tv.setPaintFlags(
+                            tv.getPaintFlags() | android.graphics.Paint.STRIKE_THRU_TEXT_FLAG);
+                }
             } else {
                 tv.setTextColor(Color.parseColor("#111111"));
             }
@@ -341,6 +400,8 @@ public class InningsActivity extends AppCompatActivity {
         }
         table.addView(row);
     }
+
+    // ─── Current over ─────────────────────────────────────────────────────────
 
     private void refreshCurrentOver(Innings innings) {
         Over currentOver      = innings.getCurrentOver();
