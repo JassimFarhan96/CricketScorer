@@ -34,27 +34,26 @@ import java.util.Locale;
 /**
  * InningsActivity.java
  *
- * BUG FIX — opener selection at innings start:
+ * CHANGE — Undo on opener selection:
  *
- * Previously, the opening batsmen were always fixed to player indices 0 and 1
- * (set in SetupActivity / MatchEngine.endInnings). The user had no way to
- * choose who bats first — they could only pick batsmen AFTER a wicket fell.
+ * When the user taps Undo and no balls have been bowled yet in the
+ * current innings (current over is empty AND no completed overs exist),
+ * instead of showing "Nothing to undo" the app:
  *
- * Fix:
- *   showOpenerSelectionDialog() is called from onCreate() whenever
- *   no balls have been bowled yet in the current innings
- *   (innings.getTotalValidBalls() == 0 AND completedOvers is empty).
+ *   1. Resets all opener state:
+ *        - strikerIndex reset to 0 (arbitrary, will be overwritten)
+ *        - nonStrikerIndex reset to -1 (single) or 1 (two)
+ *        - hasNotBatted set back to true for ALL batting-team players
+ *        - nextBatsmanIndex reset
+ *   2. Disables ball input buttons
+ *   3. Reopens showOpenerSelectionDialog() so the user can re-pick
  *
- *   Two-batsman mode: two sequential dialogs — first pick the striker,
- *   then pick the non-striker from the remaining players.
+ * This works for both 1st and 2nd innings.
+ * It also works in two-batsman mode — both the striker and non-striker
+ * dialogs are shown again from scratch.
  *
- *   Single-batsman mode: one dialog — pick the striker only.
- *
- *   The ball input buttons are DISABLED until the opener dialog is confirmed,
- *   preventing scoring before openers are chosen.
- *
- *   If the match was restored from LiveMatchState (mid-innings, balls > 0),
- *   the dialog is skipped entirely — openers were already set.
+ * If at least one ball has been bowled (even a wide or no-ball), normal
+ * undo behaviour applies (engine.undoLastBall()).
  */
 public class InningsActivity extends AppCompatActivity {
 
@@ -104,17 +103,10 @@ public class InningsActivity extends AppCompatActivity {
 
         refreshUI();
 
-        // Show opener selection only if no balls have been bowled yet
-        Innings innings = match.getCurrentInningsData();
-        boolean isInningsJustStarted = innings.getTotalValidBalls() == 0
-                && innings.getCompletedOvers().isEmpty()
-                && (innings.getCurrentOver() == null
-                    || innings.getCurrentOver().getBalls().isEmpty());
-
-        if (isInningsJustStarted) {
+        // Show opener dialog only if innings is brand new (no balls at all)
+        if (isInningsJustStarted()) {
             showOpenerSelectionDialog();
         } else {
-            // Mid-innings restore — openers already set, enable buttons
             setBallButtonsEnabled(true);
         }
     }
@@ -126,47 +118,84 @@ public class InningsActivity extends AppCompatActivity {
             LiveMatchState.persist(this, match);
     }
 
-    // ─── Opener selection dialog ──────────────────────────────────────────────
+    // ─── Innings start check ──────────────────────────────────────────────────
 
     /**
-     * Shows a dialog for the user to pick the opening striker.
-     * In two-batsman mode, a second dialog immediately follows to pick
-     * the non-striker from the remaining players.
-     *
-     * Ball buttons remain disabled until both selections are confirmed.
+     * Returns true when no deliveries have been recorded in this innings yet —
+     * i.e. the current over is empty and no overs have been completed.
+     * Used to decide whether to show the opener dialog or re-show it on undo.
+     */
+    private boolean isInningsJustStarted() {
+        Innings innings     = match.getCurrentInningsData();
+        Over    currentOver = innings.getCurrentOver();
+        boolean overEmpty   = currentOver == null || currentOver.getBalls().isEmpty();
+        return overEmpty && innings.getCompletedOvers().isEmpty();
+    }
+
+    // ─── Opener selection dialogs ─────────────────────────────────────────────
+
+    /**
+     * Resets all opener state for the current innings and re-shows the
+     * opener selection dialog. Called by the Undo button when no balls
+     * have been bowled yet.
+     */
+    private void resetAndReshowOpeners() {
+        Innings      innings = match.getCurrentInningsData();
+        List<Player> players = match.getCurrentBattingPlayers();
+        boolean      single  = match.isSingleBatsmanMode();
+
+        // Reset every player to hasNotBatted=true so the full list is shown
+        for (Player p : players) {
+            p.setHasNotBatted(true);
+            p.setOut(false);
+        }
+
+        // Reset innings opener indices to defaults
+        innings.setStrikerIndex(0);
+        innings.setNonStrikerIndex(single ? -1 : 1);
+        innings.setNextBatsmanIndex(single ? 1 : 2);
+
+        LiveMatchState.persist(this, match);
+        setBallButtonsEnabled(false);
+        refreshUI();
+
+        // Reopen the dialog
+        showOpenerSelectionDialog();
+    }
+
+    /**
+     * First opener dialog — picker for the striker.
+     * Shows all players in the batting team.
      */
     private void showOpenerSelectionDialog() {
         List<Player> players = match.getCurrentBattingPlayers();
+        boolean      single  = match.isSingleBatsmanMode();
         Innings      innings = match.getCurrentInningsData();
-        boolean      isSingle = match.isSingleBatsmanMode();
 
-        // Build name list for the striker picker
         String[] names = new String[players.size()];
         for (int i = 0; i < players.size(); i++) {
             names[i] = (i + 1) + ". " + players.get(i).getName();
         }
 
-        final int[] strikerChoice = {0}; // default: first player
+        final int[] strikerChoice = {0};
 
         new AlertDialog.Builder(this)
                 .setTitle("Select opening striker")
-                .setCancelable(false) // must choose before scoring
+                .setCancelable(false)
                 .setSingleChoiceItems(names, 0, (d, which) -> strikerChoice[0] = which)
                 .setPositiveButton("Confirm", (d, which) -> {
-                    // Apply striker selection
                     int strikerIdx = strikerChoice[0];
                     innings.setStrikerIndex(strikerIdx);
                     players.get(strikerIdx).setHasNotBatted(false);
 
-                    if (isSingle) {
-                        // Single mode: only one opener needed
+                    if (single) {
                         innings.setNonStrikerIndex(-1);
-                        innings.setNextBatsmanIndex(nextAvailableIndex(players, strikerIdx, -1));
+                        innings.setNextBatsmanIndex(
+                                nextAvailableIndex(players, strikerIdx, -1));
                         LiveMatchState.persist(this, match);
                         setBallButtonsEnabled(true);
                         refreshUI();
                     } else {
-                        // Two-batsman mode: now pick the non-striker
                         showNonStrikerDialog(strikerIdx);
                     }
                 })
@@ -174,18 +203,15 @@ public class InningsActivity extends AppCompatActivity {
     }
 
     /**
-     * Second dialog (two-batsman mode only) — picks the non-striker
-     * from the players who were NOT chosen as striker.
-     *
-     * @param strikerIdx the index already confirmed as the striker
+     * Second opener dialog (two-batsman mode only) — picks the non-striker.
+     * Excludes the already-chosen striker from the list.
      */
     private void showNonStrikerDialog(int strikerIdx) {
-        List<Player> players = match.getCurrentBattingPlayers();
-        Innings      innings = match.getCurrentInningsData();
-
-        // Build list excluding the chosen striker
+        List<Player>  players          = match.getCurrentBattingPlayers();
+        Innings       innings          = match.getCurrentInningsData();
         List<Integer> candidateIndices = new ArrayList<>();
         List<String>  candidateNames   = new ArrayList<>();
+
         for (int i = 0; i < players.size(); i++) {
             if (i != strikerIdx) {
                 candidateIndices.add(i);
@@ -193,22 +219,20 @@ public class InningsActivity extends AppCompatActivity {
             }
         }
 
-        String[] names = candidateNames.toArray(new String[0]);
-        final int[] nonStrikerChoice = {0}; // index into candidateIndices
+        final int[] nonStrikerChoice = {0};
 
         new AlertDialog.Builder(this)
                 .setTitle("Select non-striker")
                 .setCancelable(false)
-                .setSingleChoiceItems(names, 0, (d, which) -> nonStrikerChoice[0] = which)
+                .setSingleChoiceItems(
+                        candidateNames.toArray(new String[0]), 0,
+                        (d, which) -> nonStrikerChoice[0] = which)
                 .setPositiveButton("Confirm", (d, which) -> {
                     int nonStrikerIdx = candidateIndices.get(nonStrikerChoice[0]);
                     innings.setNonStrikerIndex(nonStrikerIdx);
                     players.get(nonStrikerIdx).setHasNotBatted(false);
-
-                    // Next batsman is whoever comes after both openers
                     innings.setNextBatsmanIndex(
                             nextAvailableIndex(players, strikerIdx, nonStrikerIdx));
-
                     LiveMatchState.persist(this, match);
                     setBallButtonsEnabled(true);
                     refreshUI();
@@ -218,22 +242,17 @@ public class InningsActivity extends AppCompatActivity {
 
     /**
      * Returns the index of the first player who is neither the striker
-     * nor the non-striker — i.e., the next one to walk in after a wicket.
+     * nor the non-striker — the next one to walk in after a wicket.
      */
     private int nextAvailableIndex(List<Player> players, int strikerIdx, int nonStrikerIdx) {
         for (int i = 0; i < players.size(); i++) {
             if (i != strikerIdx && i != nonStrikerIdx) return i;
         }
-        return players.size(); // shouldn't happen with valid team sizes
+        return players.size();
     }
 
     // ─── Enable / disable ball input buttons ──────────────────────────────────
 
-    /**
-     * Enables or disables all ball input buttons.
-     * Disabled during opener selection so the scorer cannot record
-     * a delivery before batsmen have been chosen.
-     */
     private void setBallButtonsEnabled(boolean enabled) {
         float alpha = enabled ? 1.0f : 0.35f;
         btnDot.setEnabled(enabled);    btnDot.setAlpha(alpha);
@@ -245,7 +264,9 @@ public class InningsActivity extends AppCompatActivity {
         btnWide.setEnabled(enabled);   btnWide.setAlpha(alpha);
         btnNoBall.setEnabled(enabled); btnNoBall.setAlpha(alpha);
         btnWicket.setEnabled(enabled); btnWicket.setAlpha(alpha);
-        btnUndo.setEnabled(enabled);   btnUndo.setAlpha(alpha);
+        // Undo stays always enabled — it's the escape hatch back to opener selection
+        btnUndo.setEnabled(true);
+        btnUndo.setAlpha(1.0f);
     }
 
     // ─── View binding ─────────────────────────────────────────────────────────
@@ -300,10 +321,28 @@ public class InningsActivity extends AppCompatActivity {
         btnWide.setOnClickListener(v   -> handleMatchState(engine.deliverWide()));
         btnNoBall.setOnClickListener(v -> handleMatchState(engine.deliverNoBall()));
         btnWicket.setOnClickListener(v -> showWicketDialog());
-        btnUndo.setOnClickListener(v   -> {
-            if (!engine.undoLastBall())
-                Toast.makeText(this, "Nothing to undo", Toast.LENGTH_SHORT).show();
-            else { LiveMatchState.persist(this, match); refreshUI(); }
+
+        btnUndo.setOnClickListener(v -> {
+            if (isInningsJustStarted()) {
+                // ── No balls bowled yet — re-open opener selection ─────────
+                // This lets the user change the opening batsman even after
+                // having already confirmed the opener dialog once.
+                resetAndReshowOpeners();
+            } else {
+                // ── Normal undo — reverse the last delivery ────────────────
+                if (!engine.undoLastBall()) {
+                    Toast.makeText(this, "Nothing to undo", Toast.LENGTH_SHORT).show();
+                } else {
+                    LiveMatchState.persist(this, match);
+
+                    // If undo brought us back to zero balls in the innings,
+                    // re-enable the escape hatch (buttons already handled by
+                    // setBallButtonsEnabled, but no dialog needed here since
+                    // at least one ball was played — the user can undo further
+                    // if they tap undo again, which will hit isInningsJustStarted).
+                    refreshUI();
+                }
+            }
         });
     }
 
@@ -408,7 +447,7 @@ public class InningsActivity extends AppCompatActivity {
 
         for (int i = 0; i < players.size(); i++) {
             Player  p                   = players.get(i);
-            boolean isCurrentStriker    = (i == strikerIdx) && !p.isOut();
+            boolean isCurrentStriker    = (i == strikerIdx)    && !p.isOut();
             boolean isCurrentNonStriker = !isSingle && (i == nonStrikerIdx) && !p.isOut();
             boolean isAtCrease          = isCurrentStriker || isCurrentNonStriker;
 
