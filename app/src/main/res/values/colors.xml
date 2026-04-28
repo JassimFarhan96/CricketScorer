@@ -1,41 +1,69 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Brand greens -->
+    <!-- Fixed brand colors -->
     <color name="green_dark">#085041</color>
     <color name="green_mid">#1D9E75</color>
     <color name="green_light">#E1F5EE</color>
-
-    <!-- Amber / warning -->
     <color name="amber_dark">#633806</color>
     <color name="amber_mid">#BA7517</color>
     <color name="amber_light">#FAEEDA</color>
-
-    <!-- Red / danger -->
     <color name="red_mid">#E24B4A</color>
-    <color name="red_light">#FCEBEB</color>
-
-    <!-- Blue -->
     <color name="blue_dark">#185FA5</color>
     <color name="blue_mid">#378ADD</color>
     <color name="blue_light">#E6F1FB</color>
-
-    <!-- Gray -->
-    <color name="gray_mid">#888780</color>
-    <color name="gray_light">#F1EFE8</color>
-    <color name="gray_dark">#444441</color>
-
-    <!-- WhatsApp -->
     <color name="whatsapp_green">#25D366</color>
-
-    <!-- Backgrounds -->
-    <color name="bg_page">#F5F5F3</color>
-    <color name="bg_card">#FFFFFF</color>
-
-    <!-- Text -->
-    <color name="text_primary">#111111</color>
-    <color name="text_secondary">#888780</color>
-    <color name="text_white">#FFFFFF</color>
-
-    <!-- Status bar colour (matches dark green header) -->
     <color name="status_bar">#064033</color>
+    <!-- Adaptive (light mode defaults) -->
+    <color name="c_bg_page">#F5F5F3</color>
+    <color name="c_bg_card">#FFFFFF</color>
+    <color name="c_bg_card_alt">#F8F8F6</color>
+    <color name="c_bg_input">#FFFFFF</color>
+    <color name="c_bg_over_panel">#F1F1EF</color>
+    <color name="c_bg_spinner_popup">#FFFFFF</color>
+    <color name="c_scoreboard_section_bg">#F1F1EF</color>
+    <color name="c_text_primary">#111111</color>
+    <color name="c_text_secondary">#666666</color>
+    <color name="c_text_hint">#999999</color>
+    <color name="c_text_disabled">#AAAAAA</color>
+    <color name="c_border">#DDDDDD</color>
+    <color name="c_border_strong">#BBBBBB</color>
+    <color name="c_divider">#EBEBEB</color>
+    <color name="c_row_active_bg">#E1F5EE</color>
+    <color name="c_row_header_bg">#F1EFE8</color>
+    <color name="c_row_header_text">#666666</color>
+    <color name="c_row_alt_bg">#FAFAF9</color>
+    <color name="c_ball_dot_bg">#EDEAE2</color>
+    <color name="c_ball_dot_fg">#777470</color>
+    <color name="c_ball_runs_bg">#DCEEFB</color>
+    <color name="c_ball_runs_fg">#185FA5</color>
+    <color name="c_ball_four_bg">#B5D4F4</color>
+    <color name="c_ball_four_fg">#185FA5</color>
+    <color name="c_ball_six_bg">#378ADD</color>
+    <color name="c_ball_six_fg">#FFFFFF</color>
+    <color name="c_ball_wide_bg">#FAEEDA</color>
+    <color name="c_ball_wide_fg">#633806</color>
+    <color name="c_ball_noball_bg">#FCEBEB</color>
+    <color name="c_ball_noball_fg">#C03030</color>
+    <color name="c_ball_wicket_bg">#E24B4A</color>
+    <color name="c_ball_wicket_fg">#FFFFFF</color>
+    <color name="c_ball_empty_border">#CCCCCC</color>
+    <color name="c_btn_default_bg">#FFFFFF</color>
+    <color name="c_btn_default_fg">#111111</color>
+    <color name="c_btn_outline_border">#085041</color>
+    <color name="c_btn_outline_fg">#085041</color>
+    <color name="c_mode_card_bg">#FFFFFF</color>
+    <color name="c_mode_card_selected_border">#085041</color>
+    <color name="c_mode_card_unselected_border">#DDDDDD</color>
+    <color name="c_mode_badge_bg">#E1F5EE</color>
+    <color name="c_mode_badge_fg">#085041</color>
+    <color name="c_match_card_bg">#FFFFFF</color>
+    <color name="c_match_card_border">#E8E8E8</color>
+    <color name="c_counter_btn_bg">#E1F5EE</color>
+    <color name="c_counter_btn_border">#1D9E75</color>
+    <color name="c_counter_icon">#085041</color>
+    <color name="c_stat_card_bg">#F0EFED</color>
+    <color name="c_menu_icon_green_bg">#E1F5EE</color>
+    <color name="c_menu_icon_amber_bg">#FAEEDA</color>
+    <color name="c_menu_icon_blue_bg">#E6F1FB</color>
+    <color name="c_vs_badge_bg">#EDEAE2</color>
 </resources>

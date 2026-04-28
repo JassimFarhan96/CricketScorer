@@ -1,138 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    activity_innings_break.xml
-    Shown between 1st and 2nd innings.
-    Displays 1st innings total, target, required run rate,
-    and a "Start 2nd Innings" button.
--->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#F5F5F3">
-
-    <!-- Header -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:background="#085041"
-        android:padding="20dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Innings Complete"
-            android:textColor="#FFFFFF"
-            android:textSize="20sp"
-            android:fontFamily="sans-serif-medium" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:id="@+id/tv_break_subtitle"
-            android:text="1st innings over"
-            android:textColor="#AADECE"
-            android:textSize="13sp"
-            android:layout_marginTop="2dp" />
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:background="@color/c_bg_page">
+  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+      android:orientation="vertical" android:background="@color/green_dark" android:padding="20dp" android:paddingTop="36dp">
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Innings Complete" android:textColor="#FFFFFF" android:textSize="20sp" android:fontFamily="sans-serif-medium"/>
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="1st innings over" android:textColor="#AADECE" android:textSize="13sp" android:layout_marginTop="2dp"/>
+  </LinearLayout>
+  <androidx.cardview.widget.CardView xmlns:app="http://schemas.android.com/apk/res-auto"
+      android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_margin="16dp"
+      app:cardCornerRadius="16dp" app:cardElevation="2dp" app:cardBackgroundColor="@color/c_bg_card">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:padding="24dp" android:gravity="center">
+      <TextView android:id="@+id/tv_batting_team" android:layout_width="wrap_content" android:layout_height="wrap_content"
+          android:text="Team A" android:textSize="14sp" android:textColor="@color/c_text_secondary"/>
+      <TextView android:id="@+id/tv_first_innings_score" android:layout_width="wrap_content" android:layout_height="wrap_content"
+          android:text="0/0" android:textSize="48sp" android:fontFamily="sans-serif-medium"
+          android:textColor="@color/green_mid" android:layout_marginTop="4dp"/>
+      <TextView android:id="@+id/tv_overs_played" android:layout_width="wrap_content" android:layout_height="wrap_content"
+          android:text="in 0.0 overs" android:textSize="14sp" android:textColor="@color/c_text_secondary"/>
+      <View android:layout_width="match_parent" android:layout_height="0.5dp"
+          android:background="@color/c_divider" android:layout_marginTop="20dp" android:layout_marginBottom="20dp"/>
+      <TextView android:id="@+id/tv_chasing_team" android:layout_width="wrap_content" android:layout_height="wrap_content"
+          android:text="Team B needs:" android:textSize="13sp" android:textColor="@color/c_text_secondary"/>
+      <TextView android:id="@+id/tv_target" android:layout_width="wrap_content" android:layout_height="wrap_content"
+          android:text="- runs" android:textSize="28sp" android:fontFamily="sans-serif-medium"
+          android:textColor="@color/amber_mid" android:layout_marginTop="6dp"/>
+      <TextView android:id="@+id/tv_required_rr" android:layout_width="wrap_content" android:layout_height="wrap_content"
+          android:text="Required run rate: -" android:textSize="13sp" android:textColor="@color/c_text_secondary" android:layout_marginTop="6dp"/>
     </LinearLayout>
-
-    <!-- Score card -->
-    <androidx.cardview.widget.CardView
-        xmlns:app="http://schemas.android.com/apk/res-auto"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="2dp">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="24dp"
-            android:gravity="center">
-
-            <!-- Batting team name -->
-            <TextView
-                android:id="@+id/tv_batting_team"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Team A"
-                android:textSize="14sp"
-                android:textColor="#888780" />
-
-            <!-- Score -->
-            <TextView
-                android:id="@+id/tv_first_innings_score"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="0/0"
-                android:textSize="48sp"
-                android:fontFamily="sans-serif-medium"
-                android:textColor="#085041"
-                android:layout_marginTop="4dp" />
-
-            <!-- Overs -->
-            <TextView
-                android:id="@+id/tv_overs_played"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="in 0.0 overs"
-                android:textSize="14sp"
-                android:textColor="#888780" />
-
-            <!-- Divider -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="0.5dp"
-                android:background="#E0E0E0"
-                android:layout_marginTop="20dp"
-                android:layout_marginBottom="20dp" />
-
-            <!-- Chasing team info -->
-            <TextView
-                android:id="@+id/tv_chasing_team"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Team B needs:"
-                android:textSize="13sp"
-                android:textColor="#888780" />
-
-            <TextView
-                android:id="@+id/tv_target"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="— runs"
-                android:textSize="28sp"
-                android:fontFamily="sans-serif-medium"
-                android:textColor="#BA7517"
-                android:layout_marginTop="6dp" />
-
-            <TextView
-                android:id="@+id/tv_required_rr"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Required run rate: —"
-                android:textSize="13sp"
-                android:textColor="#888780"
-                android:layout_marginTop="6dp" />
-        </LinearLayout>
-    </androidx.cardview.widget.CardView>
-
-    <!-- Spacer -->
-    <View android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
-
-    <!-- Start 2nd innings button -->
-    <Button
-        android:id="@+id/btn_start_2nd_innings"
-        android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:text="Start 2nd Innings"
-        android:textSize="16sp"
-        android:fontFamily="sans-serif-medium"
-        android:textColor="#FFFFFF"
-        android:backgroundTint="#085041"
-        android:layout_margin="16dp" />
-
+  </androidx.cardview.widget.CardView>
+  <View android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
+  <Button android:id="@+id/btn_start_2nd_innings" android:layout_width="match_parent" android:layout_height="52dp"
+      android:text="Start 2nd Innings" android:textSize="16sp" android:fontFamily="sans-serif-medium"
+      android:textColor="#FFFFFF" android:backgroundTint="@color/green_dark" android:layout_margin="16dp"/>
 </LinearLayout>

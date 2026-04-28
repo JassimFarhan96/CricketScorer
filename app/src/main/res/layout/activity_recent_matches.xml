@@ -1,111 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#F5F5F3">
-
-    <!-- Header -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:background="#085041"
-        android:padding="20dp"
-        android:paddingTop="36dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Recent Matches"
-            android:textColor="#FFFFFF"
-            android:textSize="20sp"
-            android:fontFamily="sans-serif-medium" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Saved to recent_matches/"
-            android:textColor="#AADECE"
-            android:textSize="12sp"
-            android:layout_marginTop="2dp" />
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:background="@color/c_bg_page">
+  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+      android:orientation="vertical" android:background="@color/green_dark" android:padding="20dp" android:paddingTop="36dp">
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Recent Matches" android:textColor="#FFFFFF" android:textSize="20sp" android:fontFamily="sans-serif-medium"/>
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Saved to recent_matches/" android:textColor="#AADECE" android:textSize="12sp" android:layout_marginTop="2dp"/>
+  </LinearLayout>
+  <TextView android:id="@+id/tv_empty_state" android:layout_width="match_parent" android:layout_height="wrap_content"
+      android:text="No matches saved yet.
+Finish a match and tap Save Match."
+      android:textSize="14sp" android:textColor="@color/c_text_secondary"
+      android:gravity="center" android:padding="48dp" android:visibility="gone"/>
+  <ScrollView android:layout_width="match_parent" android:layout_height="0dp"
+      android:layout_weight="1" android:padding="16dp" android:clipToPadding="false">
+    <LinearLayout android:id="@+id/container_matches" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:orientation="vertical"/>
+  </ScrollView>
+  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+      android:orientation="vertical" android:background="@color/c_bg_card" android:padding="12dp" android:elevation="8dp">
+    <TextView android:id="@+id/tv_page_info" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="Page 1 of 1" android:textSize="12sp" android:textColor="@color/c_text_secondary"
+        android:gravity="center" android:layout_marginBottom="8dp" android:visibility="gone"/>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+      <Button android:id="@+id/btn_prev" android:layout_width="0dp" android:layout_height="44dp"
+          android:layout_weight="1" android:text="&#8592; Previous" android:textSize="13sp"
+          android:textColor="@color/c_btn_outline_fg" android:background="@drawable/bg_btn_outline"
+          android:layout_marginEnd="6dp" android:visibility="gone"/>
+      <Button android:id="@+id/btn_next" android:layout_width="0dp" android:layout_height="44dp"
+          android:layout_weight="1" android:text="Next &#8594;" android:textSize="13sp"
+          android:textColor="@color/c_btn_outline_fg" android:background="@drawable/bg_btn_outline"
+          android:layout_marginStart="6dp" android:visibility="gone"/>
     </LinearLayout>
-
-    <!-- Empty state -->
-    <TextView
-        android:id="@+id/tv_empty_state"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="No matches saved yet.\nFinish a match and tap Save Match."
-        android:textSize="14sp"
-        android:textColor="#888780"
-        android:gravity="center"
-        android:padding="48dp"
-        android:visibility="gone" />
-
-    <!-- Match cards scroll area -->
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:padding="16dp"
-        android:clipToPadding="false">
-
-        <LinearLayout
-            android:id="@+id/container_matches"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical" />
-    </ScrollView>
-
-    <!-- Pagination row -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:background="#FFFFFF"
-        android:padding="12dp"
-        android:elevation="8dp">
-
-        <TextView
-            android:id="@+id/tv_page_info"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Page 1 of 1"
-            android:textSize="12sp"
-            android:textColor="#888780"
-            android:gravity="center"
-            android:layout_marginBottom="8dp"
-            android:visibility="gone" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <Button
-                android:id="@+id/btn_prev"
-                android:layout_width="0dp"
-                android:layout_height="44dp"
-                android:layout_weight="1"
-                android:text="← Previous"
-                android:textSize="13sp"
-                android:textColor="#085041"
-                android:background="@drawable/bg_btn_outline"
-                android:layout_marginEnd="6dp"
-                android:visibility="gone" />
-
-            <Button
-                android:id="@+id/btn_next"
-                android:layout_width="0dp"
-                android:layout_height="44dp"
-                android:layout_weight="1"
-                android:text="Next →"
-                android:textSize="13sp"
-                android:textColor="#085041"
-                android:background="@drawable/bg_btn_outline"
-                android:layout_marginStart="6dp"
-                android:visibility="gone" />
-        </LinearLayout>
-    </LinearLayout>
+  </LinearLayout>
 </LinearLayout>
