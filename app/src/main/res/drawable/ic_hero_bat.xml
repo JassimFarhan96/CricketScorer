@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="36dp" android:height="36dp"
+    android:viewportWidth="36" android:viewportHeight="36">
+    <!-- Bat handle -->
+    <path android:fillColor="#FFFFFF" android:alpha="0.9"
+        android:pathData="M4,30 L7,33 L17,21 L14,18 Z"/>
+    <!-- Bat blade -->
+    <path android:fillColor="#FFFFFF" android:alpha="0.9"
+        android:pathData="M14,18 L17,21 L29,9 Q31,7 29,5 Q27,3 25,5 Z"/>
+</vector>

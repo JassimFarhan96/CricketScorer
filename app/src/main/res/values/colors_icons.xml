@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="c_menu_icon_green_fg">#085041</color>
+    <color name="c_menu_icon_amber_fg">#633806</color>
+    <color name="c_menu_icon_blue_fg">#185FA5</color>
+    <color name="c_mode_card_icon">#444444</color>
+</resources>
