@@ -191,6 +191,12 @@
                 android:text="Wicket" android:textSize="13sp" android:textColor="@color/c_ball_wicket_fg"
                 android:background="@drawable/bg_ball_btn_wicket"
                 android:layout_margin="3dp" android:paddingStart="12dp" android:paddingEnd="12dp"/>
+            <Button android:id="@+id/btn_retired_hurt" style="@style/Widget.AppCompat.Button.Borderless"
+                android:layout_width="wrap_content" android:layout_height="36dp"
+                android:text="Ret. Hurt" android:textSize="12sp"
+                android:textColor="@color/amber_dark"
+                android:background="@drawable/bg_ball_btn_retired"
+                android:layout_margin="3dp" android:paddingStart="10dp" android:paddingEnd="10dp"/>
             <Button android:id="@+id/btn_undo" style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="wrap_content" android:layout_height="36dp"
                 android:text="&#x21A9; Undo" android:textSize="13sp"

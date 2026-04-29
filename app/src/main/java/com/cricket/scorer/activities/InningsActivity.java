@@ -34,24 +34,22 @@ import java.util.Locale;
 /**
  * InningsActivity.java
  *
- * CHANGE — Bowler selection:
+ * CHANGE — Retired Hurt:
  *
- * At the start of every over (including over 1) a dialog prompts the
- * scorer to choose which bowling-team player will bowl that over.
- * Ball buttons are disabled until the bowler is confirmed.
+ * New "Retired Hurt" button added to the ball input panel.
+ * Tapping it shows a confirmation dialog (since it affects the current
+ * striker), then asks who replaces them at the crease.
  *
- * Undo behaviour:
- *   - If no balls have been bowled in the current over yet (over is empty)
- *     AND a bowler has already been selected for this over:
- *       → reset the bowler selection and reopen the bowler dialog
- *         (lets scorer change the bowler before the first ball).
- *   - If no balls AND no bowler selected AND innings just started:
- *       → reopen the opener selection dialog (original behaviour).
- *   - If balls have been bowled: normal undo of last delivery.
+ * When all active batsmen are dismissed (PROMPT_RETIRED_HURT state):
+ *   For each retired-hurt player in order, a dialog appears:
+ *   "[Player] — Do you want to return to bat?"
+ *     [Return to bat] → player resumes at striker's end
+ *     [Retire out]    → counted as dismissed (retired out)
+ *   After ALL retired-hurt players are resolved, innings ends if no
+ *   batsmen remain, or play continues if someone returns.
  *
- * Over history panel:
- *   Below the completed over rows, a "BOWLING" section lists each bowler
- *   and the number of complete overs they have bowled this innings.
+ * Batting table: retired-hurt players shown with "Retired Hurt" status
+ * in amber, distinguished from "Out" (strikethrough) and "Not out".
  */
 public class InningsActivity extends AppCompatActivity {
 
@@ -63,17 +61,14 @@ public class InningsActivity extends AppCompatActivity {
     private LinearLayout layoutTargetBanner;
     private TextView     tvTargetInfo, tvRequiredBalls;
     private TableLayout  tableBatsmen;
-    private TextView     tvCurrentOverLabel, tvBallsRemaining;
-    private TextView     tvCurrentBowler;       // shows "Bowling: PlayerName"
+    private TextView     tvCurrentOverLabel, tvBallsRemaining, tvCurrentBowler;
     private RecyclerView rvCurrentOverBalls, rvOverHistory;
-    private TextView     tvBowlerSummary;        // bowler overs summary below history
+    private TextView     tvBowlerSummary;
     private Button       btnDot, btn1, btn2, btn3, btn4, btn6;
-    private Button       btnWide, btnNoBall, btnWicket, btnUndo;
+    private Button       btnWide, btnNoBall, btnWicket, btnRetiredHurt, btnUndo;
 
     private BallAdapter        ballAdapter;
     private OverHistoryAdapter overHistoryAdapter;
-
-    // ─── Lifecycle ────────────────────────────────────────────────────────────
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -93,13 +88,9 @@ public class InningsActivity extends AppCompatActivity {
         refreshUI();
 
         Innings innings = match.getCurrentInningsData();
-
         if (isInningsJustStarted()) {
-            // Brand new innings — pick openers first, then bowler
             showOpenerSelectionDialog();
         } else if (!innings.isBowlerSelected()) {
-            // Restored mid-over but bowler not yet chosen (e.g. app killed just
-            // after over ended before bowler dialog was confirmed)
             showBowlerSelectionDialog();
         } else {
             setBallButtonsEnabled(true);
@@ -115,20 +106,18 @@ public class InningsActivity extends AppCompatActivity {
 
     // ─── State helpers ────────────────────────────────────────────────────────
 
-    /** True when no balls at all have been bowled in this innings. */
     private boolean isInningsJustStarted() {
         Innings inn = match.getCurrentInningsData();
         Over    cur = inn.getCurrentOver();
         return (cur == null || cur.getBalls().isEmpty()) && inn.getCompletedOvers().isEmpty();
     }
 
-    /** True when the current over has no balls yet (but may be 2nd over+). */
     private boolean isCurrentOverEmpty() {
         Over cur = match.getCurrentInningsData().getCurrentOver();
         return cur == null || cur.getBalls().isEmpty();
     }
 
-    // ─── Opener selection dialogs (unchanged logic) ───────────────────────────
+    // ─── Opener + Bowler dialogs (unchanged) ─────────────────────────────────
 
     private void showOpenerSelectionDialog() {
         List<Player> players = match.getCurrentBattingPlayers();
@@ -138,212 +127,201 @@ public class InningsActivity extends AppCompatActivity {
         for (int i = 0; i < players.size(); i++) names[i] = (i+1) + ". " + players.get(i).getName();
         final int[] sc = {0};
         new AlertDialog.Builder(this)
-                .setTitle("Select opening striker")
-                .setCancelable(false)
+                .setTitle("Select opening striker").setCancelable(false)
                 .setSingleChoiceItems(names, 0, (d, w) -> sc[0] = w)
                 .setPositiveButton("Confirm", (d, w) -> {
-                    int si = sc[0];
-                    innings.setStrikerIndex(si);
-                    players.get(si).setHasNotBatted(false);
-                    if (single) {
-                        innings.setNonStrikerIndex(-1);
-                        innings.setNextBatsmanIndex(nextAvail(players, si, -1));
-                        LiveMatchState.persist(this, match);
-                        // After openers chosen, pick the bowler
-                        showBowlerSelectionDialog();
-                    } else {
-                        showNonStrikerDialog(si);
-                    }
+                    int si = sc[0]; innings.setStrikerIndex(si); players.get(si).setHasNotBatted(false);
+                    if (single) { innings.setNonStrikerIndex(-1); innings.setNextBatsmanIndex(nextAvail(players, si, -1)); LiveMatchState.persist(this, match); showBowlerSelectionDialog(); }
+                    else showNonStrikerDialog(si);
                 }).show();
     }
 
-    private void showNonStrikerDialog(int strikerIdx) {
-        List<Player>  players  = match.getCurrentBattingPlayers();
-        Innings       innings  = match.getCurrentInningsData();
-        List<Integer> ci       = new ArrayList<>();
-        List<String>  cn       = new ArrayList<>();
-        for (int i = 0; i < players.size(); i++) {
-            if (i != strikerIdx) { ci.add(i); cn.add((i+1) + ". " + players.get(i).getName()); }
-        }
+    private void showNonStrikerDialog(int si) {
+        List<Player>  players = match.getCurrentBattingPlayers(); Innings inn = match.getCurrentInningsData();
+        List<Integer> ci = new ArrayList<>(); List<String> cn = new ArrayList<>();
+        for (int i = 0; i < players.size(); i++) if (i!=si){ci.add(i);cn.add((i+1)+". "+players.get(i).getName());}
         final int[] nc = {0};
-        new AlertDialog.Builder(this)
-                .setTitle("Select non-striker")
-                .setCancelable(false)
+        new AlertDialog.Builder(this).setTitle("Select non-striker").setCancelable(false)
                 .setSingleChoiceItems(cn.toArray(new String[0]), 0, (d, w) -> nc[0] = w)
                 .setPositiveButton("Confirm", (d, w) -> {
-                    int ni = ci.get(nc[0]);
-                    innings.setNonStrikerIndex(ni);
-                    players.get(ni).setHasNotBatted(false);
-                    innings.setNextBatsmanIndex(nextAvail(players, strikerIdx, ni));
-                    LiveMatchState.persist(this, match);
-                    // After openers, pick bowler
-                    showBowlerSelectionDialog();
+                    int ni = ci.get(nc[0]); inn.setNonStrikerIndex(ni); players.get(ni).setHasNotBatted(false);
+                    inn.setNextBatsmanIndex(nextAvail(players, si, ni));
+                    LiveMatchState.persist(this, match); showBowlerSelectionDialog();
                 }).show();
     }
 
-    // ─── Bowler selection dialog ──────────────────────────────────────────────
-
-    /**
-     * Shows a dialog to select the bowler for the current over.
-     * Lists all players from the BOWLING team.
-     * Disables ball buttons until confirmed.
-     * Called:
-     *   - After openers are chosen (start of innings)
-     *   - After each over completes
-     *   - When undo is pressed with an empty over (change of bowler)
-     */
     private void showBowlerSelectionDialog() {
         setBallButtonsEnabled(false);
-
-        Innings      innings = match.getCurrentInningsData();
+        Innings inn = match.getCurrentInningsData();
         List<Player> bowlers = getBowlingTeamPlayers();
-        int          ovNum   = innings.getCompletedOvers().size() + 1;
-
+        int ovNum = inn.getCompletedOvers().size() + 1;
         String[] names = new String[bowlers.size()];
         for (int i = 0; i < bowlers.size(); i++) {
-            Player p        = bowlers.get(i);
-            String oversStr = getOversForBowler(innings, p.getName());
-            names[i]        = (i+1) + ". " + p.getName() + oversStr;
+            int cnt = inn.getBowlerOversMap() != null && inn.getBowlerOversMap().containsKey(bowlers.get(i).getName()) ? inn.getBowlerOversMap().get(bowlers.get(i).getName()) : 0;
+            names[i] = (i+1)+". "+bowlers.get(i).getName()+(cnt>0?" ("+cnt+" ov)":"");
         }
-
-        // Pre-select the last bowler if there was one, otherwise 0
-        int defaultSelection = 0;
-        if (innings.getCurrentBowlerIndex() >= 0
-                && innings.getCurrentBowlerIndex() < bowlers.size()) {
-            defaultSelection = innings.getCurrentBowlerIndex();
-        }
-
-        final int[] chosen = {defaultSelection};
-
-        new AlertDialog.Builder(this)
-                .setTitle("Over " + ovNum + " — Select bowler")
-                .setCancelable(false)
-                .setSingleChoiceItems(names, defaultSelection, (d, w) -> chosen[0] = w)
+        int def = Math.max(0, inn.getCurrentBowlerIndex());
+        final int[] ch = {def};
+        new AlertDialog.Builder(this).setTitle("Over "+ovNum+" — Select bowler").setCancelable(false)
+                .setSingleChoiceItems(names, def, (d, w) -> ch[0] = w)
                 .setPositiveButton("Confirm", (d, w) -> {
-                    int    idx  = chosen[0];
-                    String name = bowlers.get(idx).getName();
-                    innings.setCurrentOverBowler(idx, name);
-                    LiveMatchState.persist(this, match);
-                    setBallButtonsEnabled(true);
-                    refreshUI();
+                    inn.setCurrentOverBowler(ch[0], bowlers.get(ch[0]).getName());
+                    LiveMatchState.persist(this, match); setBallButtonsEnabled(true); refreshUI();
                 }).show();
     }
 
-    /**
-     * Returns a formatted string showing how many overs a bowler has bowled.
-     * E.g. "  (2 ov)" or "" if none yet.
-     */
-    private String getOversForBowler(Innings innings, String name) {
-        int count = 0;
-        if (innings.getBowlerOversMap() != null
-                && innings.getBowlerOversMap().containsKey(name)) {
-            count = innings.getBowlerOversMap().get(name);
-        }
-        return count > 0 ? "  (" + count + " ov)" : "";
+    private List<Player> getBowlingTeamPlayers() {
+        boolean homeFirst = match.getBattingFirstTeam().equals("home");
+        if (match.getCurrentInnings() == 1) return homeFirst ? match.getAwayPlayers() : match.getHomePlayers();
+        return homeFirst ? match.getHomePlayers() : match.getAwayPlayers();
     }
 
-    /** Returns the list of players from the team currently bowling. */
-    private List<Player> getBowlingTeamPlayers() {
-        int     inningsNum = match.getCurrentInnings();
-        boolean homeFirst  = match.getBattingFirstTeam().equals("home");
-        if (inningsNum == 1) {
-            return homeFirst ? match.getAwayPlayers() : match.getHomePlayers();
-        } else {
-            return homeFirst ? match.getHomePlayers() : match.getAwayPlayers();
+    // ─── Retired Hurt dialog ──────────────────────────────────────────────────
+
+    /**
+     * Shows a confirmation dialog then picks the replacement batsman.
+     * The retiring player is NOT dismissed — they go to "Retired Hurt" state.
+     */
+    private void showRetiredHurtDialog() {
+        Player striker = engine.getStriker();
+        new AlertDialog.Builder(this)
+                .setTitle("Retired Hurt")
+                .setMessage(striker.getName() + " will retire hurt. Select the replacement batsman.")
+                .setPositiveButton("Continue", (d, w) -> showRetiredHurtReplacementDialog())
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void showRetiredHurtReplacementDialog() {
+        List<Player> available = engine.getAvailableBatsmen();
+        if (available.isEmpty()) {
+            Toast.makeText(this, "No available batsmen to replace retired hurt player", Toast.LENGTH_SHORT).show();
+            return;
         }
+        String[] names = new String[available.size()];
+        List<Player> batters = match.getCurrentBattingPlayers();
+        for (int i = 0; i < available.size(); i++) names[i] = (i+1) + ". " + available.get(i).getName();
+        final int[] chosen = {0};
+        new AlertDialog.Builder(this)
+                .setTitle("Select replacement batsman")
+                .setSingleChoiceItems(names, 0, (d, w) -> chosen[0] = w)
+                .setPositiveButton("Confirm", (d, w) -> {
+                    Player p = available.get(chosen[0]);
+                    int idx = batters.indexOf(p);
+                    handleMatchState(engine.deliverRetiredHurt(idx));
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    // ─── Return-to-bat prompt chain ───────────────────────────────────────────
+
+    /**
+     * Called when all active batsmen are out (PROMPT_RETIRED_HURT).
+     * Prompts each retired-hurt player in order. Chains to the next
+     * player after each answer.
+     */
+    private void promptRetiredHurtPlayers() {
+        List<Player> batters     = match.getCurrentBattingPlayers();
+        List<Player> retiredHurt = engine.getRetiredHurtPlayers(batters);
+
+        if (retiredHurt.isEmpty()) {
+            // No retired-hurt players left — innings is over
+            handleMatchState(MatchEngine.MatchState.INNINGS_COMPLETE);
+            return;
+        }
+
+        // Prompt the first one in the list
+        Player next = retiredHurt.get(0);
+        int playerIndex = batters.indexOf(next);
+
+        new AlertDialog.Builder(this)
+                .setTitle("Retired Hurt — Return to bat?")
+                .setMessage(next.getName() + " was retired hurt.\nDo they want to return to bat?")
+                .setCancelable(false)
+                .setPositiveButton("Return to bat", (d, w) -> {
+                    MatchEngine.MatchState state = engine.returnFromRetiredHurt(playerIndex, true);
+                    LiveMatchState.persist(this, match);
+                    refreshUI();
+                    // Player returns — re-enable buttons and continue
+                    setBallButtonsEnabled(true);
+                    if (state == MatchEngine.MatchState.PROMPT_RETIRED_HURT) {
+                        promptRetiredHurtPlayers(); // shouldn't normally reach here after return
+                    } else {
+                        handleMatchState(state);
+                    }
+                })
+                .setNegativeButton("Retire out", (d, w) -> {
+                    MatchEngine.MatchState state = engine.returnFromRetiredHurt(playerIndex, false);
+                    LiveMatchState.persist(this, match);
+                    refreshUI();
+                    if (state == MatchEngine.MatchState.PROMPT_RETIRED_HURT) {
+                        promptRetiredHurtPlayers(); // chain to next retired-hurt player
+                    } else {
+                        handleMatchState(state);
+                    }
+                })
+                .show();
     }
 
     // ─── Reset helpers ────────────────────────────────────────────────────────
 
     private void resetAndReshowOpeners() {
-        Innings      innings = match.getCurrentInningsData();
-        List<Player> players = match.getCurrentBattingPlayers();
-        boolean      single  = match.isSingleBatsmanMode();
-        for (Player p : players) { p.setHasNotBatted(true); p.setOut(false); }
-        innings.setStrikerIndex(0);
-        innings.setNonStrikerIndex(single ? -1 : 1);
-        innings.setNextBatsmanIndex(single ? 1 : 2);
-        innings.setBowlerSelected(false);
-        innings.setCurrentBowlerIndex(-1);
-        innings.setCurrentBowlerName("");
-        LiveMatchState.persist(this, match);
-        setBallButtonsEnabled(false);
-        refreshUI();
+        Innings inn = match.getCurrentInningsData(); List<Player> pl = match.getCurrentBattingPlayers();
+        for (Player p : pl) { p.setHasNotBatted(true); p.setOut(false); p.setRetiredHurt(false); }
+        inn.setStrikerIndex(0); inn.setNonStrikerIndex(match.isSingleBatsmanMode()?-1:1);
+        inn.setNextBatsmanIndex(match.isSingleBatsmanMode()?1:2); inn.setBowlerSelected(false);
+        inn.setCurrentBowlerIndex(-1); inn.setCurrentBowlerName("");
+        LiveMatchState.persist(this, match); setBallButtonsEnabled(false); refreshUI();
         showOpenerSelectionDialog();
     }
 
     private void resetAndReshowBowler() {
-        Innings innings = match.getCurrentInningsData();
-        innings.setBowlerSelected(false);
-        innings.setCurrentBowlerIndex(-1);
-        innings.setCurrentBowlerName("");
-        if (innings.getCurrentOver() != null) {
-            innings.getCurrentOver().setBowlerIndex(-1);
-            innings.getCurrentOver().setBowlerName("");
-        }
-        LiveMatchState.persist(this, match);
-        refreshUI();
-        showBowlerSelectionDialog();
+        Innings inn = match.getCurrentInningsData();
+        inn.setBowlerSelected(false); inn.setCurrentBowlerIndex(-1); inn.setCurrentBowlerName("");
+        if (inn.getCurrentOver() != null) { inn.getCurrentOver().setBowlerIndex(-1); inn.getCurrentOver().setBowlerName(""); }
+        LiveMatchState.persist(this, match); refreshUI(); showBowlerSelectionDialog();
     }
 
     private int nextAvail(List<Player> pl, int si, int ni) {
-        for (int i = 0; i < pl.size(); i++) if (i != si && i != ni) return i;
-        return pl.size();
+        for (int i = 0; i < pl.size(); i++) if (i!=si&&i!=ni) return i; return pl.size();
     }
 
     // ─── Enable/disable buttons ───────────────────────────────────────────────
 
     private void setBallButtonsEnabled(boolean e) {
         float a = e ? 1f : 0.35f;
-        btnDot.setEnabled(e);    btnDot.setAlpha(a);
-        btn1.setEnabled(e);      btn1.setAlpha(a);
-        btn2.setEnabled(e);      btn2.setAlpha(a);
-        btn3.setEnabled(e);      btn3.setAlpha(a);
-        btn4.setEnabled(e);      btn4.setAlpha(a);
-        btn6.setEnabled(e);      btn6.setAlpha(a);
-        btnWide.setEnabled(e);   btnWide.setAlpha(a);
-        btnNoBall.setEnabled(e); btnNoBall.setAlpha(a);
+        btnDot.setEnabled(e); btnDot.setAlpha(a); btn1.setEnabled(e); btn1.setAlpha(a);
+        btn2.setEnabled(e); btn2.setAlpha(a); btn3.setEnabled(e); btn3.setAlpha(a);
+        btn4.setEnabled(e); btn4.setAlpha(a); btn6.setEnabled(e); btn6.setAlpha(a);
+        btnWide.setEnabled(e); btnWide.setAlpha(a); btnNoBall.setEnabled(e); btnNoBall.setAlpha(a);
         btnWicket.setEnabled(e); btnWicket.setAlpha(a);
+        btnRetiredHurt.setEnabled(e); btnRetiredHurt.setAlpha(a);
         btnUndo.setEnabled(true); btnUndo.setAlpha(1f);
     }
 
     // ─── View binding ─────────────────────────────────────────────────────────
 
     private void bindViews() {
-        tvInningsTitle     = findViewById(R.id.tv_innings_title);
-        tvScore            = findViewById(R.id.tv_score);
-        tvOversInfo        = findViewById(R.id.tv_overs_info);
-        tvCRR              = findViewById(R.id.tv_crr);
-        tvRRR              = findViewById(R.id.tv_rrr);
-        tvModeBadge        = findViewById(R.id.tv_mode_badge);
-        layoutTargetBanner = findViewById(R.id.layout_target_banner);
-        tvTargetInfo       = findViewById(R.id.tv_target_info);
-        tvRequiredBalls    = findViewById(R.id.tv_required_balls);
-        tableBatsmen       = findViewById(R.id.table_batsmen);
-        tvCurrentOverLabel = findViewById(R.id.tv_current_over_label);
-        tvBallsRemaining   = findViewById(R.id.tv_balls_remaining);
-        tvCurrentBowler    = findViewById(R.id.tv_current_bowler);
-        rvCurrentOverBalls = findViewById(R.id.rv_current_over_balls);
-        rvOverHistory      = findViewById(R.id.rv_over_history);
-        tvBowlerSummary    = findViewById(R.id.tv_bowler_summary);
-        btnDot    = findViewById(R.id.btn_dot);
-        btn1      = findViewById(R.id.btn_1);
-        btn2      = findViewById(R.id.btn_2);
-        btn3      = findViewById(R.id.btn_3);
-        btn4      = findViewById(R.id.btn_4);
-        btn6      = findViewById(R.id.btn_6);
-        btnWide   = findViewById(R.id.btn_wide);
-        btnNoBall = findViewById(R.id.btn_noball);
-        btnWicket = findViewById(R.id.btn_wicket);
-        btnUndo   = findViewById(R.id.btn_undo);
+        tvInningsTitle = findViewById(R.id.tv_innings_title); tvScore = findViewById(R.id.tv_score);
+        tvOversInfo = findViewById(R.id.tv_overs_info); tvCRR = findViewById(R.id.tv_crr); tvRRR = findViewById(R.id.tv_rrr);
+        tvModeBadge = findViewById(R.id.tv_mode_badge); layoutTargetBanner = findViewById(R.id.layout_target_banner);
+        tvTargetInfo = findViewById(R.id.tv_target_info); tvRequiredBalls = findViewById(R.id.tv_required_balls);
+        tableBatsmen = findViewById(R.id.table_batsmen); tvCurrentOverLabel = findViewById(R.id.tv_current_over_label);
+        tvBallsRemaining = findViewById(R.id.tv_balls_remaining); tvCurrentBowler = findViewById(R.id.tv_current_bowler);
+        rvCurrentOverBalls = findViewById(R.id.rv_current_over_balls); rvOverHistory = findViewById(R.id.rv_over_history);
+        tvBowlerSummary = findViewById(R.id.tv_bowler_summary);
+        btnDot = findViewById(R.id.btn_dot); btn1 = findViewById(R.id.btn_1); btn2 = findViewById(R.id.btn_2);
+        btn3 = findViewById(R.id.btn_3); btn4 = findViewById(R.id.btn_4); btn6 = findViewById(R.id.btn_6);
+        btnWide = findViewById(R.id.btn_wide); btnNoBall = findViewById(R.id.btn_noball);
+        btnWicket = findViewById(R.id.btn_wicket); btnRetiredHurt = findViewById(R.id.btn_retired_hurt);
+        btnUndo = findViewById(R.id.btn_undo);
     }
 
     private void setupAdapters() {
         ballAdapter = new BallAdapter(new ArrayList<>());
-        rvCurrentOverBalls.setLayoutManager(
-                new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
+        rvCurrentOverBalls.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
         rvCurrentOverBalls.setAdapter(ballAdapter);
-
         overHistoryAdapter = new OverHistoryAdapter(new ArrayList<>());
         rvOverHistory.setLayoutManager(new LinearLayoutManager(this));
         rvOverHistory.setAdapter(overHistoryAdapter);
@@ -352,33 +330,21 @@ public class InningsActivity extends AppCompatActivity {
     // ─── Click listeners ──────────────────────────────────────────────────────
 
     private void setClickListeners() {
-        btnDot.setOnClickListener(v    -> handleBall(0));
-        btn1.setOnClickListener(v      -> handleBall(1));
-        btn2.setOnClickListener(v      -> handleBall(2));
-        btn3.setOnClickListener(v      -> handleBall(3));
-        btn4.setOnClickListener(v      -> handleBall(4));
-        btn6.setOnClickListener(v      -> handleBall(6));
-        btnWide.setOnClickListener(v   -> handleMatchState(engine.deliverWide()));
+        btnDot.setOnClickListener(v -> handleBall(0));
+        btn1.setOnClickListener(v -> handleBall(1)); btn2.setOnClickListener(v -> handleBall(2));
+        btn3.setOnClickListener(v -> handleBall(3)); btn4.setOnClickListener(v -> handleBall(4));
+        btn6.setOnClickListener(v -> handleBall(6));
+        btnWide.setOnClickListener(v -> handleMatchState(engine.deliverWide()));
         btnNoBall.setOnClickListener(v -> handleMatchState(engine.deliverNoBall()));
         btnWicket.setOnClickListener(v -> showWicketDialog());
-
+        btnRetiredHurt.setOnClickListener(v -> showRetiredHurtDialog());
         btnUndo.setOnClickListener(v -> {
             if (isCurrentOverEmpty()) {
-                if (isInningsJustStarted()) {
-                    // Very first ball of innings — reopen opener selection
-                    resetAndReshowOpeners();
-                } else {
-                    // Start of a subsequent over — reopen bowler selection
-                    resetAndReshowBowler();
-                }
+                if (isInningsJustStarted()) resetAndReshowOpeners();
+                else resetAndReshowBowler();
             } else {
-                // Normal undo of last ball
-                if (!engine.undoLastBall()) {
-                    Toast.makeText(this, "Nothing to undo", Toast.LENGTH_SHORT).show();
-                } else {
-                    LiveMatchState.persist(this, match);
-                    refreshUI();
-                }
+                if (!engine.undoLastBall()) Toast.makeText(this, "Nothing to undo", Toast.LENGTH_SHORT).show();
+                else { LiveMatchState.persist(this, match); refreshUI(); }
             }
         });
     }
@@ -387,21 +353,14 @@ public class InningsActivity extends AppCompatActivity {
 
     private void showWicketDialog() {
         List<Player> available = engine.getAvailableBatsmen();
-        if (available.isEmpty()) {
-            handleMatchState(engine.deliverWicket(engine.getNextBatsmanIndex()));
-            return;
-        }
-        String[]           names   = new String[available.size()];
-        final List<Player> batters = match.getCurrentBattingPlayers();
-        for (int i = 0; i < available.size(); i++)
-            names[i] = (i+1) + ". " + available.get(i).getName();
-        final int[] chosen = {0};
-        new AlertDialog.Builder(this)
-                .setTitle("Wicket — choose next batsman")
-                .setSingleChoiceItems(names, 0, (d, w) -> chosen[0] = w)
-                .setPositiveButton("Confirm", (d, w) ->
-                        handleMatchState(engine.deliverWicket(
-                                batters.indexOf(available.get(chosen[0])))))
+        if (available.isEmpty()) { handleMatchState(engine.deliverWicket(engine.getNextBatsmanIndex())); return; }
+        String[] names = new String[available.size()];
+        List<Player> batters = match.getCurrentBattingPlayers();
+        for (int i = 0; i < available.size(); i++) names[i] = (i+1)+". "+available.get(i).getName();
+        final int[] ch = {0};
+        new AlertDialog.Builder(this).setTitle("Wicket — choose next batsman")
+                .setSingleChoiceItems(names, 0, (d, w) -> ch[0] = w)
+                .setPositiveButton("Confirm", (d, w) -> handleMatchState(engine.deliverWicket(batters.indexOf(available.get(ch[0])))))
                 .setNegativeButton("Cancel", null).show();
     }
 
@@ -410,124 +369,106 @@ public class InningsActivity extends AppCompatActivity {
     private void handleMatchState(MatchEngine.MatchState state) {
         switch (state) {
             case BALL_RECORDED:
-                LiveMatchState.persist(this, match);
-                refreshUI();
-                break;
+                LiveMatchState.persist(this, match); refreshUI(); break;
             case OVER_COMPLETE:
-                LiveMatchState.persist(this, match);
-                refreshUI();
-                int oversDone = match.getCurrentInningsData().getCompletedOvers().size();
-                Toast.makeText(this, "Over " + oversDone + " complete!", Toast.LENGTH_SHORT).show();
-                // Show bowler selection for the next over
-                showBowlerSelectionDialog();
-                break;
+                LiveMatchState.persist(this, match); refreshUI();
+                Toast.makeText(this, "Over "+match.getCurrentInningsData().getCompletedOvers().size()+" complete!", Toast.LENGTH_SHORT).show();
+                showBowlerSelectionDialog(); break;
             case INNINGS_COMPLETE:
                 LiveMatchState.persist(this, match);
-                startActivity(new Intent(this, InningsBreakActivity.class));
-                finish();
-                break;
+                startActivity(new Intent(this, InningsBreakActivity.class)); finish(); break;
             case MATCH_COMPLETE:
                 LiveMatchState.clear(this);
-                startActivity(new Intent(this, StatsActivity.class));
-                finish();
-                break;
+                startActivity(new Intent(this, StatsActivity.class)); finish(); break;
+            case PROMPT_RETIRED_HURT:
+                // All active batsmen done — prompt each retired-hurt player
+                LiveMatchState.persist(this, match);
+                setBallButtonsEnabled(false);
+                refreshUI();
+                promptRetiredHurtPlayers(); break;
         }
     }
 
     // ─── UI refresh ───────────────────────────────────────────────────────────
 
     private void refreshUI() {
-        Innings innings    = match.getCurrentInningsData();
-        int     inningsNum = match.getCurrentInnings();
-        boolean isSingle   = match.isSingleBatsmanMode();
+        Innings innings = match.getCurrentInningsData();
+        int inum = match.getCurrentInnings(); boolean single = match.isSingleBatsmanMode();
 
-        tvInningsTitle.setText(inningsNum == 1 ? "1st Innings" : "2nd Innings");
+        tvInningsTitle.setText(inum==1?"1st Innings":"2nd Innings");
         tvScore.setText(innings.getScoreString());
-        tvOversInfo.setText(String.format(Locale.US, "Ov %s / %d",
-                innings.getOversString(), match.getMaxOvers()));
-        tvCRR.setText(String.format(Locale.US, "CRR: %.2f", innings.getCurrentRunRate()));
-        tvModeBadge.setText(isSingle ? "Single bat" : "Two bat");
-        tvModeBadge.setVisibility(View.VISIBLE);
+        tvOversInfo.setText(String.format(Locale.US,"Ov %s / %d",innings.getOversString(),match.getMaxOvers()));
+        tvCRR.setText(String.format(Locale.US,"CRR: %.2f",innings.getCurrentRunRate()));
+        tvModeBadge.setText(single?"Single bat":"Two bat"); tvModeBadge.setVisibility(View.VISIBLE);
 
-        // Current bowler label
         if (innings.isBowlerSelected() && !innings.getCurrentBowlerName().isEmpty()) {
-            tvCurrentBowler.setText("Bowling: " + innings.getCurrentBowlerName());
-            tvCurrentBowler.setVisibility(View.VISIBLE);
-        } else {
-            tvCurrentBowler.setVisibility(View.GONE);
-        }
+            tvCurrentBowler.setText("Bowling: "+innings.getCurrentBowlerName()); tvCurrentBowler.setVisibility(View.VISIBLE);
+        } else tvCurrentBowler.setVisibility(View.GONE);
 
-        if (inningsNum == 2) {
-            int target = match.getTarget();
-            layoutTargetBanner.setVisibility(View.VISIBLE);
-            tvRRR.setVisibility(View.VISIBLE);
-            tvTargetInfo.setText("Target: " + target);
-            tvRequiredBalls.setText("Need " + innings.getRunsNeeded(target)
-                    + " off " + innings.getBallsRemaining(match.getMaxOvers()) + " balls");
-            tvRRR.setText(String.format(Locale.US, "RRR: %.2f",
-                    innings.getRequiredRunRate(target, match.getMaxOvers())));
-        } else {
-            layoutTargetBanner.setVisibility(View.GONE);
-            tvRRR.setVisibility(View.GONE);
-        }
+        if (inum==2) {
+            int t=match.getTarget(); layoutTargetBanner.setVisibility(View.VISIBLE); tvRRR.setVisibility(View.VISIBLE);
+            tvTargetInfo.setText("Target: "+t);
+            tvRequiredBalls.setText("Need "+innings.getRunsNeeded(t)+" off "+innings.getBallsRemaining(match.getMaxOvers())+" balls");
+            tvRRR.setText(String.format(Locale.US,"RRR: %.2f",innings.getRequiredRunRate(t,match.getMaxOvers())));
+        } else { layoutTargetBanner.setVisibility(View.GONE); tvRRR.setVisibility(View.GONE); }
 
-        refreshBattingTable(innings, isSingle);
+        refreshBattingTable(innings, single);
         refreshCurrentOver(innings);
         overHistoryAdapter.updateData(innings.getCompletedOvers());
 
-        // Bowler summary below over history
         String summary = innings.getBowlerSummary();
-        if (!summary.isEmpty()) {
-            tvBowlerSummary.setText(summary);
-            tvBowlerSummary.setVisibility(View.VISIBLE);
-        } else {
-            tvBowlerSummary.setVisibility(View.GONE);
-        }
+        if (!summary.isEmpty()) { tvBowlerSummary.setText(summary); tvBowlerSummary.setVisibility(View.VISIBLE); }
+        else tvBowlerSummary.setVisibility(View.GONE);
     }
 
-    private void refreshBattingTable(Innings innings, boolean isSingle) {
+    private void refreshBattingTable(Innings innings, boolean single) {
         tableBatsmen.removeAllViews();
-        addTableRow(new String[]{"Batsman","R","B","4s","6s","SR"}, true, false, false);
-        List<Player> players       = match.getCurrentBattingPlayers();
-        int          strikerIdx    = innings.getStrikerIndex();
-        int          nonStrikerIdx = innings.getNonStrikerIndex();
+        addTableRow(new String[]{"Batsman","R","B","4s","6s","SR"}, true, false, false, false);
+
+        List<Player> players = match.getCurrentBattingPlayers();
+        int si = innings.getStrikerIndex(), nsi = innings.getNonStrikerIndex();
+
         for (int i = 0; i < players.size(); i++) {
-            Player  p                   = players.get(i);
-            boolean isStriker           = (i == strikerIdx) && !p.isOut();
-            boolean isNonStriker        = !isSingle && (i == nonStrikerIdx) && !p.isOut();
-            boolean atCrease            = isStriker || isNonStriker;
+            Player  p = players.get(i);
+            boolean isStriker    = (i==si)   && !p.isOut() && !p.isRetiredHurt();
+            boolean isNonStriker = !single && (i==nsi) && !p.isOut() && !p.isRetiredHurt();
+            boolean atCrease     = isStriker || isNonStriker;
+
             if (p.isHasNotBatted() && !atCrease) continue;
-            String name = isStriker    ? "⚡ " + p.getName()
-                        : isNonStriker ? "  " + p.getName()
-                        : p.getName();
-            String sr = p.getBallsFaced() > 0
-                    ? String.format(Locale.US, "%.1f", p.getStrikeRate()) : "-";
-            addTableRow(new String[]{name, String.valueOf(p.getRunsScored()),
-                    String.valueOf(p.getBallsFaced()), String.valueOf(p.getFours()),
-                    String.valueOf(p.getSixes()), sr},
-                    false, atCrease, p.isOut());
+
+            String name = isStriker?"⚡ "+p.getName(): isNonStriker?"  "+p.getName():p.getName();
+            String sr   = p.getBallsFaced()>0?String.format(Locale.US,"%.1f",p.getStrikeRate()):"-";
+            addTableRow(new String[]{name,String.valueOf(p.getRunsScored()),String.valueOf(p.getBallsFaced()),
+                    String.valueOf(p.getFours()),String.valueOf(p.getSixes()),sr},
+                    false, atCrease, p.isOut(), p.isRetiredHurt());
         }
     }
 
-    private void addTableRow(String[] cells, boolean hdr, boolean active, boolean out) {
+    /**
+     * @param retiredHurt shows amber text + "Ret." suffix on name column
+     */
+    private void addTableRow(String[] cells, boolean hdr, boolean active,
+                              boolean out, boolean retiredHurt) {
         TableRow row = new TableRow(this);
-        row.setLayoutParams(new TableRow.LayoutParams(
-                TableRow.LayoutParams.MATCH_PARENT, TableRow.LayoutParams.WRAP_CONTENT));
-        if (active)    row.setBackgroundColor(Color.parseColor("#E1F5EE"));
-        else if (hdr)  row.setBackgroundColor(Color.parseColor("#F1EFE8"));
+        row.setLayoutParams(new TableRow.LayoutParams(TableRow.LayoutParams.MATCH_PARENT, TableRow.LayoutParams.WRAP_CONTENT));
+        if (active)      row.setBackgroundColor(Color.parseColor("#E1F5EE"));
+        else if (hdr)    row.setBackgroundColor(Color.parseColor("#F1EFE8"));
+        else if (retiredHurt) row.setBackgroundColor(Color.parseColor("#FFF8E7")); // subtle amber tint
+
         int[] w = {3,1,1,1,1,1};
         for (int i = 0; i < cells.length; i++) {
             TextView tv = new TextView(this);
-            tv.setLayoutParams(new TableRow.LayoutParams(
-                    0, TableRow.LayoutParams.WRAP_CONTENT, w[i]));
-            tv.setText(cells[i]); tv.setPadding(12, 10, 12, 10); tv.setTextSize(12f);
+            tv.setLayoutParams(new TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, w[i]));
+            String cellText = cells[i];
+            if (i==0 && retiredHurt) cellText = cellText + " †"; // dagger = retired hurt marker
+            tv.setText(cellText); tv.setPadding(12,10,12,10); tv.setTextSize(12f);
             if (hdr) {
-                tv.setTextColor(Color.parseColor("#888780"));
-                tv.setTypeface(null, android.graphics.Typeface.BOLD);
+                tv.setTextColor(Color.parseColor("#888780")); tv.setTypeface(null, android.graphics.Typeface.BOLD);
             } else if (out) {
                 tv.setTextColor(Color.parseColor("#AAAAAA"));
-                if (i == 0) tv.setPaintFlags(
-                        tv.getPaintFlags() | android.graphics.Paint.STRIKE_THRU_TEXT_FLAG);
+                if (i==0) tv.setPaintFlags(tv.getPaintFlags()|android.graphics.Paint.STRIKE_THRU_TEXT_FLAG);
+            } else if (retiredHurt) {
+                tv.setTextColor(Color.parseColor("#BA7517")); // amber — "retired hurt" colour
             } else {
                 tv.setTextColor(Color.parseColor("#111111"));
             }
@@ -537,15 +478,13 @@ public class InningsActivity extends AppCompatActivity {
     }
 
     private void refreshCurrentOver(Innings innings) {
-        Over currentOver      = innings.getCurrentOver();
-        int  completedOverCnt = innings.getCompletedOvers().size();
-        tvCurrentOverLabel.setText("Over " + (completedOverCnt + 1));
-        int validCount = currentOver != null ? currentOver.getValidBallCount() : 0;
-        int remaining  = 6 - validCount;
-        tvBallsRemaining.setText(remaining + (remaining == 1 ? " ball left" : " balls left"));
-        List<Ball> displayBalls = new ArrayList<>();
-        if (currentOver != null) displayBalls.addAll(currentOver.getBalls());
-        for (int i = 0; i < Math.max(0, 6 - validCount); i++) displayBalls.add(null);
-        ballAdapter.updateData(displayBalls);
+        Over cur = innings.getCurrentOver(); int cnt = innings.getCompletedOvers().size();
+        tvCurrentOverLabel.setText("Over "+(cnt+1));
+        int valid = cur!=null?cur.getValidBallCount():0, rem=6-valid;
+        tvBallsRemaining.setText(rem+(rem==1?" ball left":" balls left"));
+        List<Ball> db = new ArrayList<>();
+        if (cur!=null) db.addAll(cur.getBalls());
+        for (int i=0;i<Math.max(0,6-valid);i++) db.add(null);
+        ballAdapter.updateData(db);
     }
 }
