@@ -13,46 +13,43 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.CricketScorer">
 
-        <!-- HOME -->
         <activity android:name=".activities.HomeActivity" android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
 
-        <!-- PLAYER COUNT -->
         <activity android:name=".activities.PlayerCountActivity"
             android:exported="false" android:label="Team Size"
-            android:parentActivityName=".activities.HomeActivity" />
+            android:parentActivityName=".activities.HomeActivity"/>
 
-        <!-- SETUP -->
         <activity android:name=".activities.SetupActivity"
             android:exported="false" android:label="Match Setup"
-            android:parentActivityName=".activities.PlayerCountActivity" />
+            android:parentActivityName=".activities.PlayerCountActivity"/>
 
-        <!-- INNINGS (live tracking) -->
         <activity android:name=".activities.InningsActivity"
-            android:exported="false" android:label="Live Match" />
+            android:exported="false" android:label="Live Match"/>
 
-        <!-- INNINGS BREAK -->
         <activity android:name=".activities.InningsBreakActivity"
-            android:exported="false" android:label="Innings Break" />
+            android:exported="false" android:label="Innings Break"/>
 
-        <!-- STATS — live result + save button -->
         <activity android:name=".activities.StatsActivity"
             android:exported="false" android:label="Match Statistics"
-            android:parentActivityName=".activities.HomeActivity" />
+            android:parentActivityName=".activities.HomeActivity"/>
 
-        <!-- RECENT MATCHES — paginated list of saved matches -->
+        <!-- In-depth analytics screen -->
+        <activity android:name=".activities.DeepStatsActivity"
+            android:exported="false" android:label="In-Depth Statistics"
+            android:parentActivityName=".activities.StatsActivity"/>
+
         <activity android:name=".activities.RecentMatchesActivity"
             android:exported="false" android:label="Recent Matches"
-            android:parentActivityName=".activities.HomeActivity" />
+            android:parentActivityName=".activities.HomeActivity"/>
 
-        <!-- MATCH SELECT — pick a saved match to view statistics -->
         <activity android:name=".activities.MatchSelectActivity"
             android:exported="false" android:label="Select Match"
-            android:parentActivityName=".activities.HomeActivity" />
+            android:parentActivityName=".activities.HomeActivity"/>
 
     </application>
 </manifest>
