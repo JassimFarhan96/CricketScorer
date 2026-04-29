@@ -558,23 +558,15 @@ public class DeepStatsActivity extends AppCompatActivity {
     // ─── Over-by-over bar chart ───────────────────────────────────────────────
 
     /**
-     * Over-by-over bar chart built from real Views instead of Canvas.
-     *
-     * Layout per row:
-     *   [Ov N — 52dp] | [bar track — proportional] | [runs value — 40dp]
-     *
-     * Each row has a fixed height (32dp). The entire list sits inside a
-     * vertical ScrollView (scrolls vertically when many overs) which itself
-     * sits inside a HorizontalScrollView (scrolls horizontally when bars +
-     * run value labels are wide). Both scroll independently.
-     *
-     * This guarantees the runs value is ALWAYS visible, no matter how many
-     * runs were scored in the over.
+     * Builds a tappable summary card for one team's over-by-over runs.
+     * Shows the first 3 overs as a preview. Tapping the card (or the
+     * "View all N overs →" button) opens a full-screen dialog with the
+     * complete list, both vertically and horizontally scrollable, plus
+     * a close button.
      */
     private View buildOverChart(String teamName, Innings innings, int barColor) {
         List<Over> overs = innings.getCompletedOvers();
 
-        // Outer wrapper (margin + section label)
         LinearLayout wrapper = new LinearLayout(this);
         wrapper.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams wp = lp(
@@ -582,7 +574,7 @@ public class DeepStatsActivity extends AppCompatActivity {
         wp.setMargins(dp(12), 0, dp(12), dp(12));
         wrapper.setLayoutParams(wp);
 
-        // Section sub-label
+        // Sub-label
         TextView lbl = tv(teamName.toUpperCase() + " — RUNS PER OVER",
                 10f, col(R.color.c_text_secondary), false);
         lbl.setPadding(0, dp(4), 0, dp(6));
@@ -593,141 +585,311 @@ public class DeepStatsActivity extends AppCompatActivity {
             return wrapper;
         }
 
-        // Find max runs in any single over — used to scale bar widths
+        // Find max runs for bar scaling
         int maxRuns = 1;
         for (Over ov : overs) maxRuns = Math.max(maxRuns, ov.getTotalRuns());
         final int maxRunsFinal = maxRuns;
 
-        // Card background
+        // Card that holds the preview + tap target
         androidx.cardview.widget.CardView card = new androidx.cardview.widget.CardView(this);
         card.setLayoutParams(lp(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         card.setRadius(dp(12));
         card.setCardElevation(dp(1));
         card.setCardBackgroundColor(col(R.color.c_bg_card));
+        card.setClickable(true);
+        card.setFocusable(true);
 
-        // Outer HorizontalScrollView — allows swiping left/right on wide bars
+        LinearLayout cardContent = new LinearLayout(this);
+        cardContent.setOrientation(LinearLayout.VERTICAL);
+        cardContent.setLayoutParams(lp(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        cardContent.setPadding(dp(12), dp(10), dp(12), dp(10));
+
+        // Preview: show first 4 overs (or all if ≤4)
+        int previewCount = Math.min(overs.size(), 4);
+        int screenW = getResources().getDisplayMetrics().widthPixels;
+        int trackW = screenW - dp(52) - dp(56) - dp(40); // label + value + card padding
+
+        for (int idx = 0; idx < previewCount; idx++) {
+            cardContent.addView(buildOverRow(overs.get(idx), idx, maxRunsFinal, trackW, barColor));
+        }
+
+        // "View all" row
+        LinearLayout viewAllRow = new LinearLayout(this);
+        viewAllRow.setOrientation(LinearLayout.HORIZONTAL);
+        viewAllRow.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams varp = lp(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        varp.setMargins(0, dp(8), 0, dp(2));
+        viewAllRow.setLayoutParams(varp);
+
+        View divLine = new View(this);
+        LinearLayout.LayoutParams divP = new LinearLayout.LayoutParams(0, dp(1), 1f);
+        divLine.setLayoutParams(divP);
+        divLine.setBackgroundColor(col(R.color.c_divider));
+        viewAllRow.addView(divLine);
+
+        String btnLabel = overs.size() <= 4
+                ? "Tap to view full details"
+                : "View all " + overs.size() + " overs  →";
+        TextView tvViewAll = tv(btnLabel, 12f, col(R.color.green_mid), true);
+        LinearLayout.LayoutParams tvP = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        tvP.setMargins(dp(12), 0, 0, 0);
+        tvViewAll.setLayoutParams(tvP);
+        viewAllRow.addView(tvViewAll);
+
+        cardContent.addView(viewAllRow);
+        card.addView(cardContent);
+        wrapper.addView(card);
+
+        // Tap anywhere on card to open full popup
+        card.setOnClickListener(v ->
+                showOverPopup(teamName, overs, maxRunsFinal, barColor));
+
+        return wrapper;
+    }
+
+    /**
+     * Builds a single over row: [Ov N] [====bar====] [runs]
+     * Reused in both the preview card and the full popup.
+     */
+    private View buildOverRow(Over ov, int index, int maxRuns, int trackW, int barColor) {
+        int rowH = dp(34);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams rowP = lp(LinearLayout.LayoutParams.MATCH_PARENT, rowH);
+        rowP.setMargins(0, dp(2), 0, dp(2));
+        row.setLayoutParams(rowP);
+        if (index % 2 == 0) row.setBackgroundColor(col(R.color.c_row_alt_bg));
+
+        // Over label
+        TextView tvOv = tv("Ov " + ov.getOverNumber(), 11f, col(R.color.c_text_secondary), false);
+        tvOv.setLayoutParams(new LinearLayout.LayoutParams(dp(52), LinearLayout.LayoutParams.WRAP_CONTENT));
+        tvOv.setGravity(Gravity.CENTER_VERTICAL);
+        row.addView(tvOv);
+
+        // Bar frame
+        int barFilledW = maxRuns > 0
+                ? (int)((float) ov.getTotalRuns() / maxRuns * trackW) : 0;
+
+        android.widget.FrameLayout barFrame = new android.widget.FrameLayout(this);
+        LinearLayout.LayoutParams bfP = new LinearLayout.LayoutParams(trackW, dp(18));
+        bfP.setMargins(dp(4), 0, dp(8), 0);
+        barFrame.setLayoutParams(bfP);
+
+        // Track
+        View track = new View(this);
+        track.setLayoutParams(new android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT));
+        android.graphics.drawable.GradientDrawable trackBg =
+                new android.graphics.drawable.GradientDrawable();
+        trackBg.setColor(Color.parseColor("#15888888"));
+        trackBg.setCornerRadius(dp(4));
+        track.setBackground(trackBg);
+        barFrame.addView(track);
+
+        // Filled bar
+        if (barFilledW > 0) {
+            View bar = new View(this);
+            bar.setLayoutParams(new android.widget.FrameLayout.LayoutParams(
+                    barFilledW, android.widget.FrameLayout.LayoutParams.MATCH_PARENT));
+            android.graphics.drawable.GradientDrawable barBg =
+                    new android.graphics.drawable.GradientDrawable();
+            barBg.setColor(barColor);
+            barBg.setAlpha(210);
+            barBg.setCornerRadius(dp(4));
+            bar.setBackground(barBg);
+            barFrame.addView(bar);
+        }
+        row.addView(barFrame);
+
+        // Runs value — always visible
+        TextView tvRuns = tv(String.valueOf(ov.getTotalRuns()), 13f, barColor, true);
+        tvRuns.setLayoutParams(new LinearLayout.LayoutParams(dp(40), LinearLayout.LayoutParams.WRAP_CONTENT));
+        tvRuns.setGravity(Gravity.CENTER_VERTICAL);
+        row.addView(tvRuns);
+
+        return row;
+    }
+
+    /**
+     * Shows a full-screen dialog popup with ALL overs for one team,
+     * both vertically and horizontally scrollable.
+     * Includes a close (✕) button at the top-right and a "Close" button
+     * at the bottom. Tapping outside the content or pressing Back also
+     * closes it.
+     */
+    private void showOverPopup(String teamName, List<Over> overs, int maxRuns, int barColor) {
+        // Dialog
+        android.app.Dialog dialog = new android.app.Dialog(this, R.style.Theme_CricketScorer);
+        dialog.setContentView(buildPopupContent(teamName, overs, maxRuns, barColor, dialog));
+        dialog.getWindow().setLayout(
+                android.view.WindowManager.LayoutParams.MATCH_PARENT,
+                android.view.WindowManager.LayoutParams.MATCH_PARENT);
+        dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        dialog.setCancelable(true); // back button closes
+        dialog.show();
+    }
+
+    private View buildPopupContent(String teamName, List<Over> overs,
+                                    int maxRuns, int barColor,
+                                    android.app.Dialog dialog) {
+        // Root: dark semi-transparent overlay → centred card
+        android.widget.FrameLayout root = new android.widget.FrameLayout(this);
+        root.setLayoutParams(new android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT));
+        root.setBackgroundColor(Color.parseColor("#CC000000")); // dim overlay
+        root.setOnClickListener(v -> dialog.dismiss()); // tap outside → close
+
+        // Content card (does NOT propagate click to overlay)
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        android.widget.FrameLayout.LayoutParams cp =
+                new android.widget.FrameLayout.LayoutParams(
+                        android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                        android.widget.FrameLayout.LayoutParams.WRAP_CONTENT);
+        cp.setMargins(dp(16), dp(60), dp(16), dp(60));
+        cp.gravity = Gravity.CENTER_VERTICAL;
+        content.setLayoutParams(cp);
+        android.graphics.drawable.GradientDrawable contentBg =
+                new android.graphics.drawable.GradientDrawable();
+        contentBg.setColor(col(R.color.c_bg_card));
+        contentBg.setCornerRadius(dp(16));
+        content.setBackground(contentBg);
+        content.setOnClickListener(v -> { /* consume — don't dismiss */ });
+
+        // ── Header row: title + ✕ close button ────────────────────────────
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(dp(20), dp(16), dp(12), dp(12));
+        header.setBackgroundColor(col(R.color.green_dark));
+        // Round only top corners
+        android.graphics.drawable.GradientDrawable headerBg =
+                new android.graphics.drawable.GradientDrawable();
+        headerBg.setColor(col(R.color.green_dark));
+        headerBg.setCornerRadii(new float[]{
+                dp(16), dp(16), dp(16), dp(16), // top-left, top-right
+                0, 0, 0, 0                        // bottom-right, bottom-left
+        });
+        header.setBackground(headerBg);
+
+        LinearLayout titleCol = new LinearLayout(this);
+        titleCol.setOrientation(LinearLayout.VERTICAL);
+        titleCol.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        TextView tvTitle = tv(teamName.toUpperCase() + " — RUNS PER OVER",
+                14f, Color.WHITE, true);
+        titleCol.addView(tvTitle);
+        TextView tvSub = tv("All " + overs.size() + " over" + (overs.size() == 1 ? "" : "s"),
+                11f, Color.parseColor("#AADECE"), false);
+        LinearLayout.LayoutParams subP = lp(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        subP.setMargins(0, dp(2), 0, 0); tvSub.setLayoutParams(subP);
+        titleCol.addView(tvSub);
+
+        header.addView(titleCol);
+
+        // ✕ close button
+        TextView btnClose = new TextView(this);
+        btnClose.setText("✕");
+        btnClose.setTextSize(20f);
+        btnClose.setTextColor(Color.WHITE);
+        btnClose.setPadding(dp(12), dp(8), dp(12), dp(8));
+        btnClose.setTypeface(null, Typeface.BOLD);
+        btnClose.setClickable(true);
+        btnClose.setFocusable(true);
+        btnClose.setBackground(null);
+        btnClose.setOnClickListener(v -> dialog.dismiss());
+        header.addView(btnClose);
+
+        content.addView(header);
+
+        // ── Summary stats row ──────────────────────────────────────────────
+        int totalRuns = 0, maxOvRuns = 0, minOvRuns = Integer.MAX_VALUE;
+        int maxOvNum = 1, minOvNum = 1;
+        for (Over ov : overs) {
+            totalRuns += ov.getTotalRuns();
+            if (ov.getTotalRuns() > maxOvRuns) { maxOvRuns = ov.getTotalRuns(); maxOvNum = ov.getOverNumber(); }
+            if (ov.getTotalRuns() < minOvRuns) { minOvRuns = ov.getTotalRuns(); minOvNum = ov.getOverNumber(); }
+        }
+        float avg = (float) totalRuns / overs.size();
+
+        LinearLayout statsRow = new LinearLayout(this);
+        statsRow.setOrientation(LinearLayout.HORIZONTAL);
+        statsRow.setPadding(dp(8), dp(10), dp(8), dp(10));
+        statsRow.setBackgroundColor(col(R.color.c_bg_card_alt));
+        statsRow.addView(miniStat("Total", String.valueOf(totalRuns) + " runs", barColor));
+        statsRow.addView(miniStat("Average", String.format(Locale.US, "%.1f / ov", avg), barColor));
+        statsRow.addView(miniStat("Best over", "Ov " + maxOvNum + "  (" + maxOvRuns + ")", barColor));
+        statsRow.addView(miniStat("Least", "Ov " + minOvNum + "  (" + (minOvRuns == Integer.MAX_VALUE ? 0 : minOvRuns) + ")", barColor));
+        content.addView(statsRow);
+
+        // Divider
+        View div = new View(this); div.setLayoutParams(lp(LinearLayout.LayoutParams.MATCH_PARENT, dp(1)));
+        div.setBackgroundColor(col(R.color.c_divider)); content.addView(div);
+
+        // ── Scrollable over list (both directions) ─────────────────────────
+        int screenW = getResources().getDisplayMetrics().widthPixels;
+        int popupTrackW = screenW - dp(52) - dp(56) - dp(64); // narrower inside popup
+
         HorizontalScrollView hScroll = new HorizontalScrollView(this);
-        hScroll.setLayoutParams(lp(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         hScroll.setHorizontalScrollBarEnabled(true);
         hScroll.setFillViewport(true);
 
-        // Inner vertical ScrollView — allows scrolling through many overs
-        // Cap visible height to ~6 rows; user scrolls to see more
-        int maxVisibleRows = Math.min(overs.size(), 7);
-        int rowH = dp(34);
-        int visibleH = maxVisibleRows * rowH + dp(16); // +padding
+        // Height: show all overs up to ~10 rows, then scroll
+        int maxRows  = Math.min(overs.size(), 10);
+        int rowH     = dp(34);
+        int listH    = maxRows * rowH + dp(16);
 
         ScrollView vScroll = new ScrollView(this);
         vScroll.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, visibleH));
+                LinearLayout.LayoutParams.MATCH_PARENT, listH));
         vScroll.setVerticalScrollBarEnabled(true);
-        vScroll.setFillViewport(false);
 
-        // Container for all over rows
         LinearLayout rowContainer = new LinearLayout(this);
         rowContainer.setOrientation(LinearLayout.VERTICAL);
-        rowContainer.setLayoutParams(lp(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-        rowContainer.setPadding(dp(8), dp(8), dp(8), dp(8));
+        rowContainer.setPadding(dp(8), dp(4), dp(8), dp(4));
 
-        // Minimum bar track width = screen width minus labels
-        int screenW = getResources().getDisplayMetrics().widthPixels;
-        int trackMinW = screenW - dp(52) - dp(48) - dp(32); // label + value + padding
-
-        for (Over ov : overs) {
-            LinearLayout row = new LinearLayout(this);
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setGravity(Gravity.CENTER_VERTICAL);
-            LinearLayout.LayoutParams rowParams = lp(
-                    LinearLayout.LayoutParams.MATCH_PARENT, rowH);
-            rowParams.setMargins(0, dp(2), 0, dp(2));
-            row.setLayoutParams(rowParams);
-
-            // Alternating background
-            int rowIndex = overs.indexOf(ov);
-            if (rowIndex % 2 == 0) {
-                row.setBackgroundColor(col(R.color.c_row_alt_bg));
-            }
-
-            // ── Over label (fixed 52dp) ─────────────────────────────────
-            TextView tvOv = tv("Ov " + ov.getOverNumber(),
-                    11f, col(R.color.c_text_secondary), false);
-            LinearLayout.LayoutParams ovP = new LinearLayout.LayoutParams(dp(52), LinearLayout.LayoutParams.WRAP_CONTENT);
-            tvOv.setLayoutParams(ovP);
-            tvOv.setGravity(Gravity.CENTER_VERTICAL);
-            row.addView(tvOv);
-
-            // ── Bar track + filled bar ──────────────────────────────────
-            // Track width proportional to max: at least trackMinW, expands with runs
-            int barTrackW = Math.max(trackMinW, dp(80));
-            int barFilledW = maxRunsFinal > 0
-                    ? (int)((float) ov.getTotalRuns() / maxRunsFinal * barTrackW)
-                    : 0;
-
-            // Container for track + bar (FrameLayout for overlay)
-            android.widget.FrameLayout barFrame = new android.widget.FrameLayout(this);
-            LinearLayout.LayoutParams bfP = new LinearLayout.LayoutParams(
-                    barTrackW, dp(18));
-            bfP.setMargins(dp(4), 0, dp(8), 0);
-            barFrame.setLayoutParams(bfP);
-
-            // Track (grey background)
-            View track = new View(this);
-            android.widget.FrameLayout.LayoutParams trackP =
-                    new android.widget.FrameLayout.LayoutParams(
-                            android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-                            android.widget.FrameLayout.LayoutParams.MATCH_PARENT);
-            track.setLayoutParams(trackP);
-            android.graphics.drawable.GradientDrawable trackBg =
-                    new android.graphics.drawable.GradientDrawable();
-            trackBg.setColor(Color.parseColor("#15888888"));
-            trackBg.setCornerRadius(dp(4));
-            track.setBackground(trackBg);
-            barFrame.addView(track);
-
-            // Filled bar (coloured)
-            if (barFilledW > 0) {
-                View bar = new View(this);
-                android.widget.FrameLayout.LayoutParams barP =
-                        new android.widget.FrameLayout.LayoutParams(barFilledW,
-                                android.widget.FrameLayout.LayoutParams.MATCH_PARENT);
-                bar.setLayoutParams(barP);
-                android.graphics.drawable.GradientDrawable barBg =
-                        new android.graphics.drawable.GradientDrawable();
-                barBg.setColor(barColor);
-                barBg.setAlpha(200);
-                barBg.setCornerRadius(dp(4));
-                bar.setBackground(barBg);
-                barFrame.addView(bar);
-            }
-            row.addView(barFrame);
-
-            // ── Runs value (always visible, fixed 40dp) ─────────────────
-            TextView tvRuns = tv(String.valueOf(ov.getTotalRuns()),
-                    13f, barColor, true);
-            LinearLayout.LayoutParams runsP = new LinearLayout.LayoutParams(dp(40),
-                    LinearLayout.LayoutParams.WRAP_CONTENT);
-            tvRuns.setLayoutParams(runsP);
-            tvRuns.setGravity(Gravity.CENTER_VERTICAL);
-            row.addView(tvRuns);
-
-            rowContainer.addView(row);
+        for (int i = 0; i < overs.size(); i++) {
+            rowContainer.addView(buildOverRow(overs.get(i), i, maxRuns, popupTrackW, barColor));
         }
 
         vScroll.addView(rowContainer);
         hScroll.addView(vScroll);
-        card.addView(hScroll);
-        wrapper.addView(card);
+        content.addView(hScroll);
 
-        // Scroll hint (only shown if overs > 7)
-        if (overs.size() > 7) {
-            TextView hint = tv("Scroll to see all " + overs.size() + " overs",
-                    10f, col(R.color.c_text_hint), false);
-            hint.setPadding(dp(4), dp(4), 0, 0);
-            wrapper.addView(hint);
-        }
+        // ── Close button at bottom ─────────────────────────────────────────
+        android.widget.Button btnBottom = new android.widget.Button(this);
+        btnBottom.setText("Close");
+        btnBottom.setTextSize(14f);
+        btnBottom.setTextColor(Color.WHITE);
+        btnBottom.setTypeface(null, Typeface.BOLD);
+        btnBottom.setAllCaps(false);
+        LinearLayout.LayoutParams btnP = lp(LinearLayout.LayoutParams.MATCH_PARENT, dp(48));
+        btnP.setMargins(dp(16), dp(8), dp(16), dp(16));
+        btnBottom.setLayoutParams(btnP);
+        btnBottom.setBackgroundTintList(android.content.res.ColorStateList.valueOf(col(R.color.green_dark)));
+        btnBottom.setOnClickListener(v -> dialog.dismiss());
+        content.addView(btnBottom);
 
-        return wrapper;
+        root.addView(content);
+        return root;
+    }
+
+    /** Small 3-line stat pill used in the popup summary row */
+    private View miniStat(String label, String value, int accentColor) {
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.setGravity(Gravity.CENTER);
+        col.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        col.setPadding(dp(4), dp(4), dp(4), dp(4));
+        col.addView(tv(label, 9f, col(R.color.c_text_hint), false));
+        TextView tvVal = tv(value, 11f, accentColor, true);
+        LinearLayout.LayoutParams vp = lp(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        vp.setMargins(0, dp(2), 0, 0); tvVal.setLayoutParams(vp); tvVal.setGravity(Gravity.CENTER);
+        col.addView(tvVal);
+        return col;
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
