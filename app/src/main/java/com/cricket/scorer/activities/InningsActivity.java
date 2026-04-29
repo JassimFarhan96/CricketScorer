@@ -217,51 +217,150 @@ public class InningsActivity extends AppCompatActivity {
     // ─── Return-to-bat prompt chain ───────────────────────────────────────────
 
     /**
-     * Called when all active batsmen are out (PROMPT_RETIRED_HURT).
-     * Prompts each retired-hurt player in order. Chains to the next
-     * player after each answer.
+     * Shows a SINGLE dialog with a dropdown listing ALL retired-hurt players.
+     *
+     * The user:
+     *   1. Selects a player from the spinner
+     *   2. Taps "Return to bat" or "Retire out"
+     *
+     * After each decision the dialog closes, the game state updates, and:
+     *   - If more retired-hurt players remain → dialog reopens automatically
+     *     with the updated list (chosen player removed)
+     *   - If a player returns to bat → play resumes, dialog does not reopen
+     *   - If all players retire out → innings ends
      */
     private void promptRetiredHurtPlayers() {
         List<Player> batters     = match.getCurrentBattingPlayers();
         List<Player> retiredHurt = engine.getRetiredHurtPlayers(batters);
 
         if (retiredHurt.isEmpty()) {
-            // No retired-hurt players left — innings is over
             handleMatchState(MatchEngine.MatchState.INNINGS_COMPLETE);
             return;
         }
 
-        // Prompt the first one in the list
-        Player next = retiredHurt.get(0);
-        int playerIndex = batters.indexOf(next);
+        // Build spinner labels: "1. PlayerName"
+        String[] names = new String[retiredHurt.size()];
+        for (int i = 0; i < retiredHurt.size(); i++) {
+            names[i] = (i + 1) + ".  " + retiredHurt.get(i).getName();
+        }
 
-        new AlertDialog.Builder(this)
-                .setTitle("Retired Hurt — Return to bat?")
-                .setMessage(next.getName() + " was retired hurt.\nDo they want to return to bat?")
+        // Track which player is selected in the spinner
+        final int[] selectedIndex = {0};
+
+        // Build a custom view: spinner + explanatory sub-text
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(this);
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        layout.setPadding(dp(24), dp(8), dp(24), dp(4));
+
+        android.widget.TextView tvSub = new android.widget.TextView(this);
+        tvSub.setText("Select a player and choose their action:");
+        tvSub.setTextSize(13f);
+        tvSub.setTextColor(Color.parseColor("#666666"));
+        tvSub.setPadding(0, 0, 0, dp(12));
+        layout.addView(tvSub);
+
+        android.widget.Spinner spinner = new android.widget.Spinner(this);
+        android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(
+                this, android.R.layout.simple_spinner_item, names);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+        spinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(android.widget.AdapterView<?> p, View v, int pos, long id) {
+                selectedIndex[0] = pos;
+            }
+            @Override public void onNothingSelected(android.widget.AdapterView<?> p) {}
+        });
+
+        android.widget.LinearLayout.LayoutParams spinnerParams =
+                new android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        spinnerParams.setMargins(0, 0, 0, dp(8));
+        spinner.setLayoutParams(spinnerParams);
+        layout.addView(spinner);
+
+        // Count label
+        android.widget.TextView tvCount = new android.widget.TextView(this);
+        tvCount.setText(retiredHurt.size() == 1
+                ? "1 player remaining"
+                : retiredHurt.size() + " players remaining");
+        tvCount.setTextSize(11f);
+        tvCount.setTextColor(Color.parseColor("#BA7517"));
+        tvCount.setPadding(0, dp(4), 0, 0);
+        layout.addView(tvCount);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("Retired Hurt Players")
+                .setView(layout)
                 .setCancelable(false)
-                .setPositiveButton("Return to bat", (d, w) -> {
-                    MatchEngine.MatchState state = engine.returnFromRetiredHurt(playerIndex, true);
-                    LiveMatchState.persist(this, match);
-                    refreshUI();
-                    // Player returns — re-enable buttons and continue
-                    setBallButtonsEnabled(true);
-                    if (state == MatchEngine.MatchState.PROMPT_RETIRED_HURT) {
-                        promptRetiredHurtPlayers(); // shouldn't normally reach here after return
-                    } else {
-                        handleMatchState(state);
-                    }
-                })
-                .setNegativeButton("Retire out", (d, w) -> {
-                    MatchEngine.MatchState state = engine.returnFromRetiredHurt(playerIndex, false);
-                    LiveMatchState.persist(this, match);
-                    refreshUI();
-                    if (state == MatchEngine.MatchState.PROMPT_RETIRED_HURT) {
-                        promptRetiredHurtPlayers(); // chain to next retired-hurt player
-                    } else {
-                        handleMatchState(state);
-                    }
-                })
-                .show();
+                .setPositiveButton("Return to bat", null)   // set below to prevent auto-dismiss
+                .setNegativeButton("Retire out", null)
+                .setNeutralButton("End Innings", null)
+                .create();
+
+        dialog.setOnShowListener(dlg -> {
+            // ── Return to bat ──────────────────────────────────────────
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                Player chosen = retiredHurt.get(selectedIndex[0]);
+                int playerIndex = batters.indexOf(chosen);
+                MatchEngine.MatchState state = engine.returnFromRetiredHurt(playerIndex, true);
+                LiveMatchState.persist(this, match);
+                refreshUI();
+                dialog.dismiss();
+                setBallButtonsEnabled(true);
+                // Player returning to bat — play continues, no more prompting
+                if (state == MatchEngine.MatchState.PROMPT_RETIRED_HURT) {
+                    // Edge case: shouldn't normally happen after a return
+                    promptRetiredHurtPlayers();
+                } else {
+                    handleMatchState(state);
+                }
+            });
+
+            // ── Retire out ─────────────────────────────────────────────
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener(v -> {
+                Player chosen = retiredHurt.get(selectedIndex[0]);
+                int playerIndex = batters.indexOf(chosen);
+                MatchEngine.MatchState state = engine.returnFromRetiredHurt(playerIndex, false);
+                LiveMatchState.persist(this, match);
+                refreshUI();
+                dialog.dismiss();
+                if (state == MatchEngine.MatchState.PROMPT_RETIRED_HURT) {
+                    // More players to resolve — reopen with updated list
+                    promptRetiredHurtPlayers();
+                } else {
+                    handleMatchState(state);
+                }
+            });
+
+            // ── End innings immediately (all remaining retire out) ──────
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
+                // Retire out everyone still on the list
+                List<Player> remaining = engine.getRetiredHurtPlayers(
+                        match.getCurrentBattingPlayers());
+                MatchEngine.MatchState lastState = MatchEngine.MatchState.BALL_RECORDED;
+                for (Player p : remaining) {
+                    int idx = match.getCurrentBattingPlayers().indexOf(p);
+                    lastState = engine.returnFromRetiredHurt(idx, false);
+                }
+                LiveMatchState.persist(this, match);
+                refreshUI();
+                dialog.dismiss();
+                // After retiring all out, force innings to end
+                handleMatchState(MatchEngine.MatchState.INNINGS_COMPLETE);
+            });
+
+            // Colour the buttons for clarity
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.parseColor("#085041"));
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.parseColor("#E24B4A"));
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setTextColor(Color.parseColor("#888888"));
+        });
+
+        dialog.show();
+    }
+
+    private int dp(int val) {
+        return (int)(val * getResources().getDisplayMetrics().density);
     }
 
     // ─── Reset helpers ────────────────────────────────────────────────────────
