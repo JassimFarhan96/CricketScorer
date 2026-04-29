@@ -9,13 +9,18 @@ import java.util.Map;
 /**
  * Innings.java
  *
- * CHANGE: Added bowler tracking.
- *   - currentBowlerIndex / currentBowlerName: the bowler for the
- *     current (active) over. Set by the bowler-selection dialog.
- *   - bowlerOversMap: maps bowler name → number of complete overs bowled.
- *     Updated in completeCurrentOver().
- *   - bowlerSelected: flag set true once the user confirms the bowler
- *     dialog for the current over; reset to false when a new over begins.
+ * CHANGE: Added per-bowler runs and wickets maps alongside bowlerOversMap.
+ *   bowlerRunsMap    → maps bowlerName → total runs conceded (incl. extras)
+ *   bowlerWicketsMap → maps bowlerName → wickets taken
+ *   bowlerBallsMap   → maps bowlerName → valid balls bowled (for economy calc)
+ *
+ * All three are updated in:
+ *   recordNormalBall()  → adds runs + ball to current bowler
+ *   recordWide()        → adds 1 run (no ball)
+ *   recordNoBall()      → adds 1 run (no ball)
+ *   recordWicket()      → adds wicket + ball to current bowler
+ *   completeCurrentOver() → already increments bowlerOversMap
+ *   undoLastBall()      → reverses the appropriate map entry
  */
 public class Innings implements Serializable {
 
@@ -26,8 +31,8 @@ public class Innings implements Serializable {
     private int totalWickets;
     private int totalValidBalls;
 
-    private List<Over>         completedOvers;
-    private Over               currentOver;
+    private List<Over>  completedOvers;
+    private Over        currentOver;
 
     private int strikerIndex;
     private int nonStrikerIndex;
@@ -36,17 +41,14 @@ public class Innings implements Serializable {
     private boolean isComplete;
 
     // ── Bowler tracking ───────────────────────────────────────────────────────
-    /** Index into the BOWLING team's player list for the current over's bowler */
-    private int    currentBowlerIndex = -1;
-    /** Display name of the current bowler (cached) */
-    private String currentBowlerName  = "";
-    /** True once the user has confirmed the bowler for the current over */
-    private boolean bowlerSelected    = false;
-    /**
-     * Maps bowler name → complete overs bowled this innings.
-     * Incremented in completeCurrentOver().
-     */
-    private Map<String, Integer> bowlerOversMap = new HashMap<>();
+    private int     currentBowlerIndex = -1;
+    private String  currentBowlerName  = "";
+    private boolean bowlerSelected     = false;
+
+    private Map<String, Integer> bowlerOversMap   = new HashMap<>();
+    private Map<String, Integer> bowlerRunsMap    = new HashMap<>();  // NEW
+    private Map<String, Integer> bowlerWicketsMap = new HashMap<>();  // NEW
+    private Map<String, Integer> bowlerBallsMap   = new HashMap<>();  // NEW
 
     // ─── Constructor ──────────────────────────────────────────────────────────
 
@@ -55,6 +57,9 @@ public class Innings implements Serializable {
         this.singleBatsmanMode = singleBatsmanMode;
         this.completedOvers    = new ArrayList<>();
         this.bowlerOversMap    = new HashMap<>();
+        this.bowlerRunsMap     = new HashMap<>();
+        this.bowlerWicketsMap  = new HashMap<>();
+        this.bowlerBallsMap    = new HashMap<>();
 
         strikerIndex     = 0;
         nonStrikerIndex  = singleBatsmanMode ? -1 : 1;
@@ -67,52 +72,34 @@ public class Innings implements Serializable {
 
     public void startNewOver() {
         int overNum = completedOvers.size() + 1;
-        currentOver = new Over(overNum);
-        // Reset bowler state — dialog must be shown again for the new over
+        currentOver        = new Over(overNum);
         bowlerSelected     = false;
         currentBowlerIndex = -1;
         currentBowlerName  = "";
     }
 
-    /**
-     * Assigns the bowler for the current over and marks selection as done.
-     * Called when the user confirms the bowler dialog.
-     */
     public void setCurrentOverBowler(int bowlerIndex, String bowlerName) {
         this.currentBowlerIndex = bowlerIndex;
         this.currentBowlerName  = bowlerName != null ? bowlerName : "";
         this.bowlerSelected     = true;
-        // Tag the over itself so it's persisted with the over data
         if (currentOver != null) {
             currentOver.setBowlerIndex(bowlerIndex);
             currentOver.setBowlerName(bowlerName);
         }
     }
 
-    /**
-     * Completes the current over:
-     *   1. Tags the over with the bowler info (in case it wasn't set yet).
-     *   2. Increments that bowler's over count in bowlerOversMap.
-     *   3. Moves currentOver to completedOvers.
-     *   4. Rotates strike (two-batsman mode only).
-     *   5. Starts a fresh over and resets bowler selection flag.
-     */
     public void completeCurrentOver() {
         if (currentOver != null) {
-            // Ensure bowler is tagged on the over object
             currentOver.setBowlerIndex(currentBowlerIndex);
             currentOver.setBowlerName(currentBowlerName);
 
-            // Update bowler overs count
             if (!currentBowlerName.isEmpty()) {
-                int prev = bowlerOversMap.containsKey(currentBowlerName)
-                        ? bowlerOversMap.get(currentBowlerName) : 0;
-                bowlerOversMap.put(currentBowlerName, prev + 1);
+                addToMap(bowlerOversMap, currentBowlerName, 1);
             }
             completedOvers.add(currentOver);
         }
         if (!singleBatsmanMode) swapStrike();
-        startNewOver(); // resets bowlerSelected to false
+        startNewOver();
     }
 
     // ─── Ball recording ───────────────────────────────────────────────────────
@@ -123,17 +110,30 @@ public class Innings implements Serializable {
         totalRuns       += runs;
         totalValidBalls += 1;
         striker.addRuns(runs);
+        // Track bowler stats
+        if (!currentBowlerName.isEmpty()) {
+            addToMap(bowlerRunsMap, currentBowlerName, runs);
+            addToMap(bowlerBallsMap, currentBowlerName, 1);
+        }
         if (!singleBatsmanMode && runs % 2 == 1) swapStrike();
     }
 
     public void recordWide() {
         currentOver.addBall(Ball.wide());
         totalRuns += 1;
+        // Wide = 1 run conceded, no ball counted
+        if (!currentBowlerName.isEmpty()) {
+            addToMap(bowlerRunsMap, currentBowlerName, 1);
+        }
     }
 
     public void recordNoBall() {
         currentOver.addBall(Ball.noBall());
         totalRuns += 1;
+        // No-ball = 1 run conceded, no ball counted
+        if (!currentBowlerName.isEmpty()) {
+            addToMap(bowlerRunsMap, currentBowlerName, 1);
+        }
     }
 
     public void recordWicket(Player outPlayer) {
@@ -141,6 +141,11 @@ public class Innings implements Serializable {
         totalWickets    += 1;
         totalValidBalls += 1;
         outPlayer.dismiss("out");
+        // Track bowler wicket + ball
+        if (!currentBowlerName.isEmpty()) {
+            addToMap(bowlerWicketsMap, currentBowlerName, 1);
+            addToMap(bowlerBallsMap, currentBowlerName, 1);
+        }
     }
 
     public Ball undoLastBall(Player striker) {
@@ -154,14 +159,29 @@ public class Innings implements Serializable {
                 striker.setBallsFaced(striker.getBallsFaced() - 1);
                 if (removed.getRuns() == 4) striker.setFours(striker.getFours() - 1);
                 if (removed.getRuns() == 6) striker.setSixes(striker.getSixes() - 1);
+                if (!currentBowlerName.isEmpty()) {
+                    subtractFromMap(bowlerRunsMap,  currentBowlerName, removed.getRuns());
+                    subtractFromMap(bowlerBallsMap, currentBowlerName, 1);
+                }
                 if (!singleBatsmanMode && removed.getRuns() % 2 == 1) swapStrike();
                 break;
-            case WIDE: case NO_BALL:
+            case WIDE:
                 totalRuns -= 1;
+                if (!currentBowlerName.isEmpty())
+                    subtractFromMap(bowlerRunsMap, currentBowlerName, 1);
+                break;
+            case NO_BALL:
+                totalRuns -= 1;
+                if (!currentBowlerName.isEmpty())
+                    subtractFromMap(bowlerRunsMap, currentBowlerName, 1);
                 break;
             case WICKET:
                 totalValidBalls -= 1;
                 totalWickets    -= 1;
+                if (!currentBowlerName.isEmpty()) {
+                    subtractFromMap(bowlerWicketsMap, currentBowlerName, 1);
+                    subtractFromMap(bowlerBallsMap,   currentBowlerName, 1);
+                }
                 break;
         }
         return removed;
@@ -171,8 +191,8 @@ public class Innings implements Serializable {
 
     public void swapStrike() {
         if (singleBatsmanMode) return;
-        int tmp      = strikerIndex;
-        strikerIndex = nonStrikerIndex;
+        int tmp         = strikerIndex;
+        strikerIndex    = nonStrikerIndex;
         nonStrikerIndex = tmp;
     }
 
@@ -194,9 +214,9 @@ public class Innings implements Serializable {
         return runsNeeded / ((float) ballsLeft / 6f);
     }
 
-    public int     getRunsNeeded(int target)       { return Math.max(0, target - totalRuns); }
-    public int     getBallsRemaining(int maxOvers)  { return (maxOvers * 6) - totalValidBalls; }
-    public String  getScoreString()                 { return totalRuns + "/" + totalWickets; }
+    public int    getRunsNeeded(int target)      { return Math.max(0, target - totalRuns); }
+    public int    getBallsRemaining(int maxOvers) { return (maxOvers * 6) - totalValidBalls; }
+    public String getScoreString()               { return totalRuns + "/" + totalWickets; }
 
     public List<Over> getAllOvers() {
         List<Over> all = new ArrayList<>(completedOvers);
@@ -205,48 +225,83 @@ public class Innings implements Serializable {
     }
 
     /**
-     * Returns a summary of bowler overs for display under the over history.
-     * Format: "Player Name: 2 ov", one per line.
-     * Only includes bowlers who have bowled at least one complete over.
+     * Returns a list of BowlerStat objects for every bowler who has
+     * bowled at least one ball this innings. Used by StatsActivity.
      */
+    public List<BowlerStat> getBowlerStats() {
+        List<BowlerStat> stats = new ArrayList<>();
+        // Collect all bowler names from any of the tracking maps
+        java.util.Set<String> names = new java.util.LinkedHashSet<>();
+        names.addAll(bowlerOversMap.keySet());
+        names.addAll(bowlerBallsMap.keySet());
+
+        for (String name : names) {
+            int overs   = bowlerOversMap.containsKey(name)   ? bowlerOversMap.get(name)   : 0;
+            int balls   = bowlerBallsMap.containsKey(name)   ? bowlerBallsMap.get(name)   : 0;
+            int runs    = bowlerRunsMap.containsKey(name)    ? bowlerRunsMap.get(name)    : 0;
+            int wickets = bowlerWicketsMap.containsKey(name) ? bowlerWicketsMap.get(name) : 0;
+            stats.add(new BowlerStat(name, overs, balls, runs, wickets));
+        }
+        return stats;
+    }
+
+    /** Formatted bowler summary for the over-history panel. */
     public String getBowlerSummary() {
         if (bowlerOversMap.isEmpty()) return "";
         StringBuilder sb = new StringBuilder();
         for (Map.Entry<String, Integer> e : bowlerOversMap.entrySet()) {
             if (sb.length() > 0) sb.append("\n");
-            sb.append(e.getKey()).append(": ").append(e.getValue())
+            sb.append(e.getKey()).append(": ")
+              .append(e.getValue())
               .append(e.getValue() == 1 ? " over" : " overs");
         }
         return sb.toString();
     }
 
+    // ─── Map helpers ──────────────────────────────────────────────────────────
+
+    private void addToMap(Map<String, Integer> map, String key, int delta) {
+        map.put(key, (map.containsKey(key) ? map.get(key) : 0) + delta);
+    }
+
+    private void subtractFromMap(Map<String, Integer> map, String key, int delta) {
+        int cur = map.containsKey(key) ? map.get(key) : 0;
+        map.put(key, Math.max(0, cur - delta));
+    }
+
     // ─── Getters & Setters ────────────────────────────────────────────────────
 
-    public int     getInningsNumber()                  { return inningsNumber; }
-    public boolean isSingleBatsmanMode()               { return singleBatsmanMode; }
-    public int     getTotalRuns()                      { return totalRuns; }
-    public void    setTotalRuns(int v)                 { totalRuns = v; }
-    public int     getTotalWickets()                   { return totalWickets; }
-    public void    setTotalWickets(int v)              { totalWickets = v; }
-    public int     getTotalValidBalls()                { return totalValidBalls; }
-    public void    setTotalValidBalls(int v)           { totalValidBalls = v; }
-    public List<Over> getCompletedOvers()              { return completedOvers; }
-    public Over    getCurrentOver()                    { return currentOver; }
-    public void    setCurrentOver(Over v)              { currentOver = v; }
-    public int     getStrikerIndex()                   { return strikerIndex; }
-    public void    setStrikerIndex(int v)              { strikerIndex = v; }
-    public int     getNonStrikerIndex()                { return nonStrikerIndex; }
-    public void    setNonStrikerIndex(int v)           { nonStrikerIndex = v; }
-    public int     getNextBatsmanIndex()               { return nextBatsmanIndex; }
-    public void    setNextBatsmanIndex(int v)          { nextBatsmanIndex = v; }
-    public boolean isComplete()                        { return isComplete; }
-    public void    setComplete(boolean v)              { isComplete = v; }
-    public int     getCurrentBowlerIndex()             { return currentBowlerIndex; }
-    public void    setCurrentBowlerIndex(int v)        { currentBowlerIndex = v; }
-    public String  getCurrentBowlerName()              { return currentBowlerName; }
-    public void    setCurrentBowlerName(String v)      { currentBowlerName = v != null ? v : ""; }
-    public boolean isBowlerSelected()                  { return bowlerSelected; }
-    public void    setBowlerSelected(boolean v)        { bowlerSelected = v; }
-    public Map<String, Integer> getBowlerOversMap()    { return bowlerOversMap; }
-    public void setBowlerOversMap(Map<String, Integer> v) { bowlerOversMap = v != null ? v : new HashMap<>(); }
+    public int     getInningsNumber()               { return inningsNumber; }
+    public boolean isSingleBatsmanMode()             { return singleBatsmanMode; }
+    public int     getTotalRuns()                    { return totalRuns; }
+    public void    setTotalRuns(int v)               { totalRuns = v; }
+    public int     getTotalWickets()                 { return totalWickets; }
+    public void    setTotalWickets(int v)            { totalWickets = v; }
+    public int     getTotalValidBalls()              { return totalValidBalls; }
+    public void    setTotalValidBalls(int v)         { totalValidBalls = v; }
+    public List<Over> getCompletedOvers()            { return completedOvers; }
+    public Over    getCurrentOver()                  { return currentOver; }
+    public void    setCurrentOver(Over v)            { currentOver = v; }
+    public int     getStrikerIndex()                 { return strikerIndex; }
+    public void    setStrikerIndex(int v)            { strikerIndex = v; }
+    public int     getNonStrikerIndex()              { return nonStrikerIndex; }
+    public void    setNonStrikerIndex(int v)         { nonStrikerIndex = v; }
+    public int     getNextBatsmanIndex()             { return nextBatsmanIndex; }
+    public void    setNextBatsmanIndex(int v)        { nextBatsmanIndex = v; }
+    public boolean isComplete()                      { return isComplete; }
+    public void    setComplete(boolean v)            { isComplete = v; }
+    public int     getCurrentBowlerIndex()           { return currentBowlerIndex; }
+    public void    setCurrentBowlerIndex(int v)      { currentBowlerIndex = v; }
+    public String  getCurrentBowlerName()            { return currentBowlerName; }
+    public void    setCurrentBowlerName(String v)    { currentBowlerName = v != null ? v : ""; }
+    public boolean isBowlerSelected()               { return bowlerSelected; }
+    public void    setBowlerSelected(boolean v)      { bowlerSelected = v; }
+    public Map<String, Integer> getBowlerOversMap()  { return bowlerOversMap; }
+    public void setBowlerOversMap(Map<String, Integer> v)   { bowlerOversMap   = v != null ? v : new HashMap<>(); }
+    public Map<String, Integer> getBowlerRunsMap()   { return bowlerRunsMap; }
+    public void setBowlerRunsMap(Map<String, Integer> v)    { bowlerRunsMap    = v != null ? v : new HashMap<>(); }
+    public Map<String, Integer> getBowlerWicketsMap(){ return bowlerWicketsMap; }
+    public void setBowlerWicketsMap(Map<String, Integer> v) { bowlerWicketsMap = v != null ? v : new HashMap<>(); }
+    public Map<String, Integer> getBowlerBallsMap()  { return bowlerBallsMap; }
+    public void setBowlerBallsMap(Map<String, Integer> v)   { bowlerBallsMap   = v != null ? v : new HashMap<>(); }
 }

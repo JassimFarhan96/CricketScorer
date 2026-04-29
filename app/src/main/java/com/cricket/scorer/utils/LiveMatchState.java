@@ -23,9 +23,8 @@ import java.util.Map;
 
 /**
  * LiveMatchState.java
- * CHANGE: Serialises/deserialises bowler fields added to Innings and Over.
- *   Innings: currentBowlerIndex, currentBowlerName, bowlerSelected, bowlerOversMap
- *   Over:    bowlerIndex, bowlerName
+ * CHANGE: Persists/restores bowlerRunsMap, bowlerWicketsMap, bowlerBallsMap
+ * in addition to the existing bowlerOversMap.
  */
 public class LiveMatchState {
 
@@ -106,18 +105,14 @@ public class LiveMatchState {
         o.put("nonStrikerIndex",   inn.getNonStrikerIndex());
         o.put("nextBatsmanIndex",  inn.getNextBatsmanIndex());
         o.put("complete",          inn.isComplete());
-        // Bowler fields
         o.put("currentBowlerIndex", inn.getCurrentBowlerIndex());
         o.put("currentBowlerName",  nvl(inn.getCurrentBowlerName()));
         o.put("bowlerSelected",     inn.isBowlerSelected());
-        // Bowler overs map
-        JSONObject bowlerMap = new JSONObject();
-        if (inn.getBowlerOversMap() != null) {
-            for (Map.Entry<String, Integer> e : inn.getBowlerOversMap().entrySet())
-                bowlerMap.put(e.getKey(), e.getValue());
-        }
-        o.put("bowlerOversMap", bowlerMap);
-        // Overs
+        o.put("bowlerOversMap",   mapToJson(inn.getBowlerOversMap()));
+        o.put("bowlerRunsMap",    mapToJson(inn.getBowlerRunsMap()));
+        o.put("bowlerWicketsMap", mapToJson(inn.getBowlerWicketsMap()));
+        o.put("bowlerBallsMap",   mapToJson(inn.getBowlerBallsMap()));
+
         JSONArray oversArr = new JSONArray();
         for (Over ov : inn.getCompletedOvers())  oversArr.put(overToJson(ov));
         if (inn.getCurrentOver() != null)         oversArr.put(overToJson(inn.getCurrentOver()));
@@ -140,6 +135,12 @@ public class LiveMatchState {
             balls.put(bo);
         }
         o.put("balls", balls);
+        return o;
+    }
+
+    private static JSONObject mapToJson(Map<String, Integer> map) throws Exception {
+        JSONObject o = new JSONObject();
+        if (map != null) for (Map.Entry<String, Integer> e : map.entrySet()) o.put(e.getKey(), e.getValue());
         return o;
     }
 
@@ -187,28 +188,21 @@ public class LiveMatchState {
         inn.setNonStrikerIndex(o.optInt("nonStrikerIndex", single ? -1 : 1));
         inn.setNextBatsmanIndex(o.optInt("nextBatsmanIndex", single ? 1 : 2));
         inn.setComplete(o.optBoolean("complete", false));
-        // Restore bowler fields
         inn.setCurrentBowlerIndex(o.optInt("currentBowlerIndex", -1));
         inn.setCurrentBowlerName(o.optString("currentBowlerName", ""));
         inn.setBowlerSelected(o.optBoolean("bowlerSelected", false));
-        // Restore bowler overs map
-        JSONObject bowlerMap = o.optJSONObject("bowlerOversMap");
-        if (bowlerMap != null) {
-            Map<String, Integer> map = new HashMap<>();
-            JSONArray keys = bowlerMap.names();
-            if (keys != null) for (int i = 0; i < keys.length(); i++) {
-                String k = keys.getString(i); map.put(k, bowlerMap.getInt(k));
-            }
-            inn.setBowlerOversMap(map);
-        }
-        // Restore overs
+        inn.setBowlerOversMap(jsonToIntMap(o.optJSONObject("bowlerOversMap")));
+        inn.setBowlerRunsMap(jsonToIntMap(o.optJSONObject("bowlerRunsMap")));
+        inn.setBowlerWicketsMap(jsonToIntMap(o.optJSONObject("bowlerWicketsMap")));
+        inn.setBowlerBallsMap(jsonToIntMap(o.optJSONObject("bowlerBallsMap")));
+
         int currentOverNum = o.optInt("currentOverNum", 1);
         JSONArray oversArr = o.optJSONArray("completedOvers");
         if (oversArr != null) {
             for (int i = 0; i < oversArr.length(); i++) {
-                JSONObject ov   = oversArr.getJSONObject(i);
-                int        ovNum = ov.getInt("overNumber");
-                Over       over  = new Over(ovNum);
+                JSONObject ov = oversArr.getJSONObject(i);
+                int ovNum = ov.getInt("overNumber");
+                Over over = new Over(ovNum);
                 over.setBowlerIndex(ov.optInt("bowlerIndex", -1));
                 over.setBowlerName(ov.optString("bowlerName", ""));
                 JSONArray ballsArr = ov.optJSONArray("balls");
@@ -217,10 +211,10 @@ public class LiveMatchState {
                     Ball.BallType type = Ball.BallType.valueOf(bo.getString("type"));
                     Ball ball;
                     switch (type) {
-                        case WIDE:    ball = Ball.wide();           break;
-                        case NO_BALL: ball = Ball.noBall();         break;
-                        case WICKET:  ball = Ball.wicket();         break;
-                        default:      ball = Ball.normal(bo.optInt("runs", 0)); break;
+                        case WIDE:    ball = Ball.wide();                   break;
+                        case NO_BALL: ball = Ball.noBall();                 break;
+                        case WICKET:  ball = Ball.wicket();                 break;
+                        default:      ball = Ball.normal(bo.optInt("runs",0)); break;
                     }
                     over.addBall(ball);
                 }
@@ -230,6 +224,16 @@ public class LiveMatchState {
         }
         if (inn.getCurrentOver() == null) inn.startNewOver();
         return inn;
+    }
+
+    private static Map<String, Integer> jsonToIntMap(JSONObject obj) throws Exception {
+        Map<String, Integer> map = new HashMap<>();
+        if (obj == null) return map;
+        JSONArray keys = obj.names();
+        if (keys != null) for (int i = 0; i < keys.length(); i++) {
+            String k = keys.getString(i); map.put(k, obj.getInt(k));
+        }
+        return map;
     }
 
     private static String readFile(File f) throws Exception {
