@@ -41,7 +41,7 @@
     <color name="c_ball_six_bg">#378ADD</color>
     <color name="c_ball_six_fg">#FFFFFF</color>
     <color name="c_ball_wide_bg">#FAEEDA</color>
-    <color name="c_ball_wide_fg">#633806</color>
+    <color name="c_ball_wide_fg">#F36806</color>
     <color name="c_ball_noball_bg">#FCEBEB</color>
     <color name="c_ball_noball_fg">#C03030</color>
     <color name="c_ball_wicket_bg">#E24B4A</color>

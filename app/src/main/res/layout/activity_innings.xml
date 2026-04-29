@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
@@ -144,8 +145,7 @@
             android:layout_width="match_parent" android:layout_height="wrap_content"
             android:paddingStart="10dp" android:paddingEnd="10dp"
             android:paddingTop="4dp" android:paddingBottom="4dp"
-            app:flexWrap="wrap" app:justifyContent="flex_start"
-            xmlns:app="http://schemas.android.com/apk/res-auto">
+            app:flexWrap="wrap" app:justifyContent="flex_start">
             <Button android:id="@+id/btn_dot" style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="wrap_content" android:layout_height="36dp"
                 android:text="Dot" android:textSize="13sp" android:textColor="@color/c_btn_default_fg"
@@ -191,12 +191,19 @@
                 android:text="Wicket" android:textSize="13sp" android:textColor="@color/c_ball_wicket_fg"
                 android:background="@drawable/bg_ball_btn_wicket"
                 android:layout_margin="3dp" android:paddingStart="12dp" android:paddingEnd="12dp"/>
-            <Button android:id="@+id/btn_retired_hurt" style="@style/Widget.AppCompat.Button.Borderless"
-                android:layout_width="wrap_content" android:layout_height="36dp"
-                android:text="Ret. Hurt" android:textSize="12sp"
-                android:textColor="@color/amber_dark"
+
+            <Button
+                android:id="@+id/btn_retired_hurt"
+                style="@style/Widget.AppCompat.Button.Borderless"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_margin="3dp"
                 android:background="@drawable/bg_ball_btn_retired"
-                android:layout_margin="3dp" android:paddingStart="10dp" android:paddingEnd="10dp"/>
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:text="Ret. Hurt"
+                android:textColor="#CE1E3E"
+                android:textSize="12sp" />
             <Button android:id="@+id/btn_undo" style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="wrap_content" android:layout_height="36dp"
                 android:text="&#x21A9; Undo" android:textSize="13sp"
