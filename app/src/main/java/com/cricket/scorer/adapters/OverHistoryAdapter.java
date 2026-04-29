@@ -1,12 +1,12 @@
 package com.cricket.scorer.adapters;
 
 import android.content.Context;
-import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -22,17 +22,21 @@ import java.util.List;
 /**
  * OverHistoryAdapter.java
  *
- * Each completed over row displays:
+ * FIX: Ball circles are now inside a HorizontalScrollView so the user
+ * can scroll left/right to see all deliveries in an over, including
+ * overs with extras (7+ balls).
  *
- *   ┌─────────────────────────────────────────────────────┐
- *   │  Ov 1       [·][6][1][4][·][2]               14    │
- *   │  Bb (bowler)                                  runs  │
- *   └─────────────────────────────────────────────────────┘
+ * Row layout per over:
  *
- * Layout per ViewHolder:
- *   - Vertical LinearLayout (the card)
- *     └── Row 1 (horizontal): over label | ball circles | runs total
- *     └── Row 2 (horizontal): bowler name (if available)
+ *   ┌─────────────────────────────────────────────────────────┐
+ *   │ Ov 4  [HorizontalScrollView: ●●●●●●]              12   │
+ *   │       Gg  (bowler, green italic)                        │
+ *   └─────────────────────────────────────────────────────────┘
+ *
+ * Structure:
+ *   card (vertical LinearLayout)
+ *   └── row1 (horizontal): overNum | HScrollView[balls] | runs
+ *   └── row2 (horizontal): spacer  | bowlerName
  */
 public class OverHistoryAdapter extends RecyclerView.Adapter<OverHistoryAdapter.OverViewHolder> {
 
@@ -48,7 +52,6 @@ public class OverHistoryAdapter extends RecyclerView.Adapter<OverHistoryAdapter.
     @NonNull
     @Override
     public OverViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        // Root: vertical card per over
         LinearLayout card = new LinearLayout(parent.getContext());
         card.setOrientation(LinearLayout.VERTICAL);
         card.setLayoutParams(new RecyclerView.LayoutParams(
@@ -59,8 +62,7 @@ public class OverHistoryAdapter extends RecyclerView.Adapter<OverHistoryAdapter.
 
     @Override
     public void onBindViewHolder(@NonNull OverViewHolder holder, int position) {
-        // Newest over at top
-        Over         over = overs.get(overs.size() - 1 - position);
+        Over         over = overs.get(overs.size() - 1 - position); // newest first
         LinearLayout card = (LinearLayout) holder.itemView;
         Context      ctx  = card.getContext();
         card.removeAllViews();
@@ -69,9 +71,9 @@ public class OverHistoryAdapter extends RecyclerView.Adapter<OverHistoryAdapter.
         card.setBackgroundColor(position % 2 == 0
                 ? res(ctx, R.color.c_row_alt_bg)
                 : res(ctx, R.color.c_bg_card));
-        card.setPadding(dp(ctx, 14), dp(ctx, 8), dp(ctx, 14), dp(ctx, 4));
+        card.setPadding(dp(ctx, 10), dp(ctx, 6), dp(ctx, 10), dp(ctx, 4));
 
-        // ── Row 1: over number | ball circles | runs ──────────────────────
+        // ── Row 1: over label | scrollable balls | runs ───────────────────
         LinearLayout row1 = new LinearLayout(ctx);
         row1.setOrientation(LinearLayout.HORIZONTAL);
         row1.setGravity(Gravity.CENTER_VERTICAL);
@@ -79,39 +81,48 @@ public class OverHistoryAdapter extends RecyclerView.Adapter<OverHistoryAdapter.
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT));
 
-        // Over number label
-        TextView tvOverNum = new TextView(ctx);
-        tvOverNum.setLayoutParams(new LinearLayout.LayoutParams(
-                dp(ctx, 44), LinearLayout.LayoutParams.WRAP_CONTENT));
-        tvOverNum.setText("Ov " + over.getOverNumber());
-        tvOverNum.setTextSize(12f);
-        tvOverNum.setTypeface(null, Typeface.BOLD);
-        tvOverNum.setTextColor(res(ctx, R.color.c_text_primary));
-        row1.addView(tvOverNum);
+        // Over number — fixed width so balls always start at same indent
+        TextView tvOv = new TextView(ctx);
+        tvOv.setLayoutParams(new LinearLayout.LayoutParams(dp(ctx, 40), LinearLayout.LayoutParams.WRAP_CONTENT));
+        tvOv.setText("Ov " + over.getOverNumber());
+        tvOv.setTextSize(11.5f);
+        tvOv.setTypeface(null, Typeface.BOLD);
+        tvOv.setTextColor(res(ctx, R.color.c_text_primary));
+        row1.addView(tvOv);
 
-        // Ball circles container
-        LinearLayout ballsRow = new LinearLayout(ctx);
-        ballsRow.setOrientation(LinearLayout.HORIZONTAL);
-        ballsRow.setLayoutParams(new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        ballsRow.setGravity(Gravity.CENTER_VERTICAL);
+        // HorizontalScrollView wrapping the ball circles
+        // weight=1 so it takes all space between over label and runs total
+        HorizontalScrollView hScroll = new HorizontalScrollView(ctx);
+        LinearLayout.LayoutParams hsParams = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        hScroll.setLayoutParams(hsParams);
+        hScroll.setHorizontalScrollBarEnabled(false); // no visible scrollbar, swipe to scroll
+        hScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        hScroll.setFillViewport(false);
+
+        // Inner container for balls — horizontal, not constrained in width
+        LinearLayout ballsContainer = new LinearLayout(ctx);
+        ballsContainer.setOrientation(LinearLayout.HORIZONTAL);
+        ballsContainer.setGravity(Gravity.CENTER_VERTICAL);
+        ballsContainer.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
 
         for (Ball b : over.getBalls()) {
-            ballsRow.addView(makeBallCircle(ctx, b));
+            ballsContainer.addView(makeBallCircle(ctx, b));
         }
-        // If fewer than 6 valid balls (e.g. all out mid-over), add empty slots
-        int validCount = over.getValidBallCount();
-        // No empty slots for completed overs — show what was actually bowled
-        row1.addView(ballsRow);
 
-        // Runs total
+        hScroll.addView(ballsContainer);
+        row1.addView(hScroll);
+
+        // Runs total — fixed width, right-aligned
         TextView tvRuns = new TextView(ctx);
         LinearLayout.LayoutParams runsParams = new LinearLayout.LayoutParams(
-                dp(ctx, 32), LinearLayout.LayoutParams.WRAP_CONTENT);
+                dp(ctx, 30), LinearLayout.LayoutParams.WRAP_CONTENT);
         runsParams.gravity = Gravity.END;
         tvRuns.setLayoutParams(runsParams);
         tvRuns.setText(String.valueOf(over.getTotalRuns()));
-        tvRuns.setTextSize(13f);
+        tvRuns.setTextSize(12f);
         tvRuns.setTypeface(null, Typeface.BOLD);
         tvRuns.setTextColor(res(ctx, R.color.c_text_primary));
         tvRuns.setGravity(Gravity.END);
@@ -119,26 +130,24 @@ public class OverHistoryAdapter extends RecyclerView.Adapter<OverHistoryAdapter.
 
         card.addView(row1);
 
-        // ── Row 2: bowler name (below ball row) ───────────────────────────
+        // ── Row 2: bowler name below balls ────────────────────────────────
         if (over.hasBowler() && !over.getBowlerName().isEmpty()) {
             LinearLayout row2 = new LinearLayout(ctx);
             row2.setOrientation(LinearLayout.HORIZONTAL);
-            LinearLayout.LayoutParams row2Params = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams r2p = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT);
-            row2Params.setMargins(0, dp(ctx, 2), 0, dp(ctx, 2));
-            row2.setLayoutParams(row2Params);
+            r2p.setMargins(0, dp(ctx, 1), 0, dp(ctx, 2));
+            row2.setLayoutParams(r2p);
 
-            // Indent to align with ball circles (match over label width)
+            // Spacer to align bowler name under balls (match over label width)
             View spacer = new View(ctx);
-            spacer.setLayoutParams(new LinearLayout.LayoutParams(dp(ctx, 44), 1));
+            spacer.setLayoutParams(new LinearLayout.LayoutParams(dp(ctx, 40), 1));
             row2.addView(spacer);
 
             TextView tvBowler = new TextView(ctx);
-            tvBowler.setLayoutParams(new LinearLayout.LayoutParams(
-                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
             tvBowler.setText(over.getBowlerName());
-            tvBowler.setTextSize(11f);
+            tvBowler.setTextSize(10.5f);
             tvBowler.setTextColor(res(ctx, R.color.green_mid));
             tvBowler.setTypeface(null, Typeface.ITALIC);
             row2.addView(tvBowler);
@@ -150,10 +159,10 @@ public class OverHistoryAdapter extends RecyclerView.Adapter<OverHistoryAdapter.
     @Override
     public int getItemCount() { return overs != null ? overs.size() : 0; }
 
-    // ─── Ball circle builder ──────────────────────────────────────────────────
+    // ─── Ball circle ──────────────────────────────────────────────────────────
 
     private View makeBallCircle(Context ctx, Ball ball) {
-        int size = dp(ctx, 26);
+        int size = dp(ctx, 28);
         int marg = dp(ctx, 2);
 
         TextView tv = new TextView(ctx);
