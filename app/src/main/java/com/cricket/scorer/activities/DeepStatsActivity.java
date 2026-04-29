@@ -13,6 +13,7 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -556,48 +557,177 @@ public class DeepStatsActivity extends AppCompatActivity {
 
     // ─── Over-by-over bar chart ───────────────────────────────────────────────
 
+    /**
+     * Over-by-over bar chart built from real Views instead of Canvas.
+     *
+     * Layout per row:
+     *   [Ov N — 52dp] | [bar track — proportional] | [runs value — 40dp]
+     *
+     * Each row has a fixed height (32dp). The entire list sits inside a
+     * vertical ScrollView (scrolls vertically when many overs) which itself
+     * sits inside a HorizontalScrollView (scrolls horizontally when bars +
+     * run value labels are wide). Both scroll independently.
+     *
+     * This guarantees the runs value is ALWAYS visible, no matter how many
+     * runs were scored in the over.
+     */
     private View buildOverChart(String teamName, Innings innings, int barColor) {
+        List<Over> overs = innings.getCompletedOvers();
+
+        // Outer wrapper (margin + section label)
         LinearLayout wrapper = new LinearLayout(this);
         wrapper.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams wp = lp(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        wp.setMargins(dp(12), 0, dp(12), dp(12)); wrapper.setLayoutParams(wp);
-        TextView lbl = tv(teamName.toUpperCase() + " — RUNS PER OVER", 10f, col(R.color.c_text_secondary), false);
-        lbl.setPadding(0, dp(4), 0, dp(6)); wrapper.addView(lbl);
-        OverBarChartView chart = new OverBarChartView(this, innings, barColor);
-        chart.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(130)));
-        wrapper.addView(roundCard(chart));
-        return wrapper;
-    }
+        LinearLayout.LayoutParams wp = lp(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        wp.setMargins(dp(12), 0, dp(12), dp(12));
+        wrapper.setLayoutParams(wp);
 
-    // ─── OverBarChartView ─────────────────────────────────────────────────────
+        // Section sub-label
+        TextView lbl = tv(teamName.toUpperCase() + " — RUNS PER OVER",
+                10f, col(R.color.c_text_secondary), false);
+        lbl.setPadding(0, dp(4), 0, dp(6));
+        wrapper.addView(lbl);
 
-    static class OverBarChartView extends View {
-        private final Innings innings; private final int barColor;
-        OverBarChartView(Context ctx, Innings i, int c) { super(ctx); innings = i; barColor = c; }
-
-        @Override protected void onDraw(Canvas canvas) {
-            List<Over> overs = innings.getCompletedOvers();
-            if (overs.isEmpty()) return;
-            float w = getWidth(), h = getHeight();
-            float pL = dp(32), pR = dp(12), pT = dp(12), pB = dp(20);
-            float cW = w-pL-pR, cH = h-pT-pB;
-            int maxR = 1;
-            for (Over ov : overs) maxR = Math.max(maxR, ov.getTotalRuns());
-            float barH = (cH / overs.size()) * 0.65f, barGap = cH / overs.size();
-            Paint barP = new Paint(Paint.ANTI_ALIAS_FLAG); barP.setColor(barColor);
-            Paint trackP = new Paint(Paint.ANTI_ALIAS_FLAG); trackP.setColor(Color.parseColor("#11888888"));
-            Paint lblP = new Paint(Paint.ANTI_ALIAS_FLAG); lblP.setColor(Color.parseColor("#888888")); lblP.setTextSize(dp(9)); lblP.setTextAlign(Paint.Align.RIGHT);
-            Paint valP = new Paint(Paint.ANTI_ALIAS_FLAG); valP.setColor(barColor); valP.setTextSize(dp(9)); valP.setTypeface(Typeface.DEFAULT_BOLD);
-            for (int i = 0; i < overs.size(); i++) {
-                Over ov = overs.get(i);
-                float y = pT + i*barGap + (barGap-barH)/2f, bW = ((float)ov.getTotalRuns()/maxR)*cW;
-                canvas.drawRoundRect(new RectF(pL,y,pL+cW,y+barH), dp(3), dp(3), trackP);
-                if (bW > 0) { barP.setAlpha(200); canvas.drawRoundRect(new RectF(pL,y,pL+bW,y+barH), dp(3), dp(3), barP); }
-                canvas.drawText("Ov " + ov.getOverNumber(), pL-dp(4), y+barH/2f+dp(4), lblP);
-                canvas.drawText(String.valueOf(ov.getTotalRuns()), pL+bW+dp(6), y+barH/2f+dp(4), valP);
-            }
+        if (overs.isEmpty()) {
+            wrapper.addView(tv("No overs recorded", 12f, col(R.color.c_text_hint), false));
+            return wrapper;
         }
-        private int dp(float v) { return (int)(v*getContext().getResources().getDisplayMetrics().density); }
+
+        // Find max runs in any single over — used to scale bar widths
+        int maxRuns = 1;
+        for (Over ov : overs) maxRuns = Math.max(maxRuns, ov.getTotalRuns());
+        final int maxRunsFinal = maxRuns;
+
+        // Card background
+        androidx.cardview.widget.CardView card = new androidx.cardview.widget.CardView(this);
+        card.setLayoutParams(lp(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        card.setRadius(dp(12));
+        card.setCardElevation(dp(1));
+        card.setCardBackgroundColor(col(R.color.c_bg_card));
+
+        // Outer HorizontalScrollView — allows swiping left/right on wide bars
+        HorizontalScrollView hScroll = new HorizontalScrollView(this);
+        hScroll.setLayoutParams(lp(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        hScroll.setHorizontalScrollBarEnabled(true);
+        hScroll.setFillViewport(true);
+
+        // Inner vertical ScrollView — allows scrolling through many overs
+        // Cap visible height to ~6 rows; user scrolls to see more
+        int maxVisibleRows = Math.min(overs.size(), 7);
+        int rowH = dp(34);
+        int visibleH = maxVisibleRows * rowH + dp(16); // +padding
+
+        ScrollView vScroll = new ScrollView(this);
+        vScroll.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, visibleH));
+        vScroll.setVerticalScrollBarEnabled(true);
+        vScroll.setFillViewport(false);
+
+        // Container for all over rows
+        LinearLayout rowContainer = new LinearLayout(this);
+        rowContainer.setOrientation(LinearLayout.VERTICAL);
+        rowContainer.setLayoutParams(lp(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        rowContainer.setPadding(dp(8), dp(8), dp(8), dp(8));
+
+        // Minimum bar track width = screen width minus labels
+        int screenW = getResources().getDisplayMetrics().widthPixels;
+        int trackMinW = screenW - dp(52) - dp(48) - dp(32); // label + value + padding
+
+        for (Over ov : overs) {
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            LinearLayout.LayoutParams rowParams = lp(
+                    LinearLayout.LayoutParams.MATCH_PARENT, rowH);
+            rowParams.setMargins(0, dp(2), 0, dp(2));
+            row.setLayoutParams(rowParams);
+
+            // Alternating background
+            int rowIndex = overs.indexOf(ov);
+            if (rowIndex % 2 == 0) {
+                row.setBackgroundColor(col(R.color.c_row_alt_bg));
+            }
+
+            // ── Over label (fixed 52dp) ─────────────────────────────────
+            TextView tvOv = tv("Ov " + ov.getOverNumber(),
+                    11f, col(R.color.c_text_secondary), false);
+            LinearLayout.LayoutParams ovP = new LinearLayout.LayoutParams(dp(52), LinearLayout.LayoutParams.WRAP_CONTENT);
+            tvOv.setLayoutParams(ovP);
+            tvOv.setGravity(Gravity.CENTER_VERTICAL);
+            row.addView(tvOv);
+
+            // ── Bar track + filled bar ──────────────────────────────────
+            // Track width proportional to max: at least trackMinW, expands with runs
+            int barTrackW = Math.max(trackMinW, dp(80));
+            int barFilledW = maxRunsFinal > 0
+                    ? (int)((float) ov.getTotalRuns() / maxRunsFinal * barTrackW)
+                    : 0;
+
+            // Container for track + bar (FrameLayout for overlay)
+            android.widget.FrameLayout barFrame = new android.widget.FrameLayout(this);
+            LinearLayout.LayoutParams bfP = new LinearLayout.LayoutParams(
+                    barTrackW, dp(18));
+            bfP.setMargins(dp(4), 0, dp(8), 0);
+            barFrame.setLayoutParams(bfP);
+
+            // Track (grey background)
+            View track = new View(this);
+            android.widget.FrameLayout.LayoutParams trackP =
+                    new android.widget.FrameLayout.LayoutParams(
+                            android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                            android.widget.FrameLayout.LayoutParams.MATCH_PARENT);
+            track.setLayoutParams(trackP);
+            android.graphics.drawable.GradientDrawable trackBg =
+                    new android.graphics.drawable.GradientDrawable();
+            trackBg.setColor(Color.parseColor("#15888888"));
+            trackBg.setCornerRadius(dp(4));
+            track.setBackground(trackBg);
+            barFrame.addView(track);
+
+            // Filled bar (coloured)
+            if (barFilledW > 0) {
+                View bar = new View(this);
+                android.widget.FrameLayout.LayoutParams barP =
+                        new android.widget.FrameLayout.LayoutParams(barFilledW,
+                                android.widget.FrameLayout.LayoutParams.MATCH_PARENT);
+                bar.setLayoutParams(barP);
+                android.graphics.drawable.GradientDrawable barBg =
+                        new android.graphics.drawable.GradientDrawable();
+                barBg.setColor(barColor);
+                barBg.setAlpha(200);
+                barBg.setCornerRadius(dp(4));
+                bar.setBackground(barBg);
+                barFrame.addView(bar);
+            }
+            row.addView(barFrame);
+
+            // ── Runs value (always visible, fixed 40dp) ─────────────────
+            TextView tvRuns = tv(String.valueOf(ov.getTotalRuns()),
+                    13f, barColor, true);
+            LinearLayout.LayoutParams runsP = new LinearLayout.LayoutParams(dp(40),
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            tvRuns.setLayoutParams(runsP);
+            tvRuns.setGravity(Gravity.CENTER_VERTICAL);
+            row.addView(tvRuns);
+
+            rowContainer.addView(row);
+        }
+
+        vScroll.addView(rowContainer);
+        hScroll.addView(vScroll);
+        card.addView(hScroll);
+        wrapper.addView(card);
+
+        // Scroll hint (only shown if overs > 7)
+        if (overs.size() > 7) {
+            TextView hint = tv("Scroll to see all " + overs.size() + " overs",
+                    10f, col(R.color.c_text_hint), false);
+            hint.setPadding(dp(4), dp(4), 0, 0);
+            wrapper.addView(hint);
+        }
+
+        return wrapper;
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -664,8 +794,4 @@ public class DeepStatsActivity extends AppCompatActivity {
         BowlerStatWithTeam(BowlerStat s, String t) { stat = s; team = t; }
     }
 
-    // RectF for over bar chart
-    private static class RectF extends android.graphics.RectF {
-        RectF(float l,float t,float r,float b){super(l,t,r,b);}
-    }
 }
