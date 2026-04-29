@@ -6,7 +6,6 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.TableLayout;
 import android.widget.TableRow;
@@ -31,30 +30,38 @@ import java.util.Locale;
 /**
  * StatsActivity.java
  *
- * CHANGE:
- *   - Added bowling statistics tables below each innings batting table.
- *   - Both batting and bowling tables are wrapped in HorizontalScrollView
- *     so they scroll horizontally when column content is wide.
- *   - The entire screen is a vertical ScrollView so all content is
- *     reachable by scrolling vertically.
+ * CHANGE: Section headers now include the actual team names so the user
+ * can clearly see which team batted and which team bowled in each innings.
  *
- * Bowling table columns: Bowler | O | Balls | R | W | Econ
+ * Labels are set dynamically in populateStats() using the team names
+ * from the match data. Example output:
+ *
+ *   1ST INNINGS — JSJB BATTING
+ *   1ST INNINGS — LDN BOWLING
+ *   2ND INNINGS — LDN BATTING
+ *   2ND INNINGS — JSJB BOWLING
  */
 public class StatsActivity extends AppCompatActivity {
 
     public static final String EXTRA_SAVED_FILE_NAME = "saved_file_name";
 
-    // ── Views ─────────────────────────────────────────────────────────────────
+    // ── Section label views (IDs match activity_stats.xml) ───────────────────
+    private TextView tvLabelFirstBatting;
+    private TextView tvLabelFirstBowling;
+    private TextView tvLabelSecondBatting;
+    private TextView tvLabelSecondBowling;
+
+    // ── Score summary ─────────────────────────────────────────────────────────
     private LinearLayout layoutWinnerBanner;
     private TextView     tvWinnerText, tvWinnerSub;
     private TextView     tvTeam1Name, tvTeam1Score, tvTeam1Crr;
     private TextView     tvTeam2Name, tvTeam2Score, tvTeam2Crr;
 
-    // Batting tables
+    // ── Tables ────────────────────────────────────────────────────────────────
     private TableLayout tableFirstBatting, tableSecondBatting;
-    // Bowling tables
     private TableLayout tableFirstBowling, tableSecondBowling;
 
+    // ── Share / action buttons ────────────────────────────────────────────────
     private EditText etWhatsappNumber;
     private Button   btnSaveMatch, btnShareWhatsApp, btnShareGeneral, btnNewMatch;
 
@@ -93,71 +100,86 @@ public class StatsActivity extends AppCompatActivity {
     // ─── View binding ─────────────────────────────────────────────────────────
 
     private void bindViews() {
-        layoutWinnerBanner   = findViewById(R.id.layout_winner_banner);
-        tvWinnerText         = findViewById(R.id.tv_winner_text);
-        tvWinnerSub          = findViewById(R.id.tv_winner_sub);
-        tvTeam1Name          = findViewById(R.id.tv_team1_name);
-        tvTeam1Score         = findViewById(R.id.tv_team1_score);
-        tvTeam1Crr           = findViewById(R.id.tv_team1_crr);
-        tvTeam2Name          = findViewById(R.id.tv_team2_name);
-        tvTeam2Score         = findViewById(R.id.tv_team2_score);
-        tvTeam2Crr           = findViewById(R.id.tv_team2_crr);
-        tableFirstBatting    = findViewById(R.id.table_first_batting);
-        tableSecondBatting   = findViewById(R.id.table_second_batting);
-        tableFirstBowling    = findViewById(R.id.table_first_bowling);
-        tableSecondBowling   = findViewById(R.id.table_second_bowling);
-        etWhatsappNumber     = findViewById(R.id.et_whatsapp_number);
-        btnSaveMatch         = findViewById(R.id.btn_save_match);
-        btnShareWhatsApp     = findViewById(R.id.btn_share_whatsapp);
-        btnShareGeneral      = findViewById(R.id.btn_share_general);
-        btnNewMatch          = findViewById(R.id.btn_new_match);
+        layoutWinnerBanner     = findViewById(R.id.layout_winner_banner);
+        tvWinnerText           = findViewById(R.id.tv_winner_text);
+        tvWinnerSub            = findViewById(R.id.tv_winner_sub);
+        tvTeam1Name            = findViewById(R.id.tv_team1_name);
+        tvTeam1Score           = findViewById(R.id.tv_team1_score);
+        tvTeam1Crr             = findViewById(R.id.tv_team1_crr);
+        tvTeam2Name            = findViewById(R.id.tv_team2_name);
+        tvTeam2Score           = findViewById(R.id.tv_team2_score);
+        tvTeam2Crr             = findViewById(R.id.tv_team2_crr);
+        tvLabelFirstBatting    = findViewById(R.id.tv_label_first_batting);
+        tvLabelFirstBowling    = findViewById(R.id.tv_label_first_bowling);
+        tvLabelSecondBatting   = findViewById(R.id.tv_label_second_batting);
+        tvLabelSecondBowling   = findViewById(R.id.tv_label_second_bowling);
+        tableFirstBatting      = findViewById(R.id.table_first_batting);
+        tableFirstBowling      = findViewById(R.id.table_first_bowling);
+        tableSecondBatting     = findViewById(R.id.table_second_batting);
+        tableSecondBowling     = findViewById(R.id.table_second_bowling);
+        etWhatsappNumber       = findViewById(R.id.et_whatsapp_number);
+        btnSaveMatch           = findViewById(R.id.btn_save_match);
+        btnShareWhatsApp       = findViewById(R.id.btn_share_whatsapp);
+        btnShareGeneral        = findViewById(R.id.btn_share_general);
+        btnNewMatch            = findViewById(R.id.btn_new_match);
     }
 
     // ─── Stats population ─────────────────────────────────────────────────────
 
     private void populateStats() {
-        Innings i1   = match.getFirstInnings();
-        Innings i2   = match.getSecondInnings();
+        Innings i1      = match.getFirstInnings();
+        Innings i2      = match.getSecondInnings();
         boolean homeFirst = match.getBattingFirstTeam().equals("home");
-        String  bat1 = homeFirst ? match.getHomeTeamName() : match.getAwayTeamName();
-        String  bat2 = homeFirst ? match.getAwayTeamName() : match.getHomeTeamName();
 
-        // Winner banner
+        // Team that batted first (innings 1 batting team)
+        String bat1Team  = homeFirst ? match.getHomeTeamName() : match.getAwayTeamName();
+        // Team that batted second (innings 2 batting team)
+        String bat2Team  = homeFirst ? match.getAwayTeamName() : match.getHomeTeamName();
+        // Innings 1 bowling team = innings 2 batting team (and vice-versa)
+        String bowl1Team = bat2Team;
+        String bowl2Team = bat1Team;
+
+        // ── Winner banner ──────────────────────────────────────────────────
         layoutWinnerBanner.setVisibility(View.VISIBLE);
         tvWinnerText.setText(match.getResultDescription() != null
                 ? match.getResultDescription() : "Match complete");
         tvWinnerSub.setText(match.getHomeTeamName() + " vs " + match.getAwayTeamName()
                 + " \u00b7 " + match.getMaxOvers() + " overs");
 
-        // Score summary cards
+        // ── Score cards ────────────────────────────────────────────────────
         if (i1 != null) {
-            tvTeam1Name.setText(bat1);
+            tvTeam1Name.setText(bat1Team);
             tvTeam1Score.setText(i1.getScoreString());
-            tvTeam1Crr.setText(String.format(Locale.US,
-                    "%s ov \u00b7 CRR %.2f", i1.getOversString(), i1.getCurrentRunRate()));
+            tvTeam1Crr.setText(String.format(Locale.US, "%s ov \u00b7 CRR %.2f",
+                    i1.getOversString(), i1.getCurrentRunRate()));
         }
         if (i2 != null) {
-            tvTeam2Name.setText(bat2);
+            tvTeam2Name.setText(bat2Team);
             tvTeam2Score.setText(i2.getScoreString());
-            tvTeam2Crr.setText(String.format(Locale.US,
-                    "%s ov \u00b7 CRR %.2f", i2.getOversString(), i2.getCurrentRunRate()));
+            tvTeam2Crr.setText(String.format(Locale.US, "%s ov \u00b7 CRR %.2f",
+                    i2.getOversString(), i2.getCurrentRunRate()));
         }
 
-        // Batting players lists
-        List<Player> bat1Players = homeFirst ? match.getHomePlayers() : match.getAwayPlayers();
-        List<Player> bat2Players = homeFirst ? match.getAwayPlayers() : match.getHomePlayers();
+        // ── Section headers with team names ────────────────────────────────
+        // Format: "1ST INNINGS — JSJB BATTING"
+        tvLabelFirstBatting.setText(
+                "1ST INNINGS \u2014 " + bat1Team.toUpperCase() + " BATTING");
+        tvLabelFirstBowling.setText(
+                "1ST INNINGS \u2014 " + bowl1Team.toUpperCase() + " BOWLING");
+        tvLabelSecondBatting.setText(
+                "2ND INNINGS \u2014 " + bat2Team.toUpperCase() + " BATTING");
+        tvLabelSecondBowling.setText(
+                "2ND INNINGS \u2014 " + bowl2Team.toUpperCase() + " BOWLING");
 
-        // Bowling teams are the opposite
-        // 1st innings bowlers = players from the team that fielded 1st
-        List<Player> bowl1Players = homeFirst ? match.getAwayPlayers() : match.getHomePlayers();
-        List<Player> bowl2Players = homeFirst ? match.getHomePlayers() : match.getAwayPlayers();
+        // ── Player lists ───────────────────────────────────────────────────
+        List<Player> bat1Players  = homeFirst ? match.getHomePlayers() : match.getAwayPlayers();
+        List<Player> bat2Players  = homeFirst ? match.getAwayPlayers() : match.getHomePlayers();
 
-        // ── 1st Innings ────────────────────────────────────────────────────
-        buildBattingTable(tableFirstBatting, bat1Players);
-        if (i1 != null) buildBowlingTable(tableFirstBowling, i1.getBowlerStats());
-
-        // ── 2nd Innings ────────────────────────────────────────────────────
+        // ── Build tables ───────────────────────────────────────────────────
+        buildBattingTable(tableFirstBatting,  bat1Players);
         buildBattingTable(tableSecondBatting, bat2Players);
+
+        if (i1 != null) buildBowlingTable(tableFirstBowling,  i1.getBowlerStats());
         if (i2 != null) buildBowlingTable(tableSecondBowling, i2.getBowlerStats());
 
         btnSaveMatch.setVisibility(isViewingFromDisk ? View.GONE : View.VISIBLE);
@@ -165,12 +187,10 @@ public class StatsActivity extends AppCompatActivity {
 
     // ─── Table builders ───────────────────────────────────────────────────────
 
-    /** Builds the batting scorecard table. Columns: Batsman R B 4s 6s SR Status */
     private void buildBattingTable(TableLayout table, List<Player> players) {
         table.removeAllViews();
         addBattingRow(table,
-                new String[]{"Batsman", "R", "B", "4s", "6s", "SR", "Status"},
-                true);
+                new String[]{"Batsman", "R", "B", "4s", "6s", "SR", "Status"}, true);
         for (Player p : players) {
             if (p.isHasNotBatted() && p.getBallsFaced() == 0 && p.getRunsScored() == 0) continue;
             String sr = p.getBallsFaced() > 0
@@ -192,39 +212,34 @@ public class StatsActivity extends AppCompatActivity {
         row.setLayoutParams(new TableRow.LayoutParams(
                 TableRow.LayoutParams.MATCH_PARENT, TableRow.LayoutParams.WRAP_CONTENT));
         if (isHeader) row.setBackgroundColor(col(R.color.c_row_header_bg));
-        // Column widths for batting: name wide, stats narrow
         int[] widths = {280, 60, 60, 60, 60, 80, 100};
         for (int i = 0; i < cells.length; i++) {
             TextView tv = new TextView(this);
-            tv.setLayoutParams(new TableRow.LayoutParams(dp(widths[i]),
-                    TableRow.LayoutParams.WRAP_CONTENT));
+            tv.setLayoutParams(new TableRow.LayoutParams(
+                    dp(widths[i]), TableRow.LayoutParams.WRAP_CONTENT));
             tv.setText(cells[i]);
             tv.setPadding(dp(10), dp(8), dp(10), dp(8));
             tv.setTextSize(12f);
-            tv.setTextColor(isHeader ? col(R.color.c_row_header_text) : col(R.color.c_text_primary));
+            tv.setTextColor(isHeader
+                    ? col(R.color.c_row_header_text) : col(R.color.c_text_primary));
             if (isHeader) tv.setTypeface(null, Typeface.BOLD);
             row.addView(tv);
         }
         table.addView(row);
     }
 
-    /** Builds the bowling figures table. Columns: Bowler O Balls R W Econ */
     private void buildBowlingTable(TableLayout table, List<BowlerStat> stats) {
         table.removeAllViews();
+        addBowlingRow(table, new String[]{"Bowler", "O", "B", "R", "W", "Econ"}, true);
         if (stats.isEmpty()) {
-            // No bowling data recorded — show placeholder row
-            addBowlingRow(table, new String[]{"Bowler", "O", "B", "R", "W", "Econ"}, true);
             addBowlingRow(table, new String[]{"—", "—", "—", "—", "—", "—"}, false);
             return;
         }
-        addBowlingRow(table, new String[]{"Bowler", "O", "B", "R", "W", "Econ"}, true);
         for (BowlerStat s : stats) {
             addBowlingRow(table, new String[]{
                     s.getName(),
                     String.valueOf(s.getOvers()),
-                    String.valueOf(s.getBalls() % 6 == 0
-                            ? s.getOvers() * 6
-                            : s.getOvers() * 6 + s.getBalls() % 6),
+                    String.valueOf(s.getBalls()),
                     String.valueOf(s.getRuns()),
                     String.valueOf(s.getWickets()),
                     String.format(Locale.US, "%.2f", s.getEconomy())
@@ -237,16 +252,16 @@ public class StatsActivity extends AppCompatActivity {
         row.setLayoutParams(new TableRow.LayoutParams(
                 TableRow.LayoutParams.MATCH_PARENT, TableRow.LayoutParams.WRAP_CONTENT));
         if (isHeader) row.setBackgroundColor(col(R.color.c_row_header_bg));
-        // Column widths for bowling: name wide, stats narrow
         int[] widths = {220, 60, 60, 60, 60, 80};
         for (int i = 0; i < cells.length; i++) {
             TextView tv = new TextView(this);
-            tv.setLayoutParams(new TableRow.LayoutParams(dp(widths[i]),
-                    TableRow.LayoutParams.WRAP_CONTENT));
+            tv.setLayoutParams(new TableRow.LayoutParams(
+                    dp(widths[i]), TableRow.LayoutParams.WRAP_CONTENT));
             tv.setText(cells[i]);
             tv.setPadding(dp(10), dp(8), dp(10), dp(8));
             tv.setTextSize(12f);
-            tv.setTextColor(isHeader ? col(R.color.c_row_header_text) : col(R.color.c_text_primary));
+            tv.setTextColor(isHeader
+                    ? col(R.color.c_row_header_text) : col(R.color.c_text_primary));
             if (isHeader) tv.setTypeface(null, Typeface.BOLD);
             row.addView(tv);
         }
@@ -283,9 +298,9 @@ public class StatsActivity extends AppCompatActivity {
 
         btnNewMatch.setOnClickListener(v -> {
             ((CricketApp) getApplication()).clearMatch();
-            Intent i = new Intent(this, HomeActivity.class);
-            i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(i);
+            Intent intent = new Intent(this, HomeActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
             finish();
         });
     }
@@ -298,11 +313,6 @@ public class StatsActivity extends AppCompatActivity {
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
-    private int col(int colorRes) {
-        return getResources().getColor(colorRes, getTheme());
-    }
-
-    private int dp(int val) {
-        return (int) (val * getResources().getDisplayMetrics().density);
-    }
+    private int col(int colorRes) { return getResources().getColor(colorRes, getTheme()); }
+    private int dp(int val) { return (int)(val * getResources().getDisplayMetrics().density); }
 }
