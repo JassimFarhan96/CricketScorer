@@ -19,39 +19,35 @@ import java.io.FileWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * MatchStorage.java
  *
- * Handles saving and loading Match objects to/from the app's internal
- * storage under a directory called "recent_matches".
+ * CHANGE: inningsToJson() and jsonToInnings() now include all four
+ * bowling stat maps:
+ *   bowlerOversMap    — complete overs per bowler
+ *   bowlerRunsMap     — runs conceded per bowler  (was missing)
+ *   bowlerWicketsMap  — wickets taken per bowler  (was missing)
+ *   bowlerBallsMap    — valid balls bowled per bowler (was missing)
  *
- * Each match is saved as a single JSON file named:
- *   <timestamp>_<homeTeam>_vs_<awayTeam>.json
- * e.g.  20260423_193045_Mumbai_vs_Delhi.json
+ * Without these, loading a saved match from disk returned empty bowling
+ * tables in StatsActivity because getBowlerStats() reads from these maps.
  *
- * The JSON schema mirrors the Match/Innings/Over/Ball/Player models.
- * Uses only org.json (built into Android — no extra dependency needed).
- *
- * Public API:
- *   saveMatch(context, match)         → saves to recent_matches/
- *   loadAllMatches(context)           → returns List<Match> sorted newest first
- *   getPage(list, page, pageSize)     → returns one page of matches
- *   getTotalPages(list, pageSize)     → total page count
- *   deleteMatch(context, fileName)    → deletes one file
+ * Also persists Over.bowlerIndex and Over.bowlerName so the over history
+ * correctly shows which bowler bowled each over when viewing saved matches.
  */
 public class MatchStorage {
 
     private static final String TAG      = "MatchStorage";
     private static final String DIR_NAME = "recent_matches";
 
-    // ─── Directory helpers ────────────────────────────────────────────────────
+    // ─── Directory ────────────────────────────────────────────────────────────
 
-    /** Returns (and creates if needed) the recent_matches directory. */
     public static File getStorageDir(Context context) {
         File dir = new File(context.getFilesDir(), DIR_NAME);
         if (!dir.exists()) dir.mkdirs();
@@ -60,15 +56,9 @@ public class MatchStorage {
 
     // ─── Save ─────────────────────────────────────────────────────────────────
 
-    /**
-     * Serialises a completed Match to JSON and writes it to a new file.
-     * @return the File that was written, or null on failure.
-     */
     public static File saveMatch(Context context, Match match) {
         try {
             JSONObject root = matchToJson(match);
-
-            // Filename: timestamp + team names
             String ts       = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
             String safeName = sanitize(match.getHomeTeamName())
                     + "_vs_" + sanitize(match.getAwayTeamName());
@@ -76,13 +66,11 @@ public class MatchStorage {
 
             File file = new File(getStorageDir(context), fileName);
             FileWriter fw = new FileWriter(file);
-            fw.write(root.toString(2)); // pretty-printed JSON
+            fw.write(root.toString(2));
             fw.flush();
             fw.close();
-
             Log.d(TAG, "Match saved: " + file.getAbsolutePath());
             return file;
-
         } catch (Exception e) {
             Log.e(TAG, "saveMatch failed", e);
             return null;
@@ -91,18 +79,13 @@ public class MatchStorage {
 
     // ─── Load all ─────────────────────────────────────────────────────────────
 
-    /**
-     * Loads every .json file from recent_matches/, parses each into a Match,
-     * and returns them sorted newest-first (by file name timestamp).
-     */
     public static List<Match> loadAllMatches(Context context) {
         List<Match> matches = new ArrayList<>();
         File dir = getStorageDir(context);
         File[] files = dir.listFiles((d, name) -> name.endsWith(".json"));
         if (files == null || files.length == 0) return matches;
 
-        // Sort newest first (filename starts with yyyyMMdd_HHmmss)
-        Arrays.sort(files, (a, b) -> b.getName().compareTo(a.getName()));
+        Arrays.sort(files, (a, b) -> b.getName().compareTo(a.getName())); // newest first
 
         for (File f : files) {
             try {
@@ -113,10 +96,8 @@ public class MatchStorage {
                 br.close();
 
                 Match m = jsonToMatch(new JSONObject(sb.toString()));
-                // Tag the match with its filename so we can reference it later
                 m.setSavedFileName(f.getName());
                 matches.add(m);
-
             } catch (Exception e) {
                 Log.e(TAG, "Failed to parse " + f.getName(), e);
             }
@@ -124,14 +105,13 @@ public class MatchStorage {
         return matches;
     }
 
-    // ─── Pagination helpers ───────────────────────────────────────────────────
+    // ─── Pagination ───────────────────────────────────────────────────────────
 
     public static int getTotalPages(List<?> list, int pageSize) {
         if (list.isEmpty()) return 0;
         return (int) Math.ceil((double) list.size() / pageSize);
     }
 
-    /** Returns a sub-list for the given 1-based page number. */
     public static <T> List<T> getPage(List<T> list, int page, int pageSize) {
         int from = (page - 1) * pageSize;
         int to   = Math.min(from + pageSize, list.size());
@@ -147,7 +127,7 @@ public class MatchStorage {
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    // JSON serialisation
+    // Serialisation  (Match → JSON)
     // ═════════════════════════════════════════════════════════════════════════
 
     private static JSONObject matchToJson(Match m) throws Exception {
@@ -158,12 +138,14 @@ public class MatchStorage {
         o.put("battingFirstTeam",  m.getBattingFirstTeam());
         o.put("singleBatsmanMode", m.isSingleBatsmanMode());
         o.put("matchCompleted",    m.isMatchCompleted());
-        o.put("winnerTeam",        m.getWinnerTeam() != null ? m.getWinnerTeam() : "");
-        o.put("resultDescription", m.getResultDescription() != null ? m.getResultDescription() : "");
+        o.put("winnerTeam",        nvl(m.getWinnerTeam()));
+        o.put("resultDescription", nvl(m.getResultDescription()));
         o.put("homePlayers",  playersToJson(m.getHomePlayers()));
         o.put("awayPlayers",  playersToJson(m.getAwayPlayers()));
-        o.put("firstInnings",  inningsToJson(m.getFirstInnings()));
-        o.put("secondInnings", m.getSecondInnings() != null ? inningsToJson(m.getSecondInnings()) : JSONObject.NULL);
+        o.put("firstInnings",  m.getFirstInnings()  != null
+                ? inningsToJson(m.getFirstInnings())  : JSONObject.NULL);
+        o.put("secondInnings", m.getSecondInnings() != null
+                ? inningsToJson(m.getSecondInnings()) : JSONObject.NULL);
         return o;
     }
 
@@ -179,7 +161,7 @@ public class MatchStorage {
             o.put("sixes",        p.getSixes());
             o.put("out",          p.isOut());
             o.put("hasNotBatted", p.isHasNotBatted());
-            o.put("dismissal",    p.getDismissalInfo() != null ? p.getDismissalInfo() : "");
+            o.put("dismissal",    nvl(p.getDismissalInfo()));
             arr.put(o);
         }
         return arr;
@@ -196,6 +178,14 @@ public class MatchStorage {
         o.put("nonStrikerIndex",   inn.getNonStrikerIndex());
         o.put("nextBatsmanIndex",  inn.getNextBatsmanIndex());
         o.put("complete",          inn.isComplete());
+
+        // ── Bowling maps (all four) ────────────────────────────────────────
+        o.put("bowlerOversMap",   intMapToJson(inn.getBowlerOversMap()));
+        o.put("bowlerRunsMap",    intMapToJson(inn.getBowlerRunsMap()));
+        o.put("bowlerWicketsMap", intMapToJson(inn.getBowlerWicketsMap()));
+        o.put("bowlerBallsMap",   intMapToJson(inn.getBowlerBallsMap()));
+
+        // ── Overs (completed + current partial) ───────────────────────────
         JSONArray overs = new JSONArray();
         for (Over ov : inn.getAllOvers()) overs.put(overToJson(ov));
         o.put("overs", overs);
@@ -204,12 +194,14 @@ public class MatchStorage {
 
     private static JSONObject overToJson(Over ov) throws Exception {
         JSONObject o = new JSONObject();
-        o.put("overNumber", ov.getOverNumber());
+        o.put("overNumber",  ov.getOverNumber());
+        o.put("bowlerIndex", ov.getBowlerIndex());
+        o.put("bowlerName",  nvl(ov.getBowlerName()));
         JSONArray balls = new JSONArray();
         for (Ball b : ov.getBalls()) {
             JSONObject bo = new JSONObject();
-            bo.put("type", b.getType().name());
-            bo.put("runs", b.getRuns());
+            bo.put("type",  b.getType().name());
+            bo.put("runs",  b.getRuns());
             bo.put("valid", b.isValid());
             balls.put(bo);
         }
@@ -217,8 +209,19 @@ public class MatchStorage {
         return o;
     }
 
+    /** Serialises a String→Integer map as a JSON object. */
+    private static JSONObject intMapToJson(Map<String, Integer> map) throws Exception {
+        JSONObject o = new JSONObject();
+        if (map != null) {
+            for (Map.Entry<String, Integer> e : map.entrySet()) {
+                o.put(e.getKey(), e.getValue());
+            }
+        }
+        return o;
+    }
+
     // ═════════════════════════════════════════════════════════════════════════
-    // JSON deserialisation
+    // Deserialisation  (JSON → Match)
     // ═════════════════════════════════════════════════════════════════════════
 
     private static Match jsonToMatch(JSONObject o) throws Exception {
@@ -260,6 +263,7 @@ public class MatchStorage {
     private static Innings jsonToInnings(JSONObject o) throws Exception {
         boolean single = o.optBoolean("singleBatsmanMode", false);
         Innings inn = new Innings(o.getInt("inningsNumber"), single);
+
         inn.setTotalRuns(o.optInt("totalRuns", 0));
         inn.setTotalWickets(o.optInt("totalWickets", 0));
         inn.setTotalValidBalls(o.optInt("totalValidBalls", 0));
@@ -267,22 +271,32 @@ public class MatchStorage {
         inn.setNonStrikerIndex(o.optInt("nonStrikerIndex", single ? -1 : 1));
         inn.setNextBatsmanIndex(o.optInt("nextBatsmanIndex", single ? 1 : 2));
         inn.setComplete(o.optBoolean("complete", true));
+
+        // ── Restore bowling maps (all four) ───────────────────────────────
+        inn.setBowlerOversMap(jsonToIntMap(o.optJSONObject("bowlerOversMap")));
+        inn.setBowlerRunsMap(jsonToIntMap(o.optJSONObject("bowlerRunsMap")));
+        inn.setBowlerWicketsMap(jsonToIntMap(o.optJSONObject("bowlerWicketsMap")));
+        inn.setBowlerBallsMap(jsonToIntMap(o.optJSONObject("bowlerBallsMap")));
+
+        // ── Restore overs ─────────────────────────────────────────────────
         JSONArray overs = o.optJSONArray("overs");
         if (overs != null) {
             for (int i = 0; i < overs.length(); i++) {
-                JSONObject ov = overs.getJSONObject(i);
-                Over over = new Over(ov.getInt("overNumber"));
+                JSONObject ov   = overs.getJSONObject(i);
+                Over       over = new Over(ov.getInt("overNumber"));
+                over.setBowlerIndex(ov.optInt("bowlerIndex", -1));
+                over.setBowlerName(ov.optString("bowlerName", ""));
                 JSONArray balls = ov.optJSONArray("balls");
                 if (balls != null) {
                     for (int j = 0; j < balls.length(); j++) {
-                        JSONObject bo = balls.getJSONObject(j);
-                        Ball.BallType type = Ball.BallType.valueOf(bo.getString("type"));
+                        JSONObject bo   = balls.getJSONObject(j);
+                        Ball.BallType t = Ball.BallType.valueOf(bo.getString("type"));
                         Ball ball;
-                        switch (type) {
-                            case WIDE:    ball = Ball.wide();           break;
-                            case NO_BALL: ball = Ball.noBall();         break;
-                            case WICKET:  ball = Ball.wicket();         break;
-                            default:      ball = Ball.normal(bo.optInt("runs", 0)); break;
+                        switch (t) {
+                            case WIDE:    ball = Ball.wide();                   break;
+                            case NO_BALL: ball = Ball.noBall();                 break;
+                            case WICKET:  ball = Ball.wicket();                 break;
+                            default:      ball = Ball.normal(bo.optInt("runs",0)); break;
                         }
                         over.addBall(ball);
                     }
@@ -293,11 +307,26 @@ public class MatchStorage {
         return inn;
     }
 
-    // ─── Utility ──────────────────────────────────────────────────────────────
+    /** Deserialises a JSON object into a String→Integer map. */
+    private static Map<String, Integer> jsonToIntMap(JSONObject obj) throws Exception {
+        Map<String, Integer> map = new HashMap<>();
+        if (obj == null) return map;
+        JSONArray keys = obj.names();
+        if (keys != null) {
+            for (int i = 0; i < keys.length(); i++) {
+                String k = keys.getString(i);
+                map.put(k, obj.getInt(k));
+            }
+        }
+        return map;
+    }
 
-    /** Strips characters unsafe for file names. */
+    // ─── Utilities ────────────────────────────────────────────────────────────
+
     private static String sanitize(String s) {
         if (s == null) return "Unknown";
         return s.replaceAll("[^a-zA-Z0-9]", "_").replaceAll("_+", "_");
     }
+
+    private static String nvl(String s) { return s != null ? s : ""; }
 }
