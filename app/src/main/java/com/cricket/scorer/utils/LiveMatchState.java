@@ -88,6 +88,7 @@ public class LiveMatchState {
             o.put("ballsFaced", p.getBallsFaced()); o.put("fours", p.getFours());
             o.put("sixes", p.getSixes()); o.put("out", p.isOut());
             o.put("hasNotBatted", p.isHasNotBatted());
+            o.put("retiredHurt", p.isRetiredHurt());
             o.put("dismissal", nvl(p.getDismissalInfo()));
             arr.put(o);
         }
@@ -172,6 +173,7 @@ public class LiveMatchState {
             p.setRunsScored(o.optInt("runsScored", 0)); p.setBallsFaced(o.optInt("ballsFaced", 0));
             p.setFours(o.optInt("fours", 0)); p.setSixes(o.optInt("sixes", 0));
             p.setOut(o.optBoolean("out", false)); p.setHasNotBatted(o.optBoolean("hasNotBatted", true));
+            p.setRetiredHurt(o.optBoolean("retiredHurt", false));
             p.setDismissalInfo(o.optString("dismissal", ""));
             list.add(p);
         }

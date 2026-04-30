@@ -87,14 +87,7 @@ public class InningsActivity extends AppCompatActivity {
         setBallButtonsEnabled(false);
         refreshUI();
 
-        Innings innings = match.getCurrentInningsData();
-        if (isInningsJustStarted()) {
-            showOpenerSelectionDialog();
-        } else if (!innings.isBowlerSelected()) {
-            showBowlerSelectionDialog();
-        } else {
-            setBallButtonsEnabled(true);
-        }
+        decideStartupDialog();
     }
 
     @Override
@@ -106,7 +99,65 @@ public class InningsActivity extends AppCompatActivity {
 
     // ─── State helpers ────────────────────────────────────────────────────────
 
+    /**
+     * Determines what to show on activity start / resume.
+     *
+     * Decision tree (evaluated in order — first match wins):
+     *
+     *  1. Any player has already batted (hasNotBatted=false) OR
+     *     any player is retired hurt OR any player is out?
+     *     → Innings has progressed. DO NOT show opener dialog.
+     *     → If bowler confirmed for current over: enable buttons (resume play)
+     *     → Else: show bowler dialog only
+     *
+     *  2. No valid balls bowled AND no completed overs?
+     *     → Fresh innings start: show opener dialog
+     *
+     *  3. Balls have been bowled but bowler not confirmed?
+     *     → Show bowler dialog only
+     *
+     *  4. Otherwise: resume play normally
+     */
+    private void decideStartupDialog() {
+        Innings      innings = match.getCurrentInningsData();
+        List<Player> players = match.getCurrentBattingPlayers();
+
+        // Check whether ANY player has already been involved in this innings
+        boolean inningsAlreadyProgressed = false;
+        for (Player p : players) {
+            if (!p.isHasNotBatted() || p.isRetiredHurt() || p.isOut()) {
+                inningsAlreadyProgressed = true;
+                break;
+            }
+        }
+
+        if (inningsAlreadyProgressed) {
+            // Innings is underway — never show opener dialog on resume
+            if (innings.isBowlerSelected()) {
+                setBallButtonsEnabled(true);
+            } else {
+                showBowlerSelectionDialog();
+            }
+            return;
+        }
+
+        // No player has batted yet — check if balls have been bowled
+        Over cur          = innings.getCurrentOver();
+        boolean noBalls   = (cur == null || cur.getBalls().isEmpty())
+                             && innings.getCompletedOvers().isEmpty();
+
+        if (noBalls) {
+            // Truly fresh innings — show opener dialog
+            showOpenerSelectionDialog();
+        } else if (!innings.isBowlerSelected()) {
+            showBowlerSelectionDialog();
+        } else {
+            setBallButtonsEnabled(true);
+        }
+    }
+
     private boolean isInningsJustStarted() {
+        // Kept for undo logic — checks only ball state, not player state
         Innings inn = match.getCurrentInningsData();
         Over    cur = inn.getCurrentOver();
         return (cur == null || cur.getBalls().isEmpty()) && inn.getCompletedOvers().isEmpty();
