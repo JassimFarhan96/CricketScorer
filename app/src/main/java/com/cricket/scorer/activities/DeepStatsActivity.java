@@ -664,14 +664,19 @@ public class DeepStatsActivity extends AppCompatActivity {
      * Reused in both the preview card and the full popup.
      */
     private View buildOverRow(Over ov, int index, int maxRuns, int trackW, int barColor) {
-        int rowH = dp(34);
+        int rowH = dp(42);
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams rowP = lp(LinearLayout.LayoutParams.MATCH_PARENT, rowH);
+        // Use WRAP_CONTENT so the row can be wider than the viewport
+        // (required for HorizontalScrollView to actually scroll)
+        LinearLayout.LayoutParams rowP = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, rowH);
         rowP.setMargins(0, dp(2), 0, dp(2));
         row.setLayoutParams(rowP);
         if (index % 2 == 0) row.setBackgroundColor(col(R.color.c_row_alt_bg));
+        // Minimum width = label + bar + runs so background fills the card in preview
+        row.setMinimumWidth(dp(52) + trackW + dp(56));
 
         // Over label
         TextView tvOv = tv("Ov " + ov.getOverNumber(), 11f, col(R.color.c_text_secondary), false);
@@ -679,49 +684,101 @@ public class DeepStatsActivity extends AppCompatActivity {
         tvOv.setGravity(Gravity.CENTER_VERTICAL);
         row.addView(tvOv);
 
-        // Bar frame
+        // Calculate filled bar width
         int barFilledW = maxRuns > 0
                 ? (int)((float) ov.getTotalRuns() / maxRuns * trackW) : 0;
 
-        android.widget.FrameLayout barFrame = new android.widget.FrameLayout(this);
-        LinearLayout.LayoutParams bfP = new LinearLayout.LayoutParams(trackW, dp(18));
+        // Custom Canvas view: draws track + bar + wicket circles
+        OverBarView barView = new OverBarView(this, ov, barColor, trackW, barFilledW);
+        LinearLayout.LayoutParams bfP = new LinearLayout.LayoutParams(trackW, dp(30));
         bfP.setMargins(dp(4), 0, dp(8), 0);
-        barFrame.setLayoutParams(bfP);
+        barView.setLayoutParams(bfP);
+        row.addView(barView);
 
-        // Track
-        View track = new View(this);
-        track.setLayoutParams(new android.widget.FrameLayout.LayoutParams(
-                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-                android.widget.FrameLayout.LayoutParams.MATCH_PARENT));
-        android.graphics.drawable.GradientDrawable trackBg =
-                new android.graphics.drawable.GradientDrawable();
-        trackBg.setColor(Color.parseColor("#15888888"));
-        trackBg.setCornerRadius(dp(4));
-        track.setBackground(trackBg);
-        barFrame.addView(track);
-
-        // Filled bar
-        if (barFilledW > 0) {
-            View bar = new View(this);
-            bar.setLayoutParams(new android.widget.FrameLayout.LayoutParams(
-                    barFilledW, android.widget.FrameLayout.LayoutParams.MATCH_PARENT));
-            android.graphics.drawable.GradientDrawable barBg =
-                    new android.graphics.drawable.GradientDrawable();
-            barBg.setColor(barColor);
-            barBg.setAlpha(210);
-            barBg.setCornerRadius(dp(4));
-            bar.setBackground(barBg);
-            barFrame.addView(bar);
-        }
-        row.addView(barFrame);
-
-        // Runs value — always visible
-        TextView tvRuns = tv(String.valueOf(ov.getTotalRuns()), 13f, barColor, true);
-        tvRuns.setLayoutParams(new LinearLayout.LayoutParams(dp(40), LinearLayout.LayoutParams.WRAP_CONTENT));
+        // Runs value + wicket count if any
+        int wkts = ov.getWickets();
+        String runsLabel = String.valueOf(ov.getTotalRuns());
+        if (wkts > 0) runsLabel += "\n" + wkts + "W";
+        TextView tvRuns = tv(runsLabel, 12f, barColor, true);
+        tvRuns.setLayoutParams(new LinearLayout.LayoutParams(dp(44), LinearLayout.LayoutParams.WRAP_CONTENT));
         tvRuns.setGravity(Gravity.CENTER_VERTICAL);
+        tvRuns.setLineSpacing(0, 0.85f);
         row.addView(tvRuns);
 
         return row;
+    }
+
+    /**
+     * Custom View that draws the bar track, coloured fill, and red wicket circles.
+     * Each wicket circle is positioned proportionally along the bar at the ball
+     * where the wicket fell, with a "W" label inside.
+     */
+    private class OverBarView extends View {
+        private final Over over;
+        private final int  barColor, trackW, barFilledW;
+        private final Paint trackP = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint fillP  = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint circP  = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint bordP  = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint textP  = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        OverBarView(android.content.Context ctx, Over over, int barColor, int trackW, int barFilledW) {
+            super(ctx);
+            this.over = over; this.barColor = barColor;
+            this.trackW = trackW; this.barFilledW = barFilledW;
+            trackP.setColor(Color.parseColor("#15888888")); trackP.setStyle(android.graphics.Paint.Style.FILL);
+            fillP.setColor(barColor); fillP.setAlpha(210); fillP.setStyle(android.graphics.Paint.Style.FILL);
+            circP.setColor(Color.WHITE); circP.setStyle(android.graphics.Paint.Style.FILL);
+            bordP.setColor(Color.parseColor("#CC2200")); bordP.setStyle(android.graphics.Paint.Style.STROKE);
+            bordP.setStrokeWidth(dp(1.5f));
+            textP.setColor(Color.parseColor("#CC2200")); textP.setTextAlign(android.graphics.Paint.Align.CENTER);
+            textP.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        }
+
+        @Override
+        protected void onDraw(android.graphics.Canvas canvas) {
+            float w = getWidth(), h = getHeight();
+            float barTop = h * 0.28f, barBot = h * 0.72f, r = (barBot - barTop) / 2f;
+            float circR = h * 0.40f;
+            textP.setTextSize(h * 0.34f);
+
+            // Track
+            canvas.drawRoundRect(new android.graphics.RectF(0, barTop, trackW, barBot), r, r, trackP);
+            // Fill
+            if (barFilledW > 0)
+                canvas.drawRoundRect(new android.graphics.RectF(0, barTop, barFilledW, barBot), r, r, fillP);
+
+            // Wicket circles — one circle per wicket, positioned by valid ball index.
+            // The circle is clamped to the end of the filled bar so it never
+            // appears in the grey track area beyond where runs were scored.
+            List<com.cricket.scorer.models.Ball> balls = over.getBalls();
+            int totalValidBalls = over.getValidBallCount();
+            if (balls.isEmpty() || totalValidBalls == 0) return;
+
+            // Max x = right edge of the filled bar (or a minimum if no runs scored)
+            float maxCx = barFilledW > 0 ? barFilledW : circR * 2.2f;
+
+            int validBallIndex = 0;
+            for (com.cricket.scorer.models.Ball b : balls) {
+                if (b.isValid()) validBallIndex++;
+                if (b.getType() == com.cricket.scorer.models.Ball.BallType.WICKET) {
+                    // Position across the track proportionally to ball index
+                    float fraction = (float) validBallIndex / totalValidBalls;
+                    float rawCx    = fraction * trackW;
+                    // Clamp: circle must not go beyond the bar's right edge
+                    // and must not go below circR (left bound)
+                    float cx = Math.max(circR, Math.min(maxCx, rawCx));
+                    float cy = h / 2f;
+                    canvas.drawCircle(cx, cy, circR, circP);
+                    canvas.drawCircle(cx, cy, circR, bordP);
+                    canvas.drawText("W", cx, cy + textP.getTextSize() * 0.36f, textP);
+                }
+            }
+        }
+
+        private int dp(float v) {
+            return (int)(v * getContext().getResources().getDisplayMetrics().density);
+        }
     }
 
     /**
@@ -843,20 +900,24 @@ public class DeepStatsActivity extends AppCompatActivity {
 
         // ── Scrollable over list (both directions) ─────────────────────────
         int screenW = getResources().getDisplayMetrics().widthPixels;
-        int popupTrackW = screenW - dp(52) - dp(56) - dp(64); // narrower inside popup
+        // Make bar wider than screen width so horizontal scroll is meaningful.
+        // The row = [52dp label] + [barTrackW] + [56dp runs] + [16dp padding]
+        // Use 1.5× screen so the bar extends well past the viewport
+        int popupTrackW = (int)(screenW * 1.2f) - dp(52) - dp(56) - dp(40);
 
         HorizontalScrollView hScroll = new HorizontalScrollView(this);
         hScroll.setHorizontalScrollBarEnabled(true);
-        hScroll.setFillViewport(true);
+        hScroll.setFillViewport(false);  // must be false for horizontal scroll to work
+        hScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
 
-        // Height: show all overs up to ~10 rows, then scroll
-        int maxRows  = Math.min(overs.size(), 10);
-        int rowH     = dp(34);
-        int listH    = maxRows * rowH + dp(16);
+        // Height: show up to 10 rows, then vertical scroll
+        int maxRows = Math.min(overs.size(), 10);
+        int rowH    = dp(42); // matches updated buildOverRow height
+        int listH   = maxRows * rowH + dp(16);
 
         ScrollView vScroll = new ScrollView(this);
         vScroll.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, listH));
+                LinearLayout.LayoutParams.WRAP_CONTENT, listH));
         vScroll.setVerticalScrollBarEnabled(true);
 
         LinearLayout rowContainer = new LinearLayout(this);
