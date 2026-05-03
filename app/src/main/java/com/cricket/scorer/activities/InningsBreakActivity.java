@@ -537,7 +537,7 @@ public class InningsBreakActivity extends AppCompatActivity {
             maxRR    = 2f;
             for (float r : rrData) maxRR = Math.max(maxRR, r);
             maxRR    = (float)(Math.ceil((maxRR+2)/2.0)*2);
-            maxOvers = innings != null ? innings.getCompletedOvers().size() : 1;
+            maxOvers = innings != null ? innings.getAllOvers().size() : 1;
             if (maxOvers == 0) maxOvers = 1;
         }
 
@@ -619,10 +619,17 @@ public class InningsBreakActivity extends AppCompatActivity {
         private float yFor(float rr) { return padT+chartH-(rr/maxRR)*chartH; }
         private float[] buildRR(Innings inn) {
             if (inn==null) return new float[0];
-            List<Over> ovs = inn.getCompletedOvers();
+            List<Over> ovs = inn.getAllOvers();
             if (ovs.isEmpty()) return new float[0];
             float[] r = new float[ovs.size()]; int cum=0;
-            for (int i=0;i<ovs.size();i++){cum+=ovs.get(i).getTotalRuns();r[i]=(float)cum/(i+1);}
+            int totalBalls = inn.getTotalValidBalls();
+            for (int i=0;i<ovs.size();i++){
+                cum += ovs.get(i).getTotalRuns();
+                boolean isLast   = (i == ovs.size()-1);
+                boolean isPartial = isLast && ovs.get(i).getValidBallCount() < 6;
+                float ovsDecimal  = isPartial ? totalBalls/6f : (i+1);
+                r[i] = ovsDecimal > 0 ? cum/ovsDecimal : 0f;
+            }
             return r;
         }
         private int dp(float v) { return (int)(v*getContext().getResources().getDisplayMetrics().density); }

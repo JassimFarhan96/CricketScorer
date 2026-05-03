@@ -273,8 +273,8 @@ public class DeepStatsActivity extends AppCompatActivity {
             maxRR = (float)(Math.ceil((maxRR + 2) / 2.0) * 2); // round to next even
 
             maxOvers = Math.max(
-                    i1 != null ? i1.getCompletedOvers().size() : 0,
-                    i2 != null ? i2.getCompletedOvers().size() : 0);
+                    i1 != null ? i1.getAllOvers().size() : 0,
+                    i2 != null ? i2.getAllOvers().size() : 0);
             if (maxOvers == 0) maxOvers = 1;
         }
 
@@ -448,13 +448,23 @@ public class DeepStatsActivity extends AppCompatActivity {
          */
         private float[] buildRunRates(Innings inn) {
             if (inn == null) return new float[0];
-            List<Over> overs = inn.getCompletedOvers();
+            // getAllOvers() includes the partial current over so matches that end
+            // mid-over (e.g. 2nd innings chase completed on ball 5) still show data
+            List<Over> overs = inn.getAllOvers();
             if (overs.isEmpty()) return new float[0];
-            float[] rates = new float[overs.size()];
-            int cumRuns = 0;
+            float[] rates  = new float[overs.size()];
+            int     cumRuns = 0;
+            int     totalValidBalls = inn.getTotalValidBalls();
             for (int i = 0; i < overs.size(); i++) {
                 cumRuns += overs.get(i).getTotalRuns();
-                rates[i] = (float) cumRuns / (i + 1); // avg run rate after over i+1
+                // For completed overs use full over count; for partial last over
+                // use actual balls faced so run rate is accurate, not inflated
+                boolean isLastOver   = (i == overs.size() - 1);
+                boolean isPartial    = isLastOver && overs.get(i).getValidBallCount() < 6;
+                float   oversDecimal = isPartial
+                        ? totalValidBalls / 6f          // e.g. 5 balls = 0.833 overs
+                        : (i + 1);                      // completed: 1, 2, 3...
+                rates[i] = oversDecimal > 0 ? cumRuns / oversDecimal : 0f;
             }
             return rates;
         }
@@ -565,7 +575,9 @@ public class DeepStatsActivity extends AppCompatActivity {
      * a close button.
      */
     private View buildOverChart(String teamName, Innings innings, int barColor) {
-        List<Over> overs = innings.getCompletedOvers();
+        // getAllOvers() includes the partial current over so a chase completed
+        // mid-over still appears in the bar chart
+        List<Over> overs = innings.getAllOvers();
 
         LinearLayout wrapper = new LinearLayout(this);
         wrapper.setOrientation(LinearLayout.VERTICAL);
