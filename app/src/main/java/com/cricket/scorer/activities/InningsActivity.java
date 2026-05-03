@@ -65,7 +65,7 @@ public class InningsActivity extends AppCompatActivity {
     private RecyclerView rvCurrentOverBalls, rvOverHistory;
     private TextView     tvBowlerSummary;
     private Button       btnDot, btn1, btn2, btn3, btn4, btn6;
-    private Button       btnWide, btnNoBall, btnWicket, btnRetiredHurt, btnUndo;
+    private Button       btnWide, btnNoBall, btnWicket, btnRetiredHurt, btnBabyOver, btnUndo;
 
     private BallAdapter        ballAdapter;
     private OverHistoryAdapter overHistoryAdapter;
@@ -87,7 +87,14 @@ public class InningsActivity extends AppCompatActivity {
         setBallButtonsEnabled(false);
         refreshUI();
 
-        decideStartupDialog();
+        Innings innings = match.getCurrentInningsData();
+        if (isInningsJustStarted()) {
+            showOpenerSelectionDialog();
+        } else if (!innings.isBowlerSelected()) {
+            showBowlerSelectionDialog();
+        } else {
+            setBallButtonsEnabled(true);
+        }
     }
 
     @Override
@@ -99,65 +106,7 @@ public class InningsActivity extends AppCompatActivity {
 
     // ─── State helpers ────────────────────────────────────────────────────────
 
-    /**
-     * Determines what to show on activity start / resume.
-     *
-     * Decision tree (evaluated in order — first match wins):
-     *
-     *  1. Any player has already batted (hasNotBatted=false) OR
-     *     any player is retired hurt OR any player is out?
-     *     → Innings has progressed. DO NOT show opener dialog.
-     *     → If bowler confirmed for current over: enable buttons (resume play)
-     *     → Else: show bowler dialog only
-     *
-     *  2. No valid balls bowled AND no completed overs?
-     *     → Fresh innings start: show opener dialog
-     *
-     *  3. Balls have been bowled but bowler not confirmed?
-     *     → Show bowler dialog only
-     *
-     *  4. Otherwise: resume play normally
-     */
-    private void decideStartupDialog() {
-        Innings      innings = match.getCurrentInningsData();
-        List<Player> players = match.getCurrentBattingPlayers();
-
-        // Check whether ANY player has already been involved in this innings
-        boolean inningsAlreadyProgressed = false;
-        for (Player p : players) {
-            if (!p.isHasNotBatted() || p.isRetiredHurt() || p.isOut()) {
-                inningsAlreadyProgressed = true;
-                break;
-            }
-        }
-
-        if (inningsAlreadyProgressed) {
-            // Innings is underway — never show opener dialog on resume
-            if (innings.isBowlerSelected()) {
-                setBallButtonsEnabled(true);
-            } else {
-                showBowlerSelectionDialog();
-            }
-            return;
-        }
-
-        // No player has batted yet — check if balls have been bowled
-        Over cur          = innings.getCurrentOver();
-        boolean noBalls   = (cur == null || cur.getBalls().isEmpty())
-                             && innings.getCompletedOvers().isEmpty();
-
-        if (noBalls) {
-            // Truly fresh innings — show opener dialog
-            showOpenerSelectionDialog();
-        } else if (!innings.isBowlerSelected()) {
-            showBowlerSelectionDialog();
-        } else {
-            setBallButtonsEnabled(true);
-        }
-    }
-
     private boolean isInningsJustStarted() {
-        // Kept for undo logic — checks only ball state, not player state
         Innings inn = match.getCurrentInningsData();
         Over    cur = inn.getCurrentOver();
         return (cur == null || cur.getBalls().isEmpty()) && inn.getCompletedOvers().isEmpty();
@@ -201,6 +150,29 @@ public class InningsActivity extends AppCompatActivity {
                 }).show();
     }
 
+    /**
+     * Returns a formatted overs label for a bowler combining complete overs
+     * (from bowlerOversMap) with partial balls (from bowlerBallsMap).
+     * Examples:
+     *   1 full over, 0 extra balls  → "1 ov"
+     *   1 full over, 3 extra balls  → "1.3 ov"
+     *   0 full overs, 3 extra balls → "0.3 ov"
+     *   0 full overs, 0 balls       → "" (empty — haven't bowled yet)
+     */
+    private String getOversLabel(Innings inn, String bowlerName) {
+        int completeOvers = (inn.getBowlerOversMap() != null
+                && inn.getBowlerOversMap().containsKey(bowlerName))
+                ? inn.getBowlerOversMap().get(bowlerName) : 0;
+        int totalBalls = (inn.getBowlerBallsMap() != null
+                && inn.getBowlerBallsMap().containsKey(bowlerName))
+                ? inn.getBowlerBallsMap().get(bowlerName) : 0;
+        int extraBalls = totalBalls % 6;
+
+        if (completeOvers == 0 && extraBalls == 0) return "";
+        if (extraBalls == 0) return completeOvers + " ov";
+        return completeOvers + "." + extraBalls + " ov";
+    }
+
     private void showBowlerSelectionDialog() {
         setBallButtonsEnabled(false);
         Innings inn = match.getCurrentInningsData();
@@ -208,8 +180,8 @@ public class InningsActivity extends AppCompatActivity {
         int ovNum = inn.getCompletedOvers().size() + 1;
         String[] names = new String[bowlers.size()];
         for (int i = 0; i < bowlers.size(); i++) {
-            int cnt = inn.getBowlerOversMap() != null && inn.getBowlerOversMap().containsKey(bowlers.get(i).getName()) ? inn.getBowlerOversMap().get(bowlers.get(i).getName()) : 0;
-            names[i] = (i+1)+". "+bowlers.get(i).getName()+(cnt>0?" ("+cnt+" ov)":"");
+            String ovLabel = getOversLabel(inn, bowlers.get(i).getName());
+            names[i] = (i+1)+". "+bowlers.get(i).getName()+(!ovLabel.isEmpty()?" ("+ovLabel+")":"");
         }
         int def = Math.max(0, inn.getCurrentBowlerIndex());
         final int[] ch = {def};
@@ -225,6 +197,84 @@ public class InningsActivity extends AppCompatActivity {
         boolean homeFirst = match.getBattingFirstTeam().equals("home");
         if (match.getCurrentInnings() == 1) return homeFirst ? match.getAwayPlayers() : match.getHomePlayers();
         return homeFirst ? match.getHomePlayers() : match.getAwayPlayers();
+    }
+
+    // ─── Baby Over dialog ─────────────────────────────────────────────────────
+
+    /**
+     * Shows a dialog with a Spinner dropdown listing all available bowlers.
+     * Uses a custom view (not setSingleChoiceItems) to guarantee the dropdown
+     * renders correctly across all Android themes and versions.
+     */
+    private void showBabyOverDialog() {
+        Innings      inn     = match.getCurrentInningsData();
+        List<Player> bowlers = getBowlingTeamPlayers();
+
+        // Build display labels: "1. PlayerName  (2 ov)" or "1. PlayerName ← current"
+        String[] names = new String[bowlers.size()];
+        for (int i = 0; i < bowlers.size(); i++) {
+            Player p          = bowlers.get(i);
+            boolean isCurrent = p.getName().equals(inn.getCurrentBowlerName());
+            String ovLabel    = getOversLabel(inn, p.getName());
+            names[i] = (i + 1) + ".  " + p.getName()
+                    + (!ovLabel.isEmpty() ? "  (" + ovLabel + ")" : "")
+                    + (isCurrent ? "  ← current" : "");
+        }
+
+        // ── Custom dialog view ────────────────────────────────────────────────
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(this);
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad = (int)(20 * getResources().getDisplayMetrics().density);
+        layout.setPadding(pad, 0, pad, pad / 2);
+
+        // Info text
+        android.widget.TextView tvMsg = new android.widget.TextView(this);
+        tvMsg.setText(inn.getCurrentBowlerName() + " has bowled 3 balls.\n"
+                + "Select bowler for balls 4–6:");
+        tvMsg.setTextSize(14f);
+        tvMsg.setTextColor(getResources().getColor(R.color.c_text_primary, getTheme()));
+        android.widget.LinearLayout.LayoutParams msgP =
+                new android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        msgP.setMargins(0, 0, 0, pad / 2);
+        tvMsg.setLayoutParams(msgP);
+        layout.addView(tvMsg);
+
+        // Spinner
+        android.widget.Spinner spinner = new android.widget.Spinner(this);
+        android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(
+                this, android.R.layout.simple_spinner_item, names);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+        spinner.setLayoutParams(new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT));
+        layout.addView(spinner);
+
+        final int[] chosen = {0};
+        spinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(android.widget.AdapterView<?> p,
+                                                  android.view.View v, int pos, long id) {
+                chosen[0] = pos;
+            }
+            @Override public void onNothingSelected(android.widget.AdapterView<?> p) {}
+        });
+
+        new AlertDialog.Builder(this)
+                .setTitle("Baby Over — Switch Bowler")
+                .setView(layout)
+                .setCancelable(true)
+                .setPositiveButton("Confirm", (d, w) -> {
+                    String name = bowlers.get(chosen[0]).getName();
+                    inn.setSecondBowlerForBabyOver(chosen[0], name);
+                    LiveMatchState.persist(this, match);
+                    refreshUI();
+                    Toast.makeText(this,
+                            name + " will bowl balls 4–6", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     // ─── Retired Hurt dialog ──────────────────────────────────────────────────
@@ -447,7 +497,18 @@ public class InningsActivity extends AppCompatActivity {
         btnWide.setEnabled(e); btnWide.setAlpha(a); btnNoBall.setEnabled(e); btnNoBall.setAlpha(a);
         btnWicket.setEnabled(e); btnWicket.setAlpha(a);
         btnRetiredHurt.setEnabled(e); btnRetiredHurt.setAlpha(a);
+        // Baby over button visibility is managed separately in refreshBabyOverButton()
         btnUndo.setEnabled(true); btnUndo.setAlpha(1f);
+    }
+
+    /** Show baby over button only when exactly 3 valid balls have been bowled
+     *  in the current over AND baby over hasn't already been activated. */
+    private void refreshBabyOverButton() {
+        Innings inn = match.getCurrentInningsData();
+        Over    cur = inn.getCurrentOver();
+        int validBalls = cur != null ? cur.getValidBallCount() : 0;
+        boolean show = (validBalls == 3) && !inn.isBabyOverActivated();
+        btnBabyOver.setVisibility(show ? android.view.View.VISIBLE : android.view.View.GONE);
     }
 
     // ─── View binding ─────────────────────────────────────────────────────────
@@ -465,6 +526,7 @@ public class InningsActivity extends AppCompatActivity {
         btn3 = findViewById(R.id.btn_3); btn4 = findViewById(R.id.btn_4); btn6 = findViewById(R.id.btn_6);
         btnWide = findViewById(R.id.btn_wide); btnNoBall = findViewById(R.id.btn_noball);
         btnWicket = findViewById(R.id.btn_wicket); btnRetiredHurt = findViewById(R.id.btn_retired_hurt);
+        btnBabyOver = findViewById(R.id.btn_baby_over);
         btnUndo = findViewById(R.id.btn_undo);
     }
 
@@ -488,6 +550,7 @@ public class InningsActivity extends AppCompatActivity {
         btnNoBall.setOnClickListener(v -> handleMatchState(engine.deliverNoBall()));
         btnWicket.setOnClickListener(v -> showWicketDialog());
         btnRetiredHurt.setOnClickListener(v -> showRetiredHurtDialog());
+        btnBabyOver.setOnClickListener(v -> showBabyOverDialog());
         btnUndo.setOnClickListener(v -> {
             if (isCurrentOverEmpty()) {
                 if (isInningsJustStarted()) resetAndReshowOpeners();
@@ -552,7 +615,16 @@ public class InningsActivity extends AppCompatActivity {
         tvModeBadge.setText(single?"Single bat":"Two bat"); tvModeBadge.setVisibility(View.VISIBLE);
 
         if (innings.isBowlerSelected() && !innings.getCurrentBowlerName().isEmpty()) {
-            tvCurrentBowler.setText("Bowling: "+innings.getCurrentBowlerName()); tvCurrentBowler.setVisibility(View.VISIBLE);
+            String bowlerLabel;
+            if (innings.isBabyOverActivated() && innings.isSecondBowlerSelected()
+                    && !innings.getCurrentSecondBowlerName().isEmpty()) {
+                bowlerLabel = "Bowling: " + innings.getCurrentSecondBowlerName()
+                        + "  (Baby over ½)";
+            } else {
+                bowlerLabel = "Bowling: " + innings.getCurrentBowlerName();
+            }
+            tvCurrentBowler.setText(bowlerLabel);
+            tvCurrentBowler.setVisibility(View.VISIBLE);
         } else tvCurrentBowler.setVisibility(View.GONE);
 
         if (inum==2) {
@@ -569,6 +641,8 @@ public class InningsActivity extends AppCompatActivity {
         String summary = innings.getBowlerSummary();
         if (!summary.isEmpty()) { tvBowlerSummary.setText(summary); tvBowlerSummary.setVisibility(View.VISIBLE); }
         else tvBowlerSummary.setVisibility(View.GONE);
+
+        refreshBabyOverButton();
     }
 
     private void refreshBattingTable(Innings innings, boolean single) {

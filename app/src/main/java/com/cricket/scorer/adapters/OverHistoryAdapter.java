@@ -130,7 +130,7 @@ public class OverHistoryAdapter extends RecyclerView.Adapter<OverHistoryAdapter.
 
         card.addView(row1);
 
-        // ── Row 2: bowler name below balls ────────────────────────────────
+        // ── Row 2: bowler name(s) below balls ────────────────────────────────
         if (over.hasBowler() && !over.getBowlerName().isEmpty()) {
             LinearLayout row2 = new LinearLayout(ctx);
             row2.setOrientation(LinearLayout.HORIZONTAL);
@@ -145,10 +145,27 @@ public class OverHistoryAdapter extends RecyclerView.Adapter<OverHistoryAdapter.
             spacer.setLayoutParams(new LinearLayout.LayoutParams(dp(ctx, 40), 1));
             row2.addView(spacer);
 
+            String bowlerText;
+            int textColor;
+            float textSize;
+            if (over.isBabyOver() && over.hasSecondBowler()) {
+                // Baby over: show "Bowler1 (1-3) / Bowler2 (4-6)"
+                int split = over.getSecondBowlerFromBall() - 1;
+                bowlerText = over.getBowlerName() + " (1–" + split + ")  /  "
+                        + over.getSecondBowlerName()
+                        + " (" + over.getSecondBowlerFromBall() + "–6)";
+                textColor  = ctx.getResources().getColor(R.color.amber_mid, ctx.getTheme());
+                textSize   = 9.5f;
+            } else {
+                bowlerText = over.getBowlerName();
+                textColor  = res(ctx, R.color.green_mid);
+                textSize   = 10.5f;
+            }
+
             TextView tvBowler = new TextView(ctx);
-            tvBowler.setText(over.getBowlerName());
-            tvBowler.setTextSize(10.5f);
-            tvBowler.setTextColor(res(ctx, R.color.green_mid));
+            tvBowler.setText(bowlerText);
+            tvBowler.setTextSize(textSize);
+            tvBowler.setTextColor(textColor);
             tvBowler.setTypeface(null, Typeface.ITALIC);
             row2.addView(tvBowler);
 

@@ -88,7 +88,6 @@ public class LiveMatchState {
             o.put("ballsFaced", p.getBallsFaced()); o.put("fours", p.getFours());
             o.put("sixes", p.getSixes()); o.put("out", p.isOut());
             o.put("hasNotBatted", p.isHasNotBatted());
-            o.put("retiredHurt", p.isRetiredHurt());
             o.put("dismissal", nvl(p.getDismissalInfo()));
             arr.put(o);
         }
@@ -109,6 +108,11 @@ public class LiveMatchState {
         o.put("currentBowlerIndex", inn.getCurrentBowlerIndex());
         o.put("currentBowlerName",  nvl(inn.getCurrentBowlerName()));
         o.put("bowlerSelected",     inn.isBowlerSelected());
+        // Baby over fields
+        o.put("babyOverActivated",        inn.isBabyOverActivated());
+        o.put("currentSecondBowlerIndex", inn.getCurrentSecondBowlerIndex());
+        o.put("currentSecondBowlerName",  nvl(inn.getCurrentSecondBowlerName()));
+        o.put("secondBowlerSelected",     inn.isSecondBowlerSelected());
         o.put("bowlerOversMap",   mapToJson(inn.getBowlerOversMap()));
         o.put("bowlerRunsMap",    mapToJson(inn.getBowlerRunsMap()));
         o.put("bowlerWicketsMap", mapToJson(inn.getBowlerWicketsMap()));
@@ -129,6 +133,11 @@ public class LiveMatchState {
         o.put("overNumber",  ov.getOverNumber());
         o.put("bowlerIndex", ov.getBowlerIndex());
         o.put("bowlerName",  nvl(ov.getBowlerName()));
+        // Baby over fields
+        o.put("isBabyOver",           ov.isBabyOver());
+        o.put("secondBowlerIndex",    ov.getSecondBowlerIndex());
+        o.put("secondBowlerName",     nvl(ov.getSecondBowlerName()));
+        o.put("secondBowlerFromBall", ov.getSecondBowlerFromBall());
         JSONArray balls = new JSONArray();
         for (Ball b : ov.getBalls()) {
             JSONObject bo = new JSONObject();
@@ -173,7 +182,6 @@ public class LiveMatchState {
             p.setRunsScored(o.optInt("runsScored", 0)); p.setBallsFaced(o.optInt("ballsFaced", 0));
             p.setFours(o.optInt("fours", 0)); p.setSixes(o.optInt("sixes", 0));
             p.setOut(o.optBoolean("out", false)); p.setHasNotBatted(o.optBoolean("hasNotBatted", true));
-            p.setRetiredHurt(o.optBoolean("retiredHurt", false));
             p.setDismissalInfo(o.optString("dismissal", ""));
             list.add(p);
         }
@@ -193,6 +201,11 @@ public class LiveMatchState {
         inn.setCurrentBowlerIndex(o.optInt("currentBowlerIndex", -1));
         inn.setCurrentBowlerName(o.optString("currentBowlerName", ""));
         inn.setBowlerSelected(o.optBoolean("bowlerSelected", false));
+        // Baby over fields
+        inn.setBabyOverActivated(o.optBoolean("babyOverActivated", false));
+        inn.setCurrentSecondBowlerIndex(o.optInt("currentSecondBowlerIndex", -1));
+        inn.setCurrentSecondBowlerName(o.optString("currentSecondBowlerName", ""));
+        inn.setSecondBowlerSelected(o.optBoolean("secondBowlerSelected", false));
         inn.setBowlerOversMap(jsonToIntMap(o.optJSONObject("bowlerOversMap")));
         inn.setBowlerRunsMap(jsonToIntMap(o.optJSONObject("bowlerRunsMap")));
         inn.setBowlerWicketsMap(jsonToIntMap(o.optJSONObject("bowlerWicketsMap")));
@@ -207,6 +220,11 @@ public class LiveMatchState {
                 Over over = new Over(ovNum);
                 over.setBowlerIndex(ov.optInt("bowlerIndex", -1));
                 over.setBowlerName(ov.optString("bowlerName", ""));
+                // Baby over fields
+                over.setBabyOver(ov.optBoolean("isBabyOver", false));
+                over.setSecondBowlerIndex(ov.optInt("secondBowlerIndex", -1));
+                over.setSecondBowlerName(ov.optString("secondBowlerName", ""));
+                over.setSecondBowlerFromBall(ov.optInt("secondBowlerFromBall", 4));
                 JSONArray ballsArr = ov.optJSONArray("balls");
                 if (ballsArr != null) for (int j = 0; j < ballsArr.length(); j++) {
                     JSONObject bo = ballsArr.getJSONObject(j);
