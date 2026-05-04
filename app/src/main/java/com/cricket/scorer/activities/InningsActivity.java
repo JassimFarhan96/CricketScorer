@@ -516,6 +516,9 @@ public class InningsActivity extends AppCompatActivity {
         inn.setStrikerIndex(0); inn.setNonStrikerIndex(match.isSingleBatsmanMode()?-1:1);
         inn.setNextBatsmanIndex(match.isSingleBatsmanMode()?1:2); inn.setBowlerSelected(false);
         inn.setCurrentBowlerIndex(-1); inn.setCurrentBowlerName("");
+        // Clear joker role — the opener selection is being redone, so joker's
+        // previous batting/bowling role no longer applies
+        if (match.hasJoker()) match.clearJokerRole();
         LiveMatchState.persist(this, match); setBallButtonsEnabled(false); refreshUI();
         showOpenerSelectionDialog();
     }
@@ -524,6 +527,8 @@ public class InningsActivity extends AppCompatActivity {
         Innings inn = match.getCurrentInningsData();
         inn.setBowlerSelected(false); inn.setCurrentBowlerIndex(-1); inn.setCurrentBowlerName("");
         if (inn.getCurrentOver() != null) { inn.getCurrentOver().setBowlerIndex(-1); inn.getCurrentOver().setBowlerName(""); }
+        // Clear joker bowling role — bowler selection is being redone
+        if (match.hasJoker() && match.isJokerBowling()) match.clearJokerRole();
         LiveMatchState.persist(this, match); refreshUI(); showBowlerSelectionDialog();
     }
 
