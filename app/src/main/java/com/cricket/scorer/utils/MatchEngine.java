@@ -12,30 +12,20 @@ import java.util.List;
 /**
  * MatchEngine.java
  *
- * CHANGE — Retired Hurt support:
+ * CHANGE: Added Joker player support on top of existing retired-hurt logic.
  *
- * deliverRetiredHurt(newBatsmanIndex):
- *   - Marks the current striker as retiredHurt (not a dismissal, no wicket)
- *   - Brings in newBatsmanIndex as the new striker
- *   - Does NOT trigger endInnings
- *   - Returns BALL_RECORDED (no ball was bowled — it's a substitution event)
+ * New MatchState:
+ *   JOKER_MUST_STOP_BOWLING — all batsmen dismissed while joker is bowling.
+ *   Joker must come in to bat; another bowler from the bowling team must
+ *   complete the remaining balls of the current over.
  *
- * All-out threshold now EXCLUDES retired-hurt players:
- *   Active players = total - dismissed - retiredHurt
- *   All-out when active == 1 (two-bat) or == 0 (single-bat)
- *   i.e. threshold = (total - retiredHurtCount) - (singleMode ? 0 : 1)
- *
- * getRetiredHurtPlayers():
- *   Returns the list of players currently flagged retiredHurt, in the
- *   order they retired. InningsActivity uses this list after the last
- *   active player is dismissed to prompt each one "Return to bat?".
- *
- * returnFromRetiredHurt(playerIndex, returnsToPlay):
- *   Called after the user answers the prompt.
- *   If returnsToPlay=true:  clear retiredHurt flag, set as new striker
- *   If returnsToPlay=false: mark as dismissed (retired out)
- *   Returns INNINGS_COMPLETE / MATCH_COMPLETE if the innings ends, else
- *   BALL_RECORDED so play continues.
+ * Joker rules enforced here:
+ *   - isAllOut() checks whether all NON-JOKER batsmen are dismissed when
+ *     joker is bowling. If so, triggers JOKER_MUST_STOP_BOWLING before
+ *     the normal all-out threshold.
+ *   - deliverWicket() clears joker's batting role when joker is dismissed.
+ *   - deliverRetiredHurt() clears joker's batting role when joker retires.
+ *   - checkAfterValidBall() / OVER_COMPLETE path clears joker bowling role.
  */
 public class MatchEngine {
 
@@ -45,7 +35,14 @@ public class MatchEngine {
         INNINGS_COMPLETE,
         MATCH_COMPLETE,
         /** All active batsmen done; retired-hurt players need to be prompted */
-        PROMPT_RETIRED_HURT
+        PROMPT_RETIRED_HURT,
+        /**
+         * All non-joker batsmen dismissed while joker is bowling.
+         * Joker must stop bowling and come in to bat.
+         * InningsActivity prompts the user to select a replacement bowler
+         * to complete the remaining balls of the current over.
+         */
+        JOKER_MUST_STOP_BOWLING
     }
 
     private Match match;
@@ -73,7 +70,12 @@ public class MatchEngine {
         striker.setHasNotBatted(false);
         innings.recordWicket(striker);
 
-        // All-out check: threshold accounts for retired-hurt players
+        // If dismissed batsman is the joker, clear their batting role
+        if (match.isJoker(striker.getName())) {
+            match.clearJokerRole();
+        }
+
+        // All-out check (joker-aware)
         if (isAllOut(innings, batters)) {
             return handleAllOut(innings, batters);
         }
@@ -85,24 +87,19 @@ public class MatchEngine {
         return checkAfterValidBall(innings);
     }
 
-    /**
-     * Retires the current striker hurt.
-     *
-     * No wicket is recorded. No ball is added to the over.
-     * The retiring player is flagged retiredHurt and leaves the field.
-     * newBatsmanIndex comes in as the new striker.
-     *
-     * Returns BALL_RECORDED — the over state is unchanged.
-     */
     public MatchState deliverRetiredHurt(int newBatsmanIndex) {
         Innings      innings = match.getCurrentInningsData();
         Player       striker = getStriker();
         List<Player> batters = match.getCurrentBattingPlayers();
 
         striker.setHasNotBatted(false);
-        striker.retireHurt();   // flag retiredHurt, NOT dismissed
+        striker.retireHurt();
 
-        // Bring in the replacement
+        // If retiring player is the joker, clear their batting role
+        if (match.isJoker(striker.getName())) {
+            match.clearJokerRole();
+        }
+
         innings.setStrikerIndex(newBatsmanIndex);
         if (newBatsmanIndex < batters.size()) batters.get(newBatsmanIndex).setHasNotBatted(false);
         if (innings.getNextBatsmanIndex() <= newBatsmanIndex) innings.setNextBatsmanIndex(newBatsmanIndex + 1);
@@ -110,15 +107,6 @@ public class MatchEngine {
         return MatchState.BALL_RECORDED;
     }
 
-    /**
-     * Called after a wicket (or after all active players are done) to handle
-     * the return-to-bat prompt for each retired-hurt player in order.
-     *
-     * returnsToPlay=true  → clear retiredHurt, they become the new striker
-     * returnsToPlay=false → retire them OUT (counts as dismissal)
-     *
-     * After processing this player, checks if innings should end.
-     */
     public MatchState returnFromRetiredHurt(int playerIndex, boolean returnsToPlay) {
         Innings      innings = match.getCurrentInningsData();
         List<Player> batters = match.getCurrentBattingPlayers();
@@ -128,24 +116,20 @@ public class MatchEngine {
             p.setRetiredHurt(false);
             p.setDismissalInfo("");
             innings.setStrikerIndex(playerIndex);
-            // They're back — play continues
+            // If returning player is joker, restore batting role
+            if (match.isJoker(p.getName())) match.setJokerBatting();
             return MatchState.BALL_RECORDED;
         } else {
-            // Declined to return → retire out (counts as wicket)
             p.setRetiredHurt(false);
             p.dismiss("retired out");
             innings.setTotalWickets(innings.getTotalWickets() + 1);
 
-            // Check if this was the last player
             if (isAllOut(innings, batters)) {
-                // Any more retired hurt to prompt?
                 List<Player> remaining = getRetiredHurtPlayers(batters);
-                if (!remaining.isEmpty()) {
-                    return MatchState.PROMPT_RETIRED_HURT;
-                }
+                if (!remaining.isEmpty()) return MatchState.PROMPT_RETIRED_HURT;
                 return endInnings(innings);
             }
-            return MatchState.PROMPT_RETIRED_HURT; // still more to prompt
+            return MatchState.PROMPT_RETIRED_HURT;
         }
     }
 
@@ -178,6 +162,8 @@ public class MatchEngine {
                 innings.setStrikerIndex(dismissedIndex);
                 dismissedPlayer.setOut(false);
                 dismissedPlayer.setDismissalInfo("");
+                // Restore joker batting role if dismissed player was joker
+                if (match.isJoker(dismissedPlayer.getName())) match.setJokerBatting();
                 incomingBatter.setHasNotBatted(true);
                 if (innings.getNextBatsmanIndex() > 1) innings.setNextBatsmanIndex(innings.getNextBatsmanIndex() - 1);
             }
@@ -192,31 +178,55 @@ public class MatchEngine {
     // ─── All-out helpers ──────────────────────────────────────────────────────
 
     /**
-     * True when all players who are available to bat have been dismissed.
+     * True when the innings should end or joker should stop bowling.
      *
-     * Retired-hurt players are NOT counted as dismissed — they may return.
-     * The threshold is calculated only over the "active" pool:
-     *   active = total players − retired-hurt count
-     *   dismissed = totalWickets
-     *   all-out when dismissed >= activeThreshold
+     * JOKER SPECIAL CASE:
+     *   When joker is bowling and all NON-JOKER batsmen are dismissed,
+     *   we treat this as "all out for joker purposes" even if the standard
+     *   threshold hasn't been reached — because the joker must now bat.
+     *   This is detected separately in handleAllOut.
      *
-     * Two-bat: all-out at (active - 1) dismissals (last man has no partner)
-     * Single:  all-out at  active       dismissals
+     * STANDARD CASE:
+     *   active = total - retiredHurt
+     *   threshold = active (single) or active - 1 (two-bat)
      */
     private boolean isAllOut(Innings innings, List<Player> batters) {
+        // Joker special check: if joker is bowling and all non-joker batters are gone
+        if (match.hasJoker() && match.isJokerBowling()) {
+            int nonJokerCanBat = 0;
+            for (Player p : batters) {
+                if (!match.isJoker(p.getName()) && !p.isOut() && !p.isRetiredHurt()) {
+                    nonJokerCanBat++;
+                }
+            }
+            if (nonJokerCanBat == 0) return true;
+        }
+
+        // Standard all-out check
         int retiredHurtCount = 0;
         for (Player p : batters) if (p.isRetiredHurt()) retiredHurtCount++;
-
         int active    = batters.size() - retiredHurtCount;
         int threshold = match.isSingleBatsmanMode() ? active : active - 1;
         return innings.getTotalWickets() >= threshold;
     }
 
-    /**
-     * After active players are all out, check if there are retired-hurt
-     * players to prompt. If yes → PROMPT_RETIRED_HURT. If no → end innings.
-     */
     private MatchState handleAllOut(Innings innings, List<Player> batters) {
+        // Check joker special case first
+        if (match.hasJoker() && match.isJokerBowling()) {
+            int nonJokerCanBat = 0;
+            for (Player p : batters) {
+                if (!match.isJoker(p.getName()) && !p.isOut() && !p.isRetiredHurt()) {
+                    nonJokerCanBat++;
+                }
+            }
+            if (nonJokerCanBat == 0 && !innings.getCurrentOver().isComplete()) {
+                // Joker must stop bowling — comes in to bat
+                match.clearJokerRole(); // clear BOWLING role so joker can bat
+                return MatchState.JOKER_MUST_STOP_BOWLING;
+            }
+        }
+
+        // Standard retired hurt check
         List<Player> retiredHurt = getRetiredHurtPlayers(batters);
         if (!retiredHurt.isEmpty()) {
             return MatchState.PROMPT_RETIRED_HURT;
@@ -224,10 +234,6 @@ public class MatchEngine {
         return endInnings(innings);
     }
 
-    /**
-     * Returns all players currently flagged retiredHurt, in list order
-     * (preserves the order they retired during the innings).
-     */
     public List<Player> getRetiredHurtPlayers(List<Player> batters) {
         List<Player> list = new ArrayList<>();
         for (Player p : batters) if (p.isRetiredHurt()) list.add(p);
@@ -242,6 +248,8 @@ public class MatchEngine {
         }
         if (innings.getCurrentOver().isComplete()) {
             innings.completeCurrentOver();
+            // Over complete: clear joker bowling role so they can bat next
+            if (match.hasJoker() && match.isJokerBowling()) match.clearJokerRole();
             if (innings.getCompletedOvers().size() >= match.getMaxOvers()) {
                 return endInnings(innings);
             }
@@ -252,6 +260,8 @@ public class MatchEngine {
 
     private MatchState endInnings(Innings innings) {
         innings.setComplete(true);
+        // Clear joker role at end of innings
+        if (match.hasJoker()) match.clearJokerRole();
         if (match.getCurrentInnings() == 1) {
             match.setCurrentInnings(2);
             Innings second = new Innings(2, match.isSingleBatsmanMode());
@@ -265,6 +275,7 @@ public class MatchEngine {
     private MatchState endMatch(Innings secondInnings) {
         secondInnings.setComplete(true);
         match.setMatchCompleted(true);
+        if (match.hasJoker()) match.clearJokerRole();
 
         int          target      = match.getTarget();
         int          runsScored  = secondInnings.getTotalRuns();
@@ -294,12 +305,6 @@ public class MatchEngine {
         return MatchState.MATCH_COMPLETE;
     }
 
-    private int allOutThreshold(List<Player> batters) {
-        int rh = 0; for (Player p : batters) if (p.isRetiredHurt()) rh++;
-        int active = batters.size() - rh;
-        return match.isSingleBatsmanMode() ? active : active - 1;
-    }
-
     // ─── Utility getters ──────────────────────────────────────────────────────
 
     public Player getStriker() {
@@ -315,10 +320,6 @@ public class MatchEngine {
         return (idx >= 0 && idx < b.size()) ? b.get(idx) : null;
     }
 
-    /**
-     * Returns players available to come in — excludes striker, non-striker,
-     * dismissed players, AND retired-hurt players (they are handled separately).
-     */
     public List<Player> getAvailableBatsmen() {
         Innings      inn       = match.getCurrentInningsData();
         List<Player> batters   = match.getCurrentBattingPlayers();
@@ -327,7 +328,6 @@ public class MatchEngine {
         for (int i = 0; i < batters.size(); i++) {
             Player  p = batters.get(i);
             boolean atCrease = (i == si) || (i == nsi);
-            // Exclude: at crease, dismissed, or retired hurt
             if (!atCrease && !p.isOut() && !p.isRetiredHurt()) available.add(p);
         }
         return available;

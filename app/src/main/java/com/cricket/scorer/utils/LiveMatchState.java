@@ -72,6 +72,10 @@ public class LiveMatchState {
         o.put("matchCompleted",    m.isMatchCompleted());
         o.put("winnerTeam",        nvl(m.getWinnerTeam()));
         o.put("resultDescription", nvl(m.getResultDescription()));
+        // Joker fields
+        o.put("hasJoker",          m.hasJoker());
+        o.put("jokerName",         nvl(m.getJokerName()));
+        o.put("jokerRole",         m.getJokerRole().name());
         o.put("homePlayers",  playersToJson(m.getHomePlayers()));
         o.put("awayPlayers",  playersToJson(m.getAwayPlayers()));
         o.put("firstInnings",  m.getFirstInnings()  != null ? inningsToJson(m.getFirstInnings())  : JSONObject.NULL);
@@ -167,6 +171,15 @@ public class LiveMatchState {
         m.setMatchCompleted(o.optBoolean("matchCompleted", false));
         m.setWinnerTeam(o.optString("winnerTeam", null));
         m.setResultDescription(o.optString("resultDescription", null));
+        // Joker fields
+        m.setHasJoker(o.optBoolean("hasJoker", false));
+        m.setJokerName(o.optString("jokerName", ""));
+        try {
+            m.setJokerRole(com.cricket.scorer.models.Match.JokerRole.valueOf(
+                    o.optString("jokerRole", "NONE")));
+        } catch (Exception e) {
+            m.setJokerRole(com.cricket.scorer.models.Match.JokerRole.NONE);
+        }
         m.setHomePlayers(jsonToPlayers(o.getJSONArray("homePlayers")));
         m.setAwayPlayers(jsonToPlayers(o.getJSONArray("awayPlayers")));
         if (!o.isNull("firstInnings"))  m.setFirstInnings(jsonToInnings(o.getJSONObject("firstInnings")));

@@ -84,7 +84,98 @@ public class SetupActivity extends AppCompatActivity {
         m.setSingleBatsmanMode(singleBatsmanMode);
         Innings fi=new Innings(1,singleBatsmanMode); m.setFirstInnings(fi); m.setCurrentInnings(1);
         ((CricketApp)getApplication()).startNewMatch(m);
-        startActivity(new Intent(this,InningsActivity.class)); finish();
+        // Ask about joker before starting innings
+        showJokerSetupDialog(m);
+    }
+
+    /**
+     * Step 1 of joker setup: ask if there is a joker player.
+     * Non-cancellable — must choose Yes or No.
+     */
+    private void showJokerSetupDialog(Match match) {
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Joker Player")
+                .setMessage("Is there a Joker player in this match?\n\n"
+                        + "A Joker is a special player shared by both teams — "
+                        + "they can bat for the batting team AND bowl for the "
+                        + "bowling team in the same innings.")
+                .setCancelable(false)
+                .setPositiveButton("Yes — Enter Joker Name", (d, w) -> showJokerNameDialog(match))
+                .setNegativeButton("No Joker", (d, w) -> launchInnings())
+                .show();
+    }
+
+    /**
+     * Step 2 of joker setup: text input for the joker's name.
+     * Validates that a name is entered before proceeding.
+     */
+    private void showJokerNameDialog(Match match) {
+        int pad = (int)(20 * getResources().getDisplayMetrics().density);
+
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(this);
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        layout.setPadding(pad, pad / 2, pad, pad / 2);
+
+        android.widget.TextView tvInfo = new android.widget.TextView(this);
+        tvInfo.setText("Enter the Joker player's name.\n"
+                + "This player can bat AND bowl in the same innings.");
+        tvInfo.setTextSize(13f);
+        tvInfo.setTextColor(c(R.color.c_text_secondary));
+        android.widget.LinearLayout.LayoutParams tvLp =
+                new android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        tvLp.setMargins(0, 0, 0, pad / 2);
+        tvInfo.setLayoutParams(tvLp);
+        layout.addView(tvInfo);
+
+        android.widget.EditText etName = new android.widget.EditText(this);
+        etName.setHint("Joker player name");
+        etName.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+        etName.setLayoutParams(new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT));
+        layout.addView(etName);
+
+        androidx.appcompat.app.AlertDialog dialog =
+                new androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle("Enter Joker Player Name")
+                        .setView(layout)
+                        .setCancelable(false)
+                        .setPositiveButton("Confirm", null) // overridden below
+                        .setNegativeButton("No Joker", (d, w) -> launchInnings())
+                        .create();
+
+        dialog.setOnShowListener(dlg -> {
+            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)
+                    .setOnClickListener(v -> {
+                        String name = etName.getText().toString().trim();
+                        if (name.isEmpty()) {
+                            etName.setError("Please enter a name");
+                            return;
+                        }
+                        match.setHasJoker(true);
+                        match.setJokerName(name);
+                        match.setJokerRole(com.cricket.scorer.models.Match.JokerRole.NONE);
+                        // Add joker to both team player lists so they appear in all dialogs
+                        match.getHomePlayers().add(new com.cricket.scorer.models.Player(name));
+                        match.getAwayPlayers().add(new com.cricket.scorer.models.Player(name));
+                        android.widget.Toast.makeText(this,
+                                name + " is the Joker! ⚡",
+                                android.widget.Toast.LENGTH_SHORT).show();
+                        dialog.dismiss();
+                        launchInnings();
+                    });
+            // Auto-show keyboard
+            etName.requestFocus();
+        });
+        dialog.show();
+    }
+
+    private void launchInnings() {
+        startActivity(new Intent(this, InningsActivity.class));
+        finish();
     }
 
     private List<Player> buildList(EditText[] fields,String team){

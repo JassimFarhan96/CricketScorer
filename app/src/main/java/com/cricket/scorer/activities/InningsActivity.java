@@ -124,13 +124,20 @@ public class InningsActivity extends AppCompatActivity {
         Innings      innings = match.getCurrentInningsData();
         boolean      single  = match.isSingleBatsmanMode();
         String[]     names   = new String[players.size()];
-        for (int i = 0; i < players.size(); i++) names[i] = (i+1) + ". " + players.get(i).getName();
+        for (int i = 0; i < players.size(); i++) {
+            boolean isJoker = match.hasJoker() && match.getJokerName().equals(players.get(i).getName());
+            names[i] = (i+1) + ". " + players.get(i).getName() + (isJoker ? " ⚡ Joker" : "");
+        }
         final int[] sc = {0};
         new AlertDialog.Builder(this)
                 .setTitle("Select opening striker").setCancelable(false)
                 .setSingleChoiceItems(names, 0, (d, w) -> sc[0] = w)
                 .setPositiveButton("Confirm", (d, w) -> {
                     int si = sc[0]; innings.setStrikerIndex(si); players.get(si).setHasNotBatted(false);
+                    // Mark joker as batting if selected
+                    if (match.hasJoker() && match.getJokerName().equals(players.get(si).getName())) {
+                        match.setJokerBatting();
+                    }
                     if (single) { innings.setNonStrikerIndex(-1); innings.setNextBatsmanIndex(nextAvail(players, si, -1)); LiveMatchState.persist(this, match); showBowlerSelectionDialog(); }
                     else showNonStrikerDialog(si);
                 }).show();
@@ -176,19 +183,56 @@ public class InningsActivity extends AppCompatActivity {
     private void showBowlerSelectionDialog() {
         setBallButtonsEnabled(false);
         Innings inn = match.getCurrentInningsData();
-        List<Player> bowlers = getBowlingTeamPlayers();
+        List<Player> teamBowlers = getBowlingTeamPlayers();
         int ovNum = inn.getCompletedOvers().size() + 1;
-        String[] names = new String[bowlers.size()];
-        for (int i = 0; i < bowlers.size(); i++) {
-            String ovLabel = getOversLabel(inn, bowlers.get(i).getName());
-            names[i] = (i+1)+". "+bowlers.get(i).getName()+(!ovLabel.isEmpty()?" ("+ovLabel+")":"");
+
+        // Build eligible bowler list:
+        // - Exclude joker if they are currently BATTING (jokerRole == BATTING)
+        // - Include joker if they are not batting (role == NONE or BOWLING already done)
+        // - If joker is not in the bowling team list but is eligible, inject them
+        List<Player> eligible = new ArrayList<>();
+        boolean jokerFoundInTeam = false;
+        for (Player p : teamBowlers) {
+            if (match.hasJoker() && match.getJokerName().equals(p.getName())) {
+                jokerFoundInTeam = true;
+                if (!match.isJokerBatting()) eligible.add(p); // exclude only if batting
+            } else {
+                eligible.add(p);
+            }
         }
-        int def = Math.max(0, inn.getCurrentBowlerIndex());
+        // Joker is in the batting team (added to both lists), so may not appear in
+        // bowling team list depending on which team is bowling.
+        // If not found there, inject explicitly when eligible.
+        if (match.hasJoker() && !jokerFoundInTeam && !match.isJokerBatting()) {
+            eligible.add(new com.cricket.scorer.models.Player(match.getJokerName()));
+        }
+
+        String[] names = new String[eligible.size()];
+        for (int i = 0; i < eligible.size(); i++) {
+            String ovLabel = getOversLabel(inn, eligible.get(i).getName());
+            boolean isJoker = match.hasJoker() && match.getJokerName().equals(eligible.get(i).getName());
+            names[i] = (i+1)+". "+eligible.get(i).getName()
+                    +(!ovLabel.isEmpty()?" ("+ovLabel+")":"")
+                    +(isJoker?" ⚡ Joker":"");
+        }
+        int def = 0; // default to first eligible bowler
         final int[] ch = {def};
         new AlertDialog.Builder(this).setTitle("Over "+ovNum+" — Select bowler").setCancelable(false)
                 .setSingleChoiceItems(names, def, (d, w) -> ch[0] = w)
                 .setPositiveButton("Confirm", (d, w) -> {
-                    inn.setCurrentOverBowler(ch[0], bowlers.get(ch[0]).getName());
+                    Player selected = eligible.get(ch[0]);
+                    // Find index in the actual team list for inn.setCurrentOverBowler
+                    int teamIdx = -1;
+                    for (int i = 0; i < teamBowlers.size(); i++) {
+                        if (teamBowlers.get(i).getName().equals(selected.getName())) {
+                            teamIdx = i; break;
+                        }
+                    }
+                    inn.setCurrentOverBowler(teamIdx, selected.getName());
+                    // Mark joker as bowling if selected
+                    if (match.hasJoker() && match.getJokerName().equals(selected.getName())) {
+                        match.setJokerBowling();
+                    }
                     LiveMatchState.persist(this, match); setBallButtonsEnabled(true); refreshUI();
                 }).show();
     }
@@ -566,14 +610,31 @@ public class InningsActivity extends AppCompatActivity {
 
     private void showWicketDialog() {
         List<Player> available = engine.getAvailableBatsmen();
-        if (available.isEmpty()) { handleMatchState(engine.deliverWicket(engine.getNextBatsmanIndex())); return; }
-        String[] names = new String[available.size()];
+        // Exclude joker from batting list if they are currently bowling
+        List<Player> filtered = new ArrayList<>();
+        for (Player p : available) {
+            if (match.hasJoker() && match.getJokerName().equals(p.getName())
+                    && match.isJokerBowling()) continue;
+            filtered.add(p);
+        }
+        if (filtered.isEmpty()) { handleMatchState(engine.deliverWicket(engine.getNextBatsmanIndex())); return; }
+        String[] names = new String[filtered.size()];
         List<Player> batters = match.getCurrentBattingPlayers();
-        for (int i = 0; i < available.size(); i++) names[i] = (i+1)+". "+available.get(i).getName();
+        for (int i = 0; i < filtered.size(); i++) {
+            boolean isJoker = match.hasJoker() && match.getJokerName().equals(filtered.get(i).getName());
+            names[i] = (i+1)+". "+filtered.get(i).getName()+(isJoker?" ⚡ Joker":"");
+        }
         final int[] ch = {0};
         new AlertDialog.Builder(this).setTitle("Wicket — choose next batsman")
                 .setSingleChoiceItems(names, 0, (d, w) -> ch[0] = w)
-                .setPositiveButton("Confirm", (d, w) -> handleMatchState(engine.deliverWicket(batters.indexOf(available.get(ch[0])))))
+                .setPositiveButton("Confirm", (d, w) -> {
+                    Player incoming = filtered.get(ch[0]);
+                    // Mark joker as batting if they come in
+                    if (match.hasJoker() && match.getJokerName().equals(incoming.getName())) {
+                        match.setJokerBatting();
+                    }
+                    handleMatchState(engine.deliverWicket(batters.indexOf(incoming)));
+                })
                 .setNegativeButton("Cancel", null).show();
     }
 
@@ -594,11 +655,109 @@ public class InningsActivity extends AppCompatActivity {
                 LiveMatchState.clear(this);
                 startActivity(new Intent(this, StatsActivity.class)); finish(); break;
             case PROMPT_RETIRED_HURT:
-                // All active batsmen done — prompt each retired-hurt player
                 LiveMatchState.persist(this, match);
                 setBallButtonsEnabled(false);
                 refreshUI();
                 promptRetiredHurtPlayers(); break;
+            case JOKER_MUST_STOP_BOWLING:
+                // All non-joker batsmen dismissed while joker was bowling.
+                // Joker must stop bowling and come in to bat.
+                // Another bowler from the bowling team must finish the over.
+                LiveMatchState.persist(this, match);
+                setBallButtonsEnabled(false);
+                refreshUI();
+                showJokerMustStopBowlingDialog(); break;
+        }
+    }
+
+    /**
+     * Shown when all non-joker batsmen are out while joker is bowling.
+     * Prompts the user to select a replacement bowler (excluding joker)
+     * to complete the remaining balls of the current over.
+     * After confirmation, joker comes in to bat as striker.
+     */
+    private void showJokerMustStopBowlingDialog() {
+        Innings      inn         = match.getCurrentInningsData();
+        List<Player> teamBowlers = getBowlingTeamPlayers();
+        int          ballsLeft   = 6 - inn.getCurrentOver().getValidBallCount();
+
+        // Available replacement bowlers — exclude the joker
+        List<Player> replacements = new ArrayList<>();
+        for (Player p : teamBowlers) {
+            if (!match.getJokerName().equals(p.getName())) replacements.add(p);
+        }
+
+        if (replacements.isEmpty() || ballsLeft == 0) {
+            // No replacement available or over already done — end innings
+            handleMatchState(MatchEngine.MatchState.INNINGS_COMPLETE);
+            return;
+        }
+
+        String[] names = new String[replacements.size()];
+        Innings inn2 = match.getCurrentInningsData();
+        for (int i = 0; i < replacements.size(); i++) {
+            String ovLabel = getOversLabel(inn2, replacements.get(i).getName());
+            names[i] = (i+1)+". "+replacements.get(i).getName()
+                    +(!ovLabel.isEmpty() ? "  ("+ovLabel+")" : "");
+        }
+        final int[] ch = {0};
+
+        // Custom view with Spinner (setSingleChoiceItems doesn't render in this theme)
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(this);
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad = (int)(16 * getResources().getDisplayMetrics().density);
+        layout.setPadding(pad, 0, pad, pad / 2);
+
+        android.widget.Spinner spinner = new android.widget.Spinner(this);
+        android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(
+                this, android.R.layout.simple_spinner_item, names);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+        spinner.setLayoutParams(new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT));
+        spinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(android.widget.AdapterView<?> p, android.view.View v, int pos, long id) { ch[0] = pos; }
+            @Override public void onNothingSelected(android.widget.AdapterView<?> p) {}
+        });
+        layout.addView(spinner);
+
+        new AlertDialog.Builder(this)
+                .setTitle("⚡ Joker Must Come In to Bat!")
+                .setMessage(match.getJokerName() + " (Joker) was bowling but all batsmen are out.\n\n"
+                        + match.getJokerName() + " must now bat.\n\n"
+                        + "Select a bowler to complete the remaining "
+                        + ballsLeft + " ball" + (ballsLeft == 1 ? "" : "s") + ":")
+                .setView(layout)
+                .setCancelable(false)
+                .setPositiveButton("Confirm", (d, w) -> {
+                    Player rep = replacements.get(ch[0]);
+                    // Use baby-over mechanism to swap bowler mid-over
+                    inn.setSecondBowlerForBabyOver(teamBowlers.indexOf(rep), rep.getName());
+                    // Joker comes in to bat as striker
+                    jokerComesInToBat();
+                    LiveMatchState.persist(this, match);
+                    setBallButtonsEnabled(true);
+                    refreshUI();
+                    Toast.makeText(this,
+                            match.getJokerName() + " is batting! " + rep.getName() + " will bowl the remaining balls.",
+                            Toast.LENGTH_LONG).show();
+                })
+                .show();
+    }
+
+    /** Places the joker at the striker's end as a new batsman. */
+    private void jokerComesInToBat() {
+        Innings      inn     = match.getCurrentInningsData();
+        List<Player> batters = match.getCurrentBattingPlayers();
+        // Find joker in batting team list
+        for (int i = 0; i < batters.size(); i++) {
+            if (match.getJokerName().equals(batters.get(i).getName())) {
+                batters.get(i).setHasNotBatted(false);
+                inn.setStrikerIndex(i);
+                match.setJokerBatting();
+                return;
+            }
         }
     }
 
