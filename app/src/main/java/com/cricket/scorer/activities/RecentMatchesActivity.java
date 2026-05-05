@@ -5,12 +5,12 @@ import androidx.appcompat.app.AlertDialog; import androidx.appcompat.app.AppComp
 import com.cricket.scorer.R; import com.cricket.scorer.models.Match; import com.cricket.scorer.utils.MatchStorage;
 import java.util.*; import java.util.Locale;
 
-public class RecentMatchesActivity extends AppCompatActivity {
+public class RecentMatchesActivity extends BaseNavActivity {
     private static final int PAGE_SIZE=5;
     private LinearLayout containerMatches; private TextView tvPageInfo,tvEmptyState;
     private Button btnPrev,btnNext; private List<Match> allMatches; private int currentPage=1;
 
-    @Override protected void onCreate(Bundle s){super.onCreate(s);setContentView(R.layout.activity_recent_matches);bindViews();loadAndDisplay();}
+    @Override protected void onCreate(Bundle s){super.onCreate(s);setNavContentView(R.layout.activity_recent_matches);bindViews();loadAndDisplay();}
     @Override protected void onResume(){super.onResume();loadAndDisplay();}
 
     private void bindViews(){
@@ -119,4 +119,9 @@ public class RecentMatchesActivity extends AppCompatActivity {
     private String formatDate(String fn){return formatDateFromFileName2(fn);}
     private int c(int res){return getResources().getColor(res,getTheme());}
     private int dp(int v){return(int)(v*getResources().getDisplayMetrics().density);}
+    @Override
+    protected int getCurrentNavItem() {
+        return R.id.nav_recent;
+    }
+
 }

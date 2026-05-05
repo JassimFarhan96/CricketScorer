@@ -34,7 +34,7 @@ import com.cricket.scorer.R;
  *
  * Layout: activity_player_count.xml
  */
-public class PlayerCountActivity extends AppCompatActivity {
+public class PlayerCountActivity extends BaseNavActivity {
 
     // ─── Intent extra keys ────────────────────────────────────────────────────
     public static final String KEY_PLAYER_COUNT = "player_count";
@@ -72,7 +72,7 @@ public class PlayerCountActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_player_count);
+        setNavContentView(R.layout.activity_player_count);
 
         bindViews();
         setClickListeners();
@@ -170,4 +170,9 @@ public class PlayerCountActivity extends AppCompatActivity {
                          : R.drawable.bg_mode_card_selected);
         tvTwoCheck.setVisibility(isSingle ? View.INVISIBLE : View.VISIBLE);
     }
+    @Override
+    protected int getCurrentNavItem() {
+        return R.id.nav_home;
+    }
+
 }

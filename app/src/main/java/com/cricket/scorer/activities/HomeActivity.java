@@ -3,12 +3,12 @@ import android.content.Intent; import android.os.Bundle; import android.view.Vie
 import androidx.appcompat.app.AlertDialog; import androidx.appcompat.app.AppCompatActivity;
 import com.cricket.scorer.R; import com.cricket.scorer.models.Match; import com.cricket.scorer.utils.LiveMatchState;
 
-public class HomeActivity extends AppCompatActivity {
+public class HomeActivity extends BaseNavActivity {
     private LinearLayout layoutTrackMatch,layoutRecentMatches,layoutStatistics;
     private boolean resumeDialogShown=false;
 
     @Override protected void onCreate(Bundle s){
-        super.onCreate(s); setContentView(R.layout.activity_home);
+        super.onCreate(s); setNavContentView(R.layout.activity_home);
         layoutTrackMatch=findViewById(R.id.layout_track_match);
         layoutRecentMatches=findViewById(R.id.layout_recent_matches);
         layoutStatistics=findViewById(R.id.layout_statistics);
@@ -51,4 +51,9 @@ public class HomeActivity extends AppCompatActivity {
         layoutRecentMatches.setOnClickListener(v->startActivity(new Intent(this,RecentMatchesActivity.class)));
         layoutStatistics.setOnClickListener(v->startActivity(new Intent(this,MatchSelectActivity.class)));
     }
+    @Override
+    protected int getCurrentNavItem() {
+        return R.id.nav_home;
+    }
+
 }

@@ -5,14 +5,14 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.cricket.scorer.R; import com.cricket.scorer.models.*;
 import java.util.*;
 
-public class SetupActivity extends AppCompatActivity {
+public class SetupActivity extends BaseNavActivity {
     private int playersPerTeam=11; private boolean singleBatsmanMode=false;
     private EditText etHomeTeam,etAwayTeam,etOvers; private Spinner spinnerToss;
     private LinearLayout containerHomePlayers,containerAwayPlayers; private Button btnStartMatch;
     private EditText[] homePlayerFields,awayPlayerFields; private String battingFirst="home";
 
     @Override protected void onCreate(Bundle s) {
-        super.onCreate(s); setContentView(R.layout.activity_setup);
+        super.onCreate(s); setNavContentView(R.layout.activity_setup);
         playersPerTeam=getIntent().getIntExtra(PlayerCountActivity.KEY_PLAYER_COUNT,11);
         String mode=getIntent().getStringExtra(PlayerCountActivity.KEY_BATTING_MODE);
         singleBatsmanMode=PlayerCountActivity.MODE_SINGLE.equals(mode);
@@ -185,4 +185,9 @@ public class SetupActivity extends AppCompatActivity {
     }
 
     private int c(int res){return getResources().getColor(res,getTheme());}
+    @Override
+    protected int getCurrentNavItem() {
+        return R.id.nav_home;
+    }
+
 }

@@ -4,13 +4,13 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.cricket.scorer.R; import com.cricket.scorer.models.Match; import com.cricket.scorer.utils.MatchStorage;
 import java.util.*; import java.util.Locale;
 
-public class MatchSelectActivity extends AppCompatActivity {
+public class MatchSelectActivity extends BaseNavActivity {
     private Spinner spinnerMatches; private LinearLayout layoutPreview;
     private TextView tvPreviewTeams,tvPreviewResult,tvPreviewScores,tvPreviewDate;
     private Button btnViewStats; private TextView tvEmpty;
     private List<Match> allMatches; private int selectedIndex=0;
 
-    @Override protected void onCreate(Bundle s){super.onCreate(s);setContentView(R.layout.activity_match_select);bindViews();loadMatches();}
+    @Override protected void onCreate(Bundle s){super.onCreate(s);setNavContentView(R.layout.activity_match_select);bindViews();loadMatches();}
     @Override protected void onResume(){super.onResume();loadMatches();}
 
     private void bindViews(){
@@ -69,4 +69,9 @@ public class MatchSelectActivity extends AppCompatActivity {
     }
 
     private int c(int res){return getResources().getColor(res,getTheme());}
+    @Override
+    protected int getCurrentNavItem() {
+        return R.id.nav_stats;
+    }
+
 }

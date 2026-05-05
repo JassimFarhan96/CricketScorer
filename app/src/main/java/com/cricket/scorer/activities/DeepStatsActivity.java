@@ -13,6 +13,7 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
+import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -54,7 +55,7 @@ import java.util.Locale;
  *   - Axis labels ("Overs", run values)
  *   - Legend box top-right
  */
-public class DeepStatsActivity extends AppCompatActivity {
+public class DeepStatsActivity extends BaseNavActivity {
 
     public static final String EXTRA_SAVED_FILE_NAME = "deep_stats_file";
 
@@ -120,7 +121,12 @@ public class DeepStatsActivity extends AppCompatActivity {
         pad.setLayoutParams(lp(LinearLayout.LayoutParams.MATCH_PARENT, dp(32)));
         root.addView(pad);
 
-        setContentView(scroll);
+        setNavContentView(R.layout.activity_deep_stats_placeholder);
+        // DeepStatsActivity builds its UI programmatically.
+        // Replace the placeholder frame content with our scroll view.
+        android.widget.FrameLayout frame = findViewById(R.id.nav_content_frame);
+        frame.removeAllViews();
+        frame.addView(scroll);
     }
 
     // ─── Header ───────────────────────────────────────────────────────────────
@@ -1027,6 +1033,11 @@ public class DeepStatsActivity extends AppCompatActivity {
     static class BowlerStatWithTeam {
         final BowlerStat stat; final String team;
         BowlerStatWithTeam(BowlerStat s, String t) { stat = s; team = t; }
+    }
+
+    @Override
+    protected int getCurrentNavItem() {
+        return R.id.nav_stats;
     }
 
 }

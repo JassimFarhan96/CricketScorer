@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- DeepStatsActivity builds its content programmatically.
+     This layout exists only to satisfy setNavContentView().
+     The actual scroll view is injected into nav_content_frame at runtime. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/c_bg_page"/>

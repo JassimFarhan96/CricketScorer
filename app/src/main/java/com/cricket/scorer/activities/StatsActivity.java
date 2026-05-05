@@ -27,7 +27,7 @@ import java.io.File;
 import java.util.List;
 import java.util.Locale;
 
-public class StatsActivity extends AppCompatActivity {
+public class StatsActivity extends BaseNavActivity {
 
     public static final String EXTRA_SAVED_FILE_NAME = "saved_file_name";
 
@@ -48,7 +48,7 @@ public class StatsActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_stats);
+        setNavContentView(R.layout.activity_stats);
         bindViews();
 
         String savedFile = getIntent().getStringExtra(EXTRA_SAVED_FILE_NAME);
@@ -240,4 +240,9 @@ public class StatsActivity extends AppCompatActivity {
 
     private int col(int res) { return getResources().getColor(res,getTheme()); }
     private int dp(int v)    { return (int)(v*getResources().getDisplayMetrics().density); }
+    @Override
+    protected int getCurrentNavItem() {
+        return R.id.nav_stats;
+    }
+
 }
