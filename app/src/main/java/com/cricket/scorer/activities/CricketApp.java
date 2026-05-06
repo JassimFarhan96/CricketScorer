@@ -3,46 +3,46 @@ package com.cricket.scorer.activities;
 import android.app.Application;
 
 import com.cricket.scorer.models.Match;
+import com.cricket.scorer.models.Tournament;
 import com.cricket.scorer.utils.MatchEngine;
 
 /**
  * CricketApp.java
- * Custom Application class.
+ * Custom Application class — holds singletons for the active match and
+ * the active tournament (if any).
  *
- * Holds the active Match and MatchEngine as singletons
- * so they can be accessed across all Activities without
- * passing large Serializable objects through Intents.
- *
- * Register in AndroidManifest.xml:
- *   <application android:name=".activities.CricketApp" ...>
+ * CHANGE: Added tournament holder. When a tournament is active,
+ * matches are part of the tournament and on completion return to
+ * TournamentDashboardActivity instead of StatsActivity.
  */
 public class CricketApp extends Application {
 
-    private Match currentMatch;
+    private Match       currentMatch;
     private MatchEngine matchEngine;
+    private Tournament  currentTournament;
 
     @Override
-    public void onCreate() {
-        super.onCreate();
-    }
+    public void onCreate() { super.onCreate(); }
 
     // ─── Match lifecycle ──────────────────────────────────────────────────────
 
-    /** Called by SetupActivity when a new match begins */
     public void startNewMatch(Match match) {
         this.currentMatch = match;
-        this.matchEngine = new MatchEngine(match);
+        this.matchEngine  = new MatchEngine(match);
     }
 
-    /** Clears match data (e.g. when starting a fresh match from Home) */
     public void clearMatch() {
         currentMatch = null;
-        matchEngine = null;
+        matchEngine  = null;
     }
 
-    // ─── Getters ──────────────────────────────────────────────────────────────
+    public Match       getCurrentMatch() { return currentMatch; }
+    public MatchEngine getMatchEngine()  { return matchEngine; }
 
-    public Match getCurrentMatch() { return currentMatch; }
+    // ─── Tournament lifecycle ─────────────────────────────────────────────────
 
-    public MatchEngine getMatchEngine() { return matchEngine; }
+    public void       startNewTournament(Tournament t) { this.currentTournament = t; }
+    public void       clearTournament()                { this.currentTournament = null; }
+    public Tournament getCurrentTournament()           { return currentTournament; }
+    public boolean    isTournamentActive()             { return currentTournament != null; }
 }

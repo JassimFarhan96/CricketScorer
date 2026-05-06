@@ -4,12 +4,13 @@ import androidx.appcompat.app.AlertDialog; import androidx.appcompat.app.AppComp
 import com.cricket.scorer.R; import com.cricket.scorer.models.Match; import com.cricket.scorer.utils.LiveMatchState;
 
 public class HomeActivity extends BaseNavActivity {
-    private LinearLayout layoutTrackMatch,layoutRecentMatches,layoutStatistics;
+    private LinearLayout layoutTrackMatch,layoutTrackTournament,layoutRecentMatches,layoutStatistics;
     private boolean resumeDialogShown=false;
 
     @Override protected void onCreate(Bundle s){
         super.onCreate(s); setNavContentView(R.layout.activity_home);
         layoutTrackMatch=findViewById(R.id.layout_track_match);
+        layoutTrackTournament=findViewById(R.id.layout_track_tournament);
         layoutRecentMatches=findViewById(R.id.layout_recent_matches);
         layoutStatistics=findViewById(R.id.layout_statistics);
         setClickListeners();
@@ -17,8 +18,41 @@ public class HomeActivity extends BaseNavActivity {
 
     @Override protected void onResume(){
         super.onResume();
-        if(!resumeDialogShown) checkForResumeableMatch();
+        if(!resumeDialogShown) {
+            // Check tournament first — if active, take precedence
+            if (com.cricket.scorer.utils.TournamentStorage.exists(this)) {
+                checkForResumeableTournament();
+            } else {
+                checkForResumeableMatch();
+            }
+        }
         resumeDialogShown=false;
+    }
+
+    private void checkForResumeableTournament(){
+        com.cricket.scorer.models.Tournament t =
+                com.cricket.scorer.utils.TournamentStorage.load(this);
+        if (t == null) {
+            com.cricket.scorer.utils.TournamentStorage.clear(this);
+            return;
+        }
+        resumeDialogShown=true;
+        String teamCount = t.getTeams().size() + " teams";
+        String stage     = t.getStage().name();
+        new AlertDialog.Builder(this).setTitle("Tournament in progress")
+            .setMessage(teamCount + " · Stage: " + stage
+                    + "\n\nWould you like to resume this tournament?")
+            .setCancelable(false)
+            .setPositiveButton("Resume",(d,w)->{
+                ((CricketApp)getApplication()).startNewTournament(t);
+                startActivity(new Intent(this,
+                        com.cricket.scorer.activities.TournamentDashboardActivity.class));
+            })
+            .setNegativeButton("Discard",(d,w)->{
+                com.cricket.scorer.utils.TournamentStorage.clear(this);
+                resumeDialogShown=false;
+            })
+            .show();
     }
 
     private void checkForResumeableMatch(){
@@ -48,6 +82,8 @@ public class HomeActivity extends BaseNavActivity {
 
     private void setClickListeners(){
         layoutTrackMatch.setOnClickListener(v->startActivity(new Intent(this,PlayerCountActivity.class)));
+        layoutTrackTournament.setOnClickListener(v->startActivity(new Intent(this,
+                com.cricket.scorer.activities.TournamentSetupActivity.class)));
         layoutRecentMatches.setOnClickListener(v->startActivity(new Intent(this,RecentMatchesActivity.class)));
         layoutStatistics.setOnClickListener(v->startActivity(new Intent(this,MatchSelectActivity.class)));
     }

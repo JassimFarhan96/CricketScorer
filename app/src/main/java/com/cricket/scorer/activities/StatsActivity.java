@@ -67,6 +67,61 @@ public class StatsActivity extends BaseNavActivity {
         }
         populateStats();
         setClickListeners();
+        // Tournament integration: if a tournament is active and the match
+        // just finished (not viewing an old one), record the result on the
+        // current tournament fixture and route New Match button to dashboard.
+        recordMatchInTournamentIfActive();
+    }
+
+    private void recordMatchInTournamentIfActive() {
+        if (isViewingFromDisk) return;
+        com.cricket.scorer.models.Tournament t =
+                ((CricketApp) getApplication()).getCurrentTournament();
+        if (t == null) return;
+        com.cricket.scorer.models.TournamentMatch fixture = t.getCurrentMatch();
+        if (fixture == null || fixture.isCompleted()) return;
+        if (!match.isMatchCompleted()) return;
+
+        // Determine winner from match result
+        String winner = match.getWinnerTeam();
+        String winnerName = null;
+        if ("home".equals(winner))      winnerName = match.getHomeTeamName();
+        else if ("away".equals(winner)) winnerName = match.getAwayTeamName();
+        else                            winnerName = "tie";
+
+        int scoreA = match.getFirstInnings()  != null ? match.getFirstInnings().getTotalRuns()  : 0;
+        int scoreB = match.getSecondInnings() != null ? match.getSecondInnings().getTotalRuns() : 0;
+
+        fixture.setCompleted(true);
+        fixture.setWinnerName(winnerName);
+        fixture.setTeamAScore(scoreA);
+        fixture.setTeamBScore(scoreB);
+        fixture.setResultDescription(match.getResultDescription());
+
+        // Update team standings
+        com.cricket.scorer.models.TournamentTeam tA = t.findTeamByName(fixture.getTeamAName());
+        com.cricket.scorer.models.TournamentTeam tB = t.findTeamByName(fixture.getTeamBName());
+        if (tA != null && tB != null) {
+            if (fixture.getTeamAName().equals(winnerName)) {
+                tA.recordWin(scoreA, scoreB);
+                tB.recordLoss(scoreB, scoreA);
+            } else if (fixture.getTeamBName().equals(winnerName)) {
+                tB.recordWin(scoreB, scoreA);
+                tA.recordLoss(scoreA, scoreB);
+            } else {
+                // tie — count as played but no win/loss
+                tA.setPlayed(tA.getPlayed() + 1);
+                tB.setPlayed(tB.getPlayed() + 1);
+                tA.setTotalRunsFor(tA.getTotalRunsFor() + scoreA);
+                tA.setTotalRunsAgainst(tA.getTotalRunsAgainst() + scoreB);
+                tB.setTotalRunsFor(tB.getTotalRunsFor() + scoreB);
+                tB.setTotalRunsAgainst(tB.getTotalRunsAgainst() + scoreA);
+            }
+        }
+
+        // Advance to next match in stage
+        t.setCurrentMatchIndex(t.getCurrentMatchIndex() + 1);
+        com.cricket.scorer.utils.TournamentStorage.save(this, t);
     }
 
     private void bindViews() {
@@ -133,6 +188,11 @@ public class StatsActivity extends BaseNavActivity {
         if (i2 != null) buildBowlingTable(tableSecondBowling, i2.getBowlerStats());
 
         btnSaveMatch.setVisibility(isViewingFromDisk ? View.GONE : View.VISIBLE);
+
+        // Relabel "New Match" button when a tournament is in progress
+        if (((CricketApp) getApplication()).isTournamentActive()) {
+            btnNewMatch.setText("Back to Tournament");
+        }
     }
 
     private void buildBattingTable(TableLayout table, List<Player> players) {
@@ -227,7 +287,11 @@ public class StatsActivity extends BaseNavActivity {
         btnShareGeneral.setOnClickListener(v -> ShareUtils.shareAsText(this, match));
         btnNewMatch.setOnClickListener(v -> {
             ((CricketApp)getApplication()).clearMatch();
-            Intent i = new Intent(this,HomeActivity.class);
+            // If tournament active, return to dashboard instead of Home
+            boolean tournamentActive =
+                    ((CricketApp) getApplication()).isTournamentActive();
+            Intent i = new Intent(this,
+                    tournamentActive ? TournamentDashboardActivity.class : HomeActivity.class);
             i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(i); finish();
         });

@@ -51,5 +51,22 @@
             android:exported="false" android:label="Select Match"
             android:parentActivityName=".activities.HomeActivity"/>
 
+        <!-- Tournament activities -->
+        <activity android:name=".activities.TournamentSetupActivity"
+            android:exported="false" android:label="Tournament Setup"
+            android:parentActivityName=".activities.HomeActivity"/>
+        <activity android:name=".activities.TournamentPlayersActivity"
+            android:exported="false" android:label="Tournament Players"
+            android:parentActivityName=".activities.TournamentSetupActivity"/>
+        <activity android:name=".activities.TournamentBattingModeActivity"
+            android:exported="false" android:label="Batting Mode"
+            android:parentActivityName=".activities.TournamentPlayersActivity"/>
+        <activity android:name=".activities.TournamentScheduleActivity"
+            android:exported="false" android:label="Match Schedule"
+            android:parentActivityName=".activities.TournamentBattingModeActivity"/>
+        <activity android:name=".activities.TournamentDashboardActivity"
+            android:exported="false" android:label="Tournament"
+            android:parentActivityName=".activities.HomeActivity"/>
+
     </application>
 </manifest>
