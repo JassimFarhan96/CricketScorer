@@ -338,20 +338,53 @@ public class InningsActivity extends AppCompatActivity {
     }
 
     private void showRetiredHurtReplacementDialog() {
-        List<Player> available = engine.getAvailableBatsmen();
-        if (available.isEmpty()) {
+        // Build the eligible list:
+        //   - Available batsmen (haven't batted yet, not out, not currently retired hurt)
+        //   - PLUS previously retired-hurt batsmen (they may have healed and want to return)
+        // Excluded: players who are out, currently at the crease, or the striker
+        // about to retire (handled before this dialog).
+        List<Player> available  = engine.getAvailableBatsmen();
+        List<Player> batters    = match.getCurrentBattingPlayers();
+        Innings      innings    = match.getCurrentInningsData();
+        int          si         = innings.getStrikerIndex();
+        int          nsi        = innings.getNonStrikerIndex();
+
+        List<Player> eligible = new ArrayList<>(available);
+        // Add retired-hurt players (excluding the striker, who is the one retiring now)
+        for (int i = 0; i < batters.size(); i++) {
+            Player p = batters.get(i);
+            if (p.isRetiredHurt() && i != si && i != nsi) {
+                eligible.add(p);
+            }
+        }
+
+        if (eligible.isEmpty()) {
             Toast.makeText(this, "No available batsmen to replace retired hurt player", Toast.LENGTH_SHORT).show();
             return;
         }
-        String[] names = new String[available.size()];
-        List<Player> batters = match.getCurrentBattingPlayers();
-        for (int i = 0; i < available.size(); i++) names[i] = (i+1) + ". " + available.get(i).getName();
+
+        String[] names = new String[eligible.size()];
+        for (int i = 0; i < eligible.size(); i++) {
+            Player  p       = eligible.get(i);
+            boolean healed  = p.isRetiredHurt();
+            names[i] = (i + 1) + ". " + p.getName() + (healed ? "  (returning from retired hurt)" : "");
+        }
         final int[] chosen = {0};
         new AlertDialog.Builder(this)
                 .setTitle("Select replacement batsman")
                 .setSingleChoiceItems(names, 0, (d, w) -> chosen[0] = w)
                 .setPositiveButton("Confirm", (d, w) -> {
-                    Player p = available.get(chosen[0]);
+                    Player p = eligible.get(chosen[0]);
+                    // If a previously retired-hurt player is coming back, clear that
+                    // flag first so the engine treats them as a fit batsman.
+                    if (p.isRetiredHurt()) {
+                        p.setRetiredHurt(false);
+                        p.setDismissalInfo("");
+                        // If returning player is the joker, restore batting role
+                        if (match.hasJoker() && match.getJokerName().equals(p.getName())) {
+                            match.setJokerBatting();
+                        }
+                    }
                     int idx = batters.indexOf(p);
                     handleMatchState(engine.deliverRetiredHurt(idx));
                 })
