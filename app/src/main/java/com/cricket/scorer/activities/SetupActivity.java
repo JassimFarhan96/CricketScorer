@@ -5,43 +5,150 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.cricket.scorer.R; import com.cricket.scorer.models.*;
 import java.util.*;
 
-public class SetupActivity extends BaseNavActivity {
+public class SetupActivity extends AppCompatActivity {
     private int playersPerTeam=11; private boolean singleBatsmanMode=false;
-    private EditText etHomeTeam,etAwayTeam,etOvers; private Spinner spinnerToss;
+    private EditText etHomeTeam,etAwayTeam,etOvers;
+    private Spinner spinnerTossWinner, spinnerTossChoice;
+    private TextView tvTossSummary;
+    private TextView tvLabelHomePlayers, tvLabelAwayPlayers;
     private LinearLayout containerHomePlayers,containerAwayPlayers; private Button btnStartMatch;
     private EditText[] homePlayerFields,awayPlayerFields; private String battingFirst="home";
 
     @Override protected void onCreate(Bundle s) {
-        super.onCreate(s); setNavContentView(R.layout.activity_setup);
+        super.onCreate(s); setContentView(R.layout.activity_setup);
         playersPerTeam=getIntent().getIntExtra(PlayerCountActivity.KEY_PLAYER_COUNT,11);
         String mode=getIntent().getStringExtra(PlayerCountActivity.KEY_BATTING_MODE);
         singleBatsmanMode=PlayerCountActivity.MODE_SINGLE.equals(mode);
         homePlayerFields=new EditText[playersPerTeam]; awayPlayerFields=new EditText[playersPerTeam];
-        bindViews(); setupTossSpinner(); buildPlayerInputFields(); setClickListeners();
+        bindViews(); setupTossSpinners(); buildPlayerInputFields(); setClickListeners();
     }
 
     private void bindViews() {
         etHomeTeam=findViewById(R.id.et_home_team); etAwayTeam=findViewById(R.id.et_away_team);
-        etOvers=findViewById(R.id.et_overs); spinnerToss=findViewById(R.id.spinner_toss);
+        etOvers=findViewById(R.id.et_overs);
+        spinnerTossWinner=findViewById(R.id.spinner_toss_winner);
+        spinnerTossChoice=findViewById(R.id.spinner_toss_choice);
+        tvTossSummary=findViewById(R.id.tv_toss_summary);
+        tvLabelHomePlayers=findViewById(R.id.tv_label_home_players);
+        tvLabelAwayPlayers=findViewById(R.id.tv_label_away_players);
         containerHomePlayers=findViewById(R.id.container_home_players);
         containerAwayPlayers=findViewById(R.id.container_away_players);
         btnStartMatch=findViewById(R.id.btn_start_match);
     }
 
-    private void setupTossSpinner() {
-        final String[] opts={"Home team bats first","Away team bats first"};
-        ArrayAdapter<String> a=new ArrayAdapter<String>(this,android.R.layout.simple_spinner_item,opts){
-            @Override public View getView(int p,View cv,android.view.ViewGroup vg){
-                View v=super.getView(p,cv,vg);((TextView)v).setTextColor(c(R.color.c_text_primary));((TextView)v).setTextSize(14f);return v;}
-            @Override public View getDropDownView(int p,View cv,android.view.ViewGroup vg){
-                View v=super.getDropDownView(p,cv,vg);((TextView)v).setTextColor(c(R.color.c_text_primary));
-                ((TextView)v).setBackgroundColor(c(R.color.c_bg_spinner_popup));((TextView)v).setPadding(32,24,32,24);return v;}
+    /**
+     * Sets up the two toss spinners.
+     * Spinner 1: which team won the toss (Home/Away — uses team names if entered)
+     * Spinner 2: what they chose (Bat / Bowl)
+     *
+     * The combination determines battingFirst:
+     *   winner=Home + Bat   → home bats first
+     *   winner=Home + Bowl  → away bats first
+     *   winner=Away + Bat   → away bats first
+     *   winner=Away + Bowl  → home bats first
+     *
+     * The summary text below updates live so the user can confirm the order
+     * they're about to play in. No popup needed — it's all inline.
+     */
+    private void setupTossSpinners() {
+        rebuildTossWinnerOptions();
+
+        // Choice spinner is static
+        ArrayAdapter<String> choiceAdapter = makeAdapter(
+                new String[]{"Bat first", "Bowl first"});
+        spinnerTossChoice.setAdapter(choiceAdapter);
+
+        AdapterView.OnItemSelectedListener listener = new AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(AdapterView<?> p, View v, int pos, long id) {
+                recomputeBattingFirst();
+            }
+            @Override public void onNothingSelected(AdapterView<?> p) {}
         };
-        a.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item); spinnerToss.setAdapter(a);
-        spinnerToss.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){
-            @Override public void onItemSelected(AdapterView<?>p,View v,int pos,long id){battingFirst=pos==0?"home":"away";}
-            @Override public void onNothingSelected(AdapterView<?>p){}
-        });
+        spinnerTossWinner.setOnItemSelectedListener(listener);
+        spinnerTossChoice.setOnItemSelectedListener(listener);
+
+        // Refresh winner spinner options + player labels when team names change
+        // so user sees the actual names, not "Home"/"Away" placeholders.
+        android.text.TextWatcher tw = new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
+            @Override public void onTextChanged (CharSequence s, int a, int b, int c) {}
+            @Override public void afterTextChanged(android.text.Editable s) {
+                int prev = spinnerTossWinner.getSelectedItemPosition();
+                rebuildTossWinnerOptions();
+                if (prev >= 0 && prev < 2) spinnerTossWinner.setSelection(prev);
+                refreshPlayerLabels();
+            }
+        };
+        etHomeTeam.addTextChangedListener(tw);
+        etAwayTeam.addTextChangedListener(tw);
+        // Initialize labels so they reflect any pre-filled text
+        refreshPlayerLabels();
+    }
+
+    /**
+     * Updates the "HOME TEAM PLAYERS" / "AWAY TEAM PLAYERS" section labels
+     * to use the actual team names. Falls back to "Home" / "Away" when blank.
+     */
+    private void refreshPlayerLabels() {
+        String home = etHomeTeam.getText().toString().trim();
+        String away = etAwayTeam.getText().toString().trim();
+        if (home.isEmpty()) home = "Home";
+        if (away.isEmpty()) away = "Away";
+        tvLabelHomePlayers.setText(home.toUpperCase() + " PLAYERS");
+        tvLabelAwayPlayers.setText(away.toUpperCase() + " PLAYERS");
+    }
+
+    private void rebuildTossWinnerOptions() {
+        String home = etHomeTeam.getText().toString().trim();
+        String away = etAwayTeam.getText().toString().trim();
+        if (home.isEmpty()) home = "Home team";
+        if (away.isEmpty()) away = "Away team";
+        ArrayAdapter<String> a = makeAdapter(new String[]{home, away});
+        spinnerTossWinner.setAdapter(a);
+    }
+
+    private ArrayAdapter<String> makeAdapter(String[] opts) {
+        ArrayAdapter<String> a = new ArrayAdapter<String>(this,
+                android.R.layout.simple_spinner_item, opts){
+            @Override public View getView(int p, View cv, android.view.ViewGroup vg) {
+                View v = super.getView(p, cv, vg);
+                ((TextView)v).setTextColor(c(R.color.c_text_primary));
+                ((TextView)v).setTextSize(14f);
+                return v;
+            }
+            @Override public View getDropDownView(int p, View cv, android.view.ViewGroup vg) {
+                View v = super.getDropDownView(p, cv, vg);
+                ((TextView)v).setTextColor(c(R.color.c_text_primary));
+                ((TextView)v).setBackgroundColor(c(R.color.c_bg_spinner_popup));
+                ((TextView)v).setPadding(32, 24, 32, 24);
+                return v;
+            }
+        };
+        a.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        return a;
+    }
+
+    /**
+     * Compute battingFirst from the two spinners and update the summary line.
+     * homeWonToss=true & choseBat=true   → home bats
+     * homeWonToss=true & choseBat=false  → away bats
+     * homeWonToss=false & choseBat=true  → away bats
+     * homeWonToss=false & choseBat=false → home bats
+     */
+    private void recomputeBattingFirst() {
+        boolean homeWonToss = spinnerTossWinner.getSelectedItemPosition() == 0;
+        boolean choseBat    = spinnerTossChoice.getSelectedItemPosition() == 0;
+        boolean homeBats    = homeWonToss == choseBat; // XNOR
+        battingFirst = homeBats ? "home" : "away";
+
+        String home = etHomeTeam.getText().toString().trim();
+        String away = etAwayTeam.getText().toString().trim();
+        if (home.isEmpty()) home = "Home team";
+        if (away.isEmpty()) away = "Away team";
+        String winner = homeWonToss ? home : away;
+        String batter = homeBats ? home : away;
+        tvTossSummary.setText("→ " + winner + " won toss, "
+                + batter + " bats first");
     }
 
     private void buildPlayerInputFields() {
@@ -185,9 +292,4 @@ public class SetupActivity extends BaseNavActivity {
     }
 
     private int c(int res){return getResources().getColor(res,getTheme());}
-    @Override
-    protected int getCurrentNavItem() {
-        return R.id.nav_home;
-    }
-
 }
