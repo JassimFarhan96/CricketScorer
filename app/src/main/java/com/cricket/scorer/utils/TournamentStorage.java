@@ -68,6 +68,8 @@ public class TournamentStorage {
                 to.put("losses",           team.getLosses());
                 to.put("totalRunsFor",     team.getTotalRunsFor());
                 to.put("totalRunsAgainst", team.getTotalRunsAgainst());
+                to.put("totalBallsFaced",  team.getTotalBallsFaced());
+                to.put("totalBallsBowled", team.getTotalBallsBowled());
                 JSONArray players = new JSONArray();
                 for (Player p : team.getPlayers()) players.put(nvl(p.getName()));
                 to.put("players", players);
@@ -122,6 +124,8 @@ public class TournamentStorage {
                     team.setLosses(to.optInt("losses", 0));
                     team.setTotalRunsFor(to.optInt("totalRunsFor", 0));
                     team.setTotalRunsAgainst(to.optInt("totalRunsAgainst", 0));
+                    team.setTotalBallsFaced(to.optInt("totalBallsFaced", 0));
+                    team.setTotalBallsBowled(to.optInt("totalBallsBowled", 0));
                     JSONArray players = to.optJSONArray("players");
                     List<Player> playerList = new ArrayList<>();
                     if (players != null) {

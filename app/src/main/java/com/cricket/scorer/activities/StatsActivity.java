@@ -84,13 +84,27 @@ public class StatsActivity extends BaseNavActivity {
 
         // Determine winner from match result
         String winner = match.getWinnerTeam();
-        String winnerName = null;
+        String winnerName;
         if ("home".equals(winner))      winnerName = match.getHomeTeamName();
         else if ("away".equals(winner)) winnerName = match.getAwayTeamName();
         else                            winnerName = "tie";
 
-        int scoreA = match.getFirstInnings()  != null ? match.getFirstInnings().getTotalRuns()  : 0;
-        int scoreB = match.getSecondInnings() != null ? match.getSecondInnings().getTotalRuns() : 0;
+        // Per-innings runs and balls
+        com.cricket.scorer.models.Innings firstInn  = match.getFirstInnings();
+        com.cricket.scorer.models.Innings secondInn = match.getSecondInnings();
+        int scoreA = firstInn  != null ? firstInn.getTotalRuns()        : 0;
+        int scoreB = secondInn != null ? secondInn.getTotalRuns()       : 0;
+        int ballsA = firstInn  != null ? firstInn.getTotalValidBalls()  : 0;
+        int ballsB = secondInn != null ? secondInn.getTotalValidBalls() : 0;
+
+        // IPL all-out rule: if a team is bowled out for less than full overs,
+        // their FULL allotted overs is used for NRR (not the actual balls).
+        // Detect "all out" by checking if the team finished with all wickets down.
+        int fullBalls = match.getMaxOvers() * 6;
+        boolean teamAAllOut = firstInn  != null && isAllOut(firstInn,  match);
+        boolean teamBAllOut = secondInn != null && isAllOut(secondInn, match);
+        int nrrBallsA = teamAAllOut ? fullBalls : ballsA;
+        int nrrBallsB = teamBAllOut ? fullBalls : ballsB;
 
         fixture.setCompleted(true);
         fixture.setWinnerName(winnerName);
@@ -98,30 +112,46 @@ public class StatsActivity extends BaseNavActivity {
         fixture.setTeamBScore(scoreB);
         fixture.setResultDescription(match.getResultDescription());
 
-        // Update team standings
+        // Update standings using IPL-formula-aware recordMatch
         com.cricket.scorer.models.TournamentTeam tA = t.findTeamByName(fixture.getTeamAName());
         com.cricket.scorer.models.TournamentTeam tB = t.findTeamByName(fixture.getTeamBName());
         if (tA != null && tB != null) {
+            // Team A: faced ballsA, bowled ballsB; runsFor = scoreA, runsAgainst = scoreB
+            // Team B: faced ballsB, bowled ballsA; runsFor = scoreB, runsAgainst = scoreA
             if (fixture.getTeamAName().equals(winnerName)) {
-                tA.recordWin(scoreA, scoreB);
-                tB.recordLoss(scoreB, scoreA);
+                tA.recordMatch(true,  scoreA, scoreB, nrrBallsA, nrrBallsB);
+                tB.recordMatch(false, scoreB, scoreA, nrrBallsB, nrrBallsA);
             } else if (fixture.getTeamBName().equals(winnerName)) {
-                tB.recordWin(scoreB, scoreA);
-                tA.recordLoss(scoreA, scoreB);
+                tA.recordMatch(false, scoreA, scoreB, nrrBallsA, nrrBallsB);
+                tB.recordMatch(true,  scoreB, scoreA, nrrBallsB, nrrBallsA);
             } else {
-                // tie — count as played but no win/loss
-                tA.setPlayed(tA.getPlayed() + 1);
-                tB.setPlayed(tB.getPlayed() + 1);
-                tA.setTotalRunsFor(tA.getTotalRunsFor() + scoreA);
-                tA.setTotalRunsAgainst(tA.getTotalRunsAgainst() + scoreB);
-                tB.setTotalRunsFor(tB.getTotalRunsFor() + scoreB);
-                tB.setTotalRunsAgainst(tB.getTotalRunsAgainst() + scoreA);
+                tA.recordTie(scoreA, scoreB, nrrBallsA, nrrBallsB);
+                tB.recordTie(scoreB, scoreA, nrrBallsB, nrrBallsA);
             }
         }
 
-        // Advance to next match in stage
         t.setCurrentMatchIndex(t.getCurrentMatchIndex() + 1);
         com.cricket.scorer.utils.TournamentStorage.save(this, t);
+    }
+
+    /**
+     * Returns true if the given innings ended with the team all out
+     * (i.e. ran out of batsmen). Handles single-batsman and two-batsman modes.
+     */
+    private boolean isAllOut(com.cricket.scorer.models.Innings inn,
+                              com.cricket.scorer.models.Match m) {
+        // Determine which team batted in this innings
+        boolean homeFirst   = "home".equals(m.getBattingFirstTeam());
+        boolean isFirstInn  = inn == m.getFirstInnings();
+        java.util.List<com.cricket.scorer.models.Player> batters;
+        if (isFirstInn) batters = homeFirst ? m.getHomePlayers() : m.getAwayPlayers();
+        else            batters = homeFirst ? m.getAwayPlayers() : m.getHomePlayers();
+
+        int retiredHurt = 0;
+        for (com.cricket.scorer.models.Player p : batters) if (p.isRetiredHurt()) retiredHurt++;
+        int active    = batters.size() - retiredHurt;
+        int threshold = m.isSingleBatsmanMode() ? active : active - 1;
+        return inn.getTotalWickets() >= threshold;
     }
 
     private void bindViews() {

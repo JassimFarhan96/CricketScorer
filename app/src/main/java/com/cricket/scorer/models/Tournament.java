@@ -103,12 +103,20 @@ public class Tournament implements Serializable {
         return !list.isEmpty();
     }
 
-    /** Standings sorted by wins desc, then NRR / runs scored could be added later. */
+    /**
+     * Standings sorted per IPL rules:
+     *   1. Points (wins × 2) — descending
+     *   2. Net Run Rate — descending
+     */
     public List<TournamentTeam> getStandings() {
         List<TournamentTeam> sorted = new ArrayList<>(teams);
         java.util.Collections.sort(sorted, (a, b) -> {
-            if (a.getWins() != b.getWins()) return b.getWins() - a.getWins();
-            return b.getNetRunsScored() - a.getNetRunsScored();
+            // Primary: points (more wins = higher rank)
+            if (a.getPoints() != b.getPoints()) {
+                return b.getPoints() - a.getPoints();
+            }
+            // Tiebreaker: net run rate (higher = better)
+            return Float.compare(b.getNetRunRate(), a.getNetRunRate());
         });
         return sorted;
     }

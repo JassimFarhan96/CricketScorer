@@ -91,10 +91,20 @@ public class TournamentDashboardActivity extends BaseNavActivity {
         switch (t.getStage()) {
             case LEAGUE:
                 if (t.isCurrentStageComplete()) {
-                    // League finished — show top 4 and prompt for semis
-                    showTopFour(t);
-                    btnStartSemis.setVisibility(View.VISIBLE);
-                    btnStartSemis.setOnClickListener(v -> startSemifinals(t));
+                    // League finished — depending on team count, either:
+                    //   exactly 4 teams → skip semis, top 2 → final
+                    //   more than 4    → top 4 → semis
+                    if (t.getTeams().size() == 4) {
+                        showTopTwo(t);
+                        btnStartSemis.setVisibility(View.VISIBLE);
+                        btnStartSemis.setText("Start Final (Top 2)");
+                        btnStartSemis.setOnClickListener(v -> startSemifinals(t));
+                    } else {
+                        showTopFour(t);
+                        btnStartSemis.setVisibility(View.VISIBLE);
+                        btnStartSemis.setText("Start Semifinals");
+                        btnStartSemis.setOnClickListener(v -> startSemifinals(t));
+                    }
                 } else {
                     showNextMatch(t);
                 }
@@ -154,6 +164,38 @@ public class TournamentDashboardActivity extends BaseNavActivity {
         }
     }
 
+    /**
+     * Shown when exactly 4 teams played the league and we skip semifinals.
+     * Top 2 teams advance directly to the final.
+     */
+    private void showTopTwo(Tournament t) {
+        layoutSemiTeams.setVisibility(View.VISIBLE);
+        layoutSemiTeams.removeAllViews();
+        TextView title = new TextView(this);
+        title.setText("LEAGUE COMPLETE — TOP 2 ADVANCE TO FINAL");
+        title.setTextSize(13f);
+        title.setTypeface(null, Typeface.BOLD);
+        title.setPadding(dp(16), dp(8), dp(16), dp(4));
+        title.setTextColor(getResources().getColor(R.color.c_text_primary, getTheme()));
+        layoutSemiTeams.addView(title);
+
+        TextView note = new TextView(this);
+        note.setText("(4-team tournament — semifinals are skipped)");
+        note.setTextSize(11f);
+        note.setTextColor(getResources().getColor(R.color.c_text_secondary, getTheme()));
+        note.setPadding(dp(16), 0, dp(16), dp(8));
+        layoutSemiTeams.addView(note);
+
+        List<TournamentTeam> top2 = t.getTopTeams(2);
+        for (int i = 0; i < top2.size(); i++) {
+            TextView tv = new TextView(this);
+            tv.setText((i + 1) + ". " + top2.get(i).getName()
+                    + "  (" + top2.get(i).getWins() + "W " + top2.get(i).getLosses() + "L)");
+            tv.setPadding(dp(20), dp(4), dp(16), dp(4));
+            layoutSemiTeams.addView(tv);
+        }
+    }
+
     private void showFinalists(Tournament t) {
         layoutSemiTeams.setVisibility(View.VISIBLE);
         layoutSemiTeams.removeAllViews();
@@ -186,20 +228,48 @@ public class TournamentDashboardActivity extends BaseNavActivity {
     }
 
     private void startSemifinals(Tournament t) {
+        // RULE: with exactly 4 teams in the tournament, skip the semifinals
+        // and go straight to a final between the top 2 teams.
+        if (t.getTeams().size() == 4) {
+            startFinalDirectly(t);
+            return;
+        }
+
+        // Standard semifinals: top 4 teams → 1v4 + 2v3
         List<TournamentTeam> top4 = t.getTopTeams(4);
         if (top4.size() < 4) {
             Toast.makeText(this, "Need at least 4 teams for semis", Toast.LENGTH_SHORT).show();
             return;
         }
         List<TournamentMatch> semis = new ArrayList<>();
-        // 1 vs 4
-        semis.add(new TournamentMatch(top4.get(0).getName(), top4.get(3).getName()));
-        // 2 vs 3
-        semis.add(new TournamentMatch(top4.get(1).getName(), top4.get(2).getName()));
+        semis.add(new TournamentMatch(top4.get(0).getName(), top4.get(3).getName())); // 1 vs 4
+        semis.add(new TournamentMatch(top4.get(1).getName(), top4.get(2).getName())); // 2 vs 3
         t.setSemiFixtures(semis);
         t.setStage(Tournament.Stage.SEMIFINAL);
         t.setCurrentMatchIndex(0);
         TournamentStorage.save(this, t);
+        render(t);
+    }
+
+    /**
+     * Sets up final directly between top 2 teams (used when only 4 teams
+     * are in the tournament, so semifinals are skipped).
+     */
+    private void startFinalDirectly(Tournament t) {
+        List<TournamentTeam> top2 = t.getTopTeams(2);
+        if (top2.size() < 2) {
+            Toast.makeText(this, "Need at least 2 teams for final", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        TournamentMatch finalMatch = new TournamentMatch(
+                top2.get(0).getName(), top2.get(1).getName());
+        t.setFinalFixture(finalMatch);
+        t.setStage(Tournament.Stage.FINAL);
+        t.setCurrentMatchIndex(0);
+        TournamentStorage.save(this, t);
+        Toast.makeText(this,
+                "4-team tournament: skipping semis — Top 2 advance to Final!",
+                Toast.LENGTH_LONG).show();
         render(t);
     }
 
@@ -275,7 +345,7 @@ public class TournamentDashboardActivity extends BaseNavActivity {
                     String.valueOf(team.getWins()),
                     String.valueOf(team.getLosses()),
                     String.valueOf(team.getPoints()),
-                    String.valueOf(team.getNetRunsScored())
+                    String.format(java.util.Locale.US, "%.2f", team.getNetRunRate())
             }, false);
         }
     }
