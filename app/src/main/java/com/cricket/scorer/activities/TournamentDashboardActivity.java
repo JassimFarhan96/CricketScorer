@@ -310,12 +310,64 @@ public class TournamentDashboardActivity extends BaseNavActivity {
             Toast.makeText(this, "Team data missing", Toast.LENGTH_SHORT).show();
             return;
         }
+        // Toss first, then start the match
+        showTossDialog(t, fixture, teamA, teamB);
+    }
 
+    /**
+     * Two-step toss dialog before each tournament match.
+     *
+     *   Step 1: Which team won the toss?  [TeamA] [TeamB]
+     *   Step 2: Toss winner chose to ...  [Bat]   [Bowl]
+     *
+     * The combination determines battingFirstTeam:
+     *   winner=A, chose Bat   → A bats first (home)
+     *   winner=A, chose Bowl  → B bats first (away first)
+     *   winner=B, chose Bat   → B bats first
+     *   winner=B, chose Bowl  → A bats first
+     */
+    private void showTossDialog(Tournament t, TournamentMatch fixture,
+                                 TournamentTeam teamA, TournamentTeam teamB) {
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Toss — " + fixture.getLabel())
+                .setMessage("Which team won the toss?")
+                .setCancelable(false)
+                .setPositiveButton(teamA.getName(), (d, w) ->
+                        showTossChoiceDialog(t, fixture, teamA, teamB, /*aWon=*/true))
+                .setNegativeButton(teamB.getName(), (d, w) ->
+                        showTossChoiceDialog(t, fixture, teamA, teamB, /*aWon=*/false))
+                .show();
+    }
+
+    private void showTossChoiceDialog(Tournament t, TournamentMatch fixture,
+                                       TournamentTeam teamA, TournamentTeam teamB,
+                                       boolean aWonToss) {
+        String winnerName = aWonToss ? teamA.getName() : teamB.getName();
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(winnerName + " won the toss")
+                .setMessage(winnerName + " chose to:")
+                .setCancelable(false)
+                .setPositiveButton("Bat first", (d, w) ->
+                        startMatch(t, fixture, teamA, teamB, /*aBatsFirst=*/aWonToss,
+                                winnerName + " won toss, chose to bat"))
+                .setNegativeButton("Bowl first", (d, w) ->
+                        startMatch(t, fixture, teamA, teamB, /*aBatsFirst=*/!aWonToss,
+                                winnerName + " won toss, chose to bowl"))
+                .show();
+    }
+
+    /**
+     * Builds the Match with the chosen batting order and launches InningsActivity.
+     */
+    private void startMatch(Tournament t, TournamentMatch fixture,
+                             TournamentTeam teamA, TournamentTeam teamB,
+                             boolean aBatsFirst, String tossSummary) {
         Match m = new Match();
         m.setHomeTeamName(teamA.getName());
         m.setAwayTeamName(teamB.getName());
         m.setMaxOvers(t.getMaxOversPerMatch());
-        m.setBattingFirstTeam("home"); // Team A bats first by default
+        // "home" = teamA in our convention (set above). If A bats first → "home", else "away"
+        m.setBattingFirstTeam(aBatsFirst ? "home" : "away");
         m.setSingleBatsmanMode(t.isSingleBatsmanMode());
         // Clone players so per-match stats don't mutate tournament rosters
         List<Player> homePlayers = new ArrayList<>();
@@ -330,6 +382,7 @@ public class TournamentDashboardActivity extends BaseNavActivity {
         m.setCurrentInnings(1);
 
         ((CricketApp) getApplication()).startNewMatch(m);
+        Toast.makeText(this, tossSummary, Toast.LENGTH_LONG).show();
         startActivity(new Intent(this, InningsActivity.class));
     }
 
