@@ -300,11 +300,16 @@ public class TournamentDashboardActivity extends BaseNavActivity {
 
     /**
      * Saves the completed tournament to recent_tournaments/, clears the live
-     * tracker so a fresh tournament can be started, and goes back to Home.
+     * tracker so the user is NOT prompted to resume next launch, and clears
+     * the currentTournament singleton so a fresh tournament can be started.
      */
     private void saveTournament(Tournament t) {
         java.io.File saved = com.cricket.scorer.utils.TournamentStorage.archiveCompleted(this, t);
         if (saved != null) {
+            // Tournament is fully done — wipe the live tracker and singleton.
+            // Resume dialog on Home will no longer fire for this tournament.
+            com.cricket.scorer.utils.TournamentStorage.clear(this);
+            ((CricketApp) getApplication()).clearTournament();
             Toast.makeText(this, "Tournament saved", Toast.LENGTH_SHORT).show();
             btnSaveTournament.setEnabled(false);
             btnSaveTournament.setText("Saved \u2713");
@@ -472,4 +477,20 @@ public class TournamentDashboardActivity extends BaseNavActivity {
     }
 
     private int dp(int v) { return (int)(v * getResources().getDisplayMetrics().density); }
+
+    /**
+     * If the tournament is fully complete and the user navigates away, clear
+     * the live tracker so the resume dialog doesn't reappear next launch.
+     * (Save button does this explicitly; this is a safety net for users who
+     * back out without tapping Save.)
+     */
+    @Override
+    public void onBackPressed() {
+        Tournament t = ((CricketApp) getApplication()).getCurrentTournament();
+        if (t != null && t.getStage() == Tournament.Stage.COMPLETED) {
+            com.cricket.scorer.utils.TournamentStorage.clear(this);
+            ((CricketApp) getApplication()).clearTournament();
+        }
+        super.onBackPressed();
+    }
 }

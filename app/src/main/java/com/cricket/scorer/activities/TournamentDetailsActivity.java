@@ -128,37 +128,73 @@ public class TournamentDetailsActivity extends BaseNavActivity {
         // Match label
         TextView tvLabel = new TextView(this);
         tvLabel.setText(m.getLabel());
-        tvLabel.setTextSize(20f);
+        tvLabel.setTextSize(22f);
         tvLabel.setTypeface(null, Typeface.BOLD);
         tvLabel.setPadding(dp(16), dp(4), dp(16), dp(8));
         tvLabel.setTextColor(getResources().getColor(R.color.c_text_primary, getTheme()));
         pageContent.addView(tvLabel);
 
-        // Scores
-        TextView tvScoreA = new TextView(this);
-        tvScoreA.setText(m.getTeamAName() + ": " + m.getTeamAScore());
-        tvScoreA.setTextSize(15f);
-        tvScoreA.setPadding(dp(16), dp(4), dp(16), dp(2));
-        tvScoreA.setTextColor(getResources().getColor(R.color.c_text_primary, getTheme()));
-        pageContent.addView(tvScoreA);
-
-        TextView tvScoreB = new TextView(this);
-        tvScoreB.setText(m.getTeamBName() + ": " + m.getTeamBScore());
-        tvScoreB.setTextSize(15f);
-        tvScoreB.setPadding(dp(16), dp(2), dp(16), dp(8));
-        tvScoreB.setTextColor(getResources().getColor(R.color.c_text_primary, getTheme()));
-        pageContent.addView(tvScoreB);
-
-        // Result
+        // Result banner
         TextView tvResult = new TextView(this);
         String result = m.getResultDescription();
         if (result == null || result.isEmpty()) result = "Winner: " + m.getWinnerName();
-        tvResult.setText(result);
-        tvResult.setTextSize(15f);
+        tvResult.setText("🏆 " + result);
+        tvResult.setTextSize(16f);
         tvResult.setTypeface(null, Typeface.BOLD);
         tvResult.setPadding(dp(16), dp(8), dp(16), dp(16));
         tvResult.setTextColor(getResources().getColor(R.color.green_mid, getTheme()));
         pageContent.addView(tvResult);
+
+        // "Open full scorecard" button — launches StatsActivity in disk-view mode
+        // for this match's saved file. StatsActivity already has the "View
+        // In-Depth Statistics" button, so the user can drill down from there.
+        if (m.getSavedMatchFile() != null && !m.getSavedMatchFile().isEmpty()) {
+            android.widget.Button btnOpen = new android.widget.Button(this);
+            btnOpen.setText("📊 Open full match scorecard");
+            btnOpen.setTextColor(0xFFFFFFFF);
+            btnOpen.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+                    getResources().getColor(R.color.green_dark, getTheme())));
+            LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp(56));
+            blp.setMargins(dp(16), dp(16), dp(16), dp(8));
+            btnOpen.setLayoutParams(blp);
+            btnOpen.setOnClickListener(v -> {
+                android.content.Intent i = new android.content.Intent(this, StatsActivity.class);
+                i.putExtra(StatsActivity.EXTRA_SAVED_FILE_NAME, m.getSavedMatchFile());
+                startActivity(i);
+            });
+            pageContent.addView(btnOpen);
+
+            TextView hint = new TextView(this);
+            hint.setText("Opens the full scorecard with batting / bowling tables. "
+                    + "From there you can also view in-depth statistics.");
+            hint.setTextSize(12f);
+            hint.setPadding(dp(20), dp(4), dp(20), dp(16));
+            hint.setTextColor(getResources().getColor(R.color.c_text_secondary, getTheme()));
+            pageContent.addView(hint);
+        } else {
+            // Fall back to brief score lines if no saved file (legacy data)
+            TextView tvScoreA = new TextView(this);
+            tvScoreA.setText(m.getTeamAName() + ": " + m.getTeamAScore());
+            tvScoreA.setTextSize(15f);
+            tvScoreA.setPadding(dp(16), dp(4), dp(16), dp(2));
+            tvScoreA.setTextColor(getResources().getColor(R.color.c_text_primary, getTheme()));
+            pageContent.addView(tvScoreA);
+
+            TextView tvScoreB = new TextView(this);
+            tvScoreB.setText(m.getTeamBName() + ": " + m.getTeamBScore());
+            tvScoreB.setTextSize(15f);
+            tvScoreB.setPadding(dp(16), dp(2), dp(16), dp(8));
+            tvScoreB.setTextColor(getResources().getColor(R.color.c_text_primary, getTheme()));
+            pageContent.addView(tvScoreB);
+
+            TextView fallbackNote = new TextView(this);
+            fallbackNote.setText("(Detailed scorecard not available for this match)");
+            fallbackNote.setTextSize(11f);
+            fallbackNote.setPadding(dp(20), dp(8), dp(20), dp(16));
+            fallbackNote.setTextColor(getResources().getColor(R.color.c_text_hint, getTheme()));
+            pageContent.addView(fallbackNote);
+        }
     }
 
     private void addRow(TableLayout tbl, String[] cells, boolean header) {

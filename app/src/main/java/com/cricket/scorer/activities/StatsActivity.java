@@ -112,6 +112,13 @@ public class StatsActivity extends BaseNavActivity {
         fixture.setTeamBScore(scoreB);
         fixture.setResultDescription(match.getResultDescription());
 
+        // Auto-save the match to disk so TournamentDetailsActivity can later
+        // reload and render the full StatsActivity view for it.
+        java.io.File savedFile = com.cricket.scorer.utils.MatchStorage.saveMatch(this, match);
+        if (savedFile != null) {
+            fixture.setSavedMatchFile(savedFile.getName());
+        }
+
         // Update standings using IPL-formula-aware recordMatch
         com.cricket.scorer.models.TournamentTeam tA = t.findTeamByName(fixture.getTeamAName());
         com.cricket.scorer.models.TournamentTeam tB = t.findTeamByName(fixture.getTeamBName());
