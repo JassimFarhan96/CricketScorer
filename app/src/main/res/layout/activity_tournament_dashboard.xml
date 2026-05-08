@@ -72,6 +72,22 @@
         android:layout_marginTop="8dp"
         android:visibility="gone"/>
 
+    <Button android:id="@+id/btn_save_tournament"
+        android:layout_width="match_parent" android:layout_height="56dp"
+        android:text="💾 Save Tournament" android:textSize="16sp" android:textColor="#FFFFFF"
+        android:backgroundTint="@color/green_dark"
+        android:layout_marginStart="16dp" android:layout_marginEnd="16dp"
+        android:layout_marginTop="8dp"
+        android:visibility="gone"/>
+
+    <Button android:id="@+id/btn_share_tournament"
+        android:layout_width="match_parent" android:layout_height="56dp"
+        android:text="📤 Share Tournament" android:textSize="16sp" android:textColor="@color/green_dark"
+        android:background="?android:attr/selectableItemBackground"
+        android:layout_marginStart="16dp" android:layout_marginEnd="16dp"
+        android:layout_marginTop="8dp"
+        android:visibility="gone"/>
+
     <Button android:id="@+id/btn_finish"
         android:layout_width="match_parent" android:layout_height="56dp"
         android:text="Finish Tournament" android:textSize="16sp" android:textColor="#FFFFFF"

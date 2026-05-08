@@ -68,5 +68,12 @@
             android:exported="false" android:label="Tournament"
             android:parentActivityName=".activities.HomeActivity"/>
 
+        <activity android:name=".activities.RecentTournamentsActivity"
+            android:exported="false" android:label="Recent Tournaments"
+            android:parentActivityName=".activities.HomeActivity"/>
+        <activity android:name=".activities.TournamentDetailsActivity"
+            android:exported="false" android:label="Tournament Details"
+            android:parentActivityName=".activities.RecentTournamentsActivity"/>
+
     </application>
 </manifest>

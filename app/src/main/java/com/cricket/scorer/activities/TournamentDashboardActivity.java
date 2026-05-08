@@ -41,7 +41,7 @@ public class TournamentDashboardActivity extends BaseNavActivity {
     private TextView     tvStage, tvNextMatch, tvChampion;
     private TableLayout  tableStandings;
     private LinearLayout layoutSemiTeams;
-    private Button       btnStartNext, btnStartSemis, btnStartFinal, btnFinish;
+    private Button       btnStartNext, btnStartSemis, btnStartFinal, btnFinish, btnSaveTournament, btnShareTournament;
 
     @Override protected int getCurrentNavItem() { return R.id.nav_home; }
 
@@ -58,6 +58,8 @@ public class TournamentDashboardActivity extends BaseNavActivity {
         btnStartSemis   = findViewById(R.id.btn_start_semis);
         btnStartFinal   = findViewById(R.id.btn_start_final);
         btnFinish       = findViewById(R.id.btn_finish);
+        btnSaveTournament  = findViewById(R.id.btn_save_tournament);
+        btnShareTournament = findViewById(R.id.btn_share_tournament);
     }
 
     @Override
@@ -84,6 +86,8 @@ public class TournamentDashboardActivity extends BaseNavActivity {
         btnStartSemis.setVisibility(View.GONE);
         btnStartFinal.setVisibility(View.GONE);
         btnFinish.setVisibility(View.GONE);
+        btnSaveTournament.setVisibility(View.GONE);
+        btnShareTournament.setVisibility(View.GONE);
         tvChampion.setVisibility(View.GONE);
         layoutSemiTeams.setVisibility(View.GONE);
         tvNextMatch.setVisibility(View.GONE);
@@ -128,8 +132,10 @@ public class TournamentDashboardActivity extends BaseNavActivity {
             case COMPLETED:
                 tvChampion.setVisibility(View.VISIBLE);
                 tvChampion.setText("🏆 Champion: " + t.getChampionName());
-                btnFinish.setVisibility(View.VISIBLE);
-                btnFinish.setOnClickListener(v -> finishTournament());
+                btnSaveTournament.setVisibility(View.VISIBLE);
+                btnSaveTournament.setOnClickListener(v -> saveTournament(t));
+                btnShareTournament.setVisibility(View.VISIBLE);
+                btnShareTournament.setOnClickListener(v -> shareTournament(t));
                 break;
         }
     }
@@ -222,8 +228,10 @@ public class TournamentDashboardActivity extends BaseNavActivity {
             TournamentStorage.save(this, t);
             tvChampion.setVisibility(View.VISIBLE);
             tvChampion.setText("🏆 Champion: " + t.getChampionName());
-            btnFinish.setVisibility(View.VISIBLE);
-            btnFinish.setOnClickListener(v -> finishTournament());
+            btnSaveTournament.setVisibility(View.VISIBLE);
+            btnSaveTournament.setOnClickListener(v -> saveTournament(t));
+            btnShareTournament.setVisibility(View.VISIBLE);
+            btnShareTournament.setOnClickListener(v -> shareTournament(t));
         }
     }
 
@@ -288,6 +296,45 @@ public class TournamentDashboardActivity extends BaseNavActivity {
         t.setCurrentMatchIndex(0);
         TournamentStorage.save(this, t);
         render(t);
+    }
+
+    /**
+     * Saves the completed tournament to recent_tournaments/, clears the live
+     * tracker so a fresh tournament can be started, and goes back to Home.
+     */
+    private void saveTournament(Tournament t) {
+        java.io.File saved = com.cricket.scorer.utils.TournamentStorage.archiveCompleted(this, t);
+        if (saved != null) {
+            Toast.makeText(this, "Tournament saved", Toast.LENGTH_SHORT).show();
+            btnSaveTournament.setEnabled(false);
+            btnSaveTournament.setText("Saved \u2713");
+        } else {
+            Toast.makeText(this, "Failed to save tournament", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /**
+     * Shares a text summary of the final tournament standings + champion.
+     */
+    private void shareTournament(Tournament t) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("🏆 Tournament complete\n\n");
+        sb.append("Champion: ").append(t.getChampionName()).append("\n\n");
+        sb.append("Final standings:\n");
+        java.util.List<TournamentTeam> standings = t.getStandings();
+        for (int i = 0; i < standings.size(); i++) {
+            TournamentTeam team = standings.get(i);
+            sb.append(i + 1).append(". ").append(team.getName())
+              .append(" — ").append(team.getWins()).append("W ")
+              .append(team.getLosses()).append("L · Pts ").append(team.getPoints())
+              .append(" · NRR ").append(String.format(java.util.Locale.US, "%.2f", team.getNetRunRate()))
+              .append("\n");
+        }
+        Intent intent = new Intent(Intent.ACTION_SEND);
+        intent.setType("text/plain");
+        intent.putExtra(Intent.EXTRA_SUBJECT, "Tournament results");
+        intent.putExtra(Intent.EXTRA_TEXT, sb.toString());
+        startActivity(Intent.createChooser(intent, "Share tournament results"));
     }
 
     private void finishTournament() {

@@ -4,7 +4,7 @@ import androidx.appcompat.app.AlertDialog; import androidx.appcompat.app.AppComp
 import com.cricket.scorer.R; import com.cricket.scorer.models.Match; import com.cricket.scorer.utils.LiveMatchState;
 
 public class HomeActivity extends BaseNavActivity {
-    private LinearLayout layoutTrackMatch,layoutTrackTournament,layoutRecentMatches,layoutStatistics;
+    private LinearLayout layoutTrackMatch,layoutTrackTournament,layoutRecentMatches,layoutRecentTournaments,layoutStatistics;
     private boolean resumeDialogShown=false;
 
     @Override protected void onCreate(Bundle s){
@@ -12,6 +12,7 @@ public class HomeActivity extends BaseNavActivity {
         layoutTrackMatch=findViewById(R.id.layout_track_match);
         layoutTrackTournament=findViewById(R.id.layout_track_tournament);
         layoutRecentMatches=findViewById(R.id.layout_recent_matches);
+        layoutRecentTournaments=findViewById(R.id.layout_recent_tournaments);
         layoutStatistics=findViewById(R.id.layout_statistics);
         setClickListeners();
     }
@@ -85,6 +86,7 @@ public class HomeActivity extends BaseNavActivity {
         layoutTrackTournament.setOnClickListener(v->startActivity(new Intent(this,
                 com.cricket.scorer.activities.TournamentSetupActivity.class)));
         layoutRecentMatches.setOnClickListener(v->startActivity(new Intent(this,RecentMatchesActivity.class)));
+        layoutRecentTournaments.setOnClickListener(v->startActivity(new Intent(this,RecentTournamentsActivity.class)));
         layoutStatistics.setOnClickListener(v->startActivity(new Intent(this,MatchSelectActivity.class)));
     }
     @Override

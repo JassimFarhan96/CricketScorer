@@ -219,9 +219,18 @@ public class StatsActivity extends BaseNavActivity {
 
         btnSaveMatch.setVisibility(isViewingFromDisk ? View.GONE : View.VISIBLE);
 
-        // Relabel "New Match" button when a tournament is in progress
+        // Relabel "New Match" button + hide save/share when tournament is in progress.
+        // The tournament owns saving (one save covers all matches) and sharing
+        // (final standings) — per-match save/share would be redundant clutter.
         if (((CricketApp) getApplication()).isTournamentActive()) {
             btnNewMatch.setText("Back to Tournament");
+            btnSaveMatch.setVisibility(View.GONE);
+            // Hide the WhatsApp number input + both share buttons + their section label
+            View shareLabel = findViewById(R.id.tv_label_share);
+            if (shareLabel != null) shareLabel.setVisibility(View.GONE);
+            if (etWhatsappNumber != null) etWhatsappNumber.setVisibility(View.GONE);
+            if (btnShareWhatsApp  != null) btnShareWhatsApp.setVisibility(View.GONE);
+            if (btnShareGeneral   != null) btnShareGeneral.setVisibility(View.GONE);
         }
     }
 
