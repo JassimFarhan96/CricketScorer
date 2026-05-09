@@ -20,6 +20,13 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".activities.MatchesMenuActivity"
+            android:exported="false" android:label="Matches"
+            android:parentActivityName=".activities.HomeActivity"/>
+        <activity android:name=".activities.TournamentsMenuActivity"
+            android:exported="false" android:label="Tournaments"
+            android:parentActivityName=".activities.HomeActivity"/>
+
         <activity android:name=".activities.PlayerCountActivity"
             android:exported="false" android:label="Team Size"
             android:parentActivityName=".activities.HomeActivity"/>

@@ -6,30 +6,17 @@
   <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
       android:orientation="vertical">
 
-    <!-- ── Hero header ───────────────────────────────────────────────────── -->
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
         android:orientation="vertical" android:background="@color/green_dark"
-        android:padding="32dp" android:gravity="center">
-
-      <FrameLayout android:layout_width="72dp" android:layout_height="72dp"
-          android:layout_marginBottom="16dp">
-        <View android:layout_width="72dp" android:layout_height="72dp"
-            android:background="@drawable/bg_cricket_ball"/>
-        <ImageView android:layout_width="44dp" android:layout_height="44dp"
-            android:src="@drawable/ic_hero_bat"
-            android:layout_gravity="center"
-            android:contentDescription="Cricket bat"/>
-      </FrameLayout>
-
+        android:padding="24dp" android:paddingTop="40dp">
       <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-          android:text="Cricket Scorer" android:textColor="#FFFFFF"
-          android:textSize="24sp" android:fontFamily="sans-serif-medium" android:textStyle="bold"/>
+          android:text="🏆 Tournaments" android:textColor="#FFFFFF"
+          android:textSize="22sp" android:fontFamily="sans-serif-medium"/>
       <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-          android:text="Track live match scores, overs &amp; stats"
+          android:text="Multi-team tournaments &amp; archives"
           android:textColor="#AADECE" android:textSize="13sp" android:layout_marginTop="4dp"/>
     </LinearLayout>
 
-    <!-- ── Menu card with two top-level options ──────────────────────────── -->
     <androidx.cardview.widget.CardView android:layout_width="match_parent"
         android:layout_height="wrap_content" android:layout_margin="16dp"
         app:cardCornerRadius="16dp" app:cardElevation="2dp"
@@ -37,62 +24,60 @@
       <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
           android:orientation="vertical">
 
-        <!-- Matches -->
-        <LinearLayout android:id="@+id/layout_matches"
+        <!-- Track a tournament -->
+        <LinearLayout android:id="@+id/layout_track_tournament"
             android:layout_width="match_parent" android:layout_height="wrap_content"
             android:orientation="horizontal" android:gravity="center_vertical"
-            android:padding="16dp" android:background="?attr/selectableItemBackground"
+            android:padding="14dp" android:background="?attr/selectableItemBackground"
             android:clickable="true" android:focusable="true">
-          <LinearLayout android:layout_width="52dp" android:layout_height="52dp"
+          <LinearLayout android:layout_width="44dp" android:layout_height="44dp"
               android:gravity="center" android:background="@drawable/bg_menu_icon_green">
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="&#127951;" android:textSize="24sp"/>
+                android:text="&#127942;" android:textSize="20sp"/>
           </LinearLayout>
           <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
-              android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="16dp">
+              android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="14dp">
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="Matches" android:textSize="17sp"
+                android:text="Track a tournament" android:textSize="15sp"
                 android:fontFamily="sans-serif-medium" android:textColor="@color/c_text_primary"/>
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="Track new match, view recent matches &amp; stats"
+                android:text="Multi-team round-robin + knockouts"
                 android:textSize="12sp" android:textColor="@color/c_text_secondary"
                 android:layout_marginTop="2dp"/>
           </LinearLayout>
           <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-              android:text="&#8250;" android:textSize="24sp" android:textColor="@color/c_text_hint"/>
+              android:text="&#8250;" android:textSize="22sp" android:textColor="@color/c_text_hint"/>
         </LinearLayout>
 
         <View android:layout_width="match_parent" android:layout_height="0.5dp"
             android:background="@color/c_divider"
-            android:layout_marginStart="16dp" android:layout_marginEnd="16dp"/>
+            android:layout_marginStart="12dp" android:layout_marginEnd="12dp"/>
 
-        <!-- Tournaments -->
-        <LinearLayout android:id="@+id/layout_tournaments"
+        <!-- Recent tournaments -->
+        <LinearLayout android:id="@+id/layout_recent_tournaments"
             android:layout_width="match_parent" android:layout_height="wrap_content"
             android:orientation="horizontal" android:gravity="center_vertical"
-            android:padding="16dp" android:background="?attr/selectableItemBackground"
+            android:padding="14dp" android:background="?attr/selectableItemBackground"
             android:clickable="true" android:focusable="true">
-          <LinearLayout android:layout_width="52dp" android:layout_height="52dp"
+          <LinearLayout android:layout_width="44dp" android:layout_height="44dp"
               android:gravity="center" android:background="@drawable/bg_menu_icon_green">
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="&#127942;" android:textSize="24sp"/>
+                android:text="&#127942;" android:textSize="20sp"/>
           </LinearLayout>
           <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
-              android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="16dp">
+              android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="14dp">
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="Tournaments" android:textSize="17sp"
+                android:text="Recent tournaments" android:textSize="15sp"
                 android:fontFamily="sans-serif-medium" android:textColor="@color/c_text_primary"/>
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="Track a tournament &amp; view tournament archives"
-                android:textSize="12sp" android:textColor="@color/c_text_secondary"
-                android:layout_marginTop="2dp"/>
+                android:text="View saved tournament archives" android:textSize="12sp"
+                android:textColor="@color/c_text_secondary" android:layout_marginTop="2dp"/>
           </LinearLayout>
           <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-              android:text="&#8250;" android:textSize="24sp" android:textColor="@color/c_text_hint"/>
+              android:text="&#8250;" android:textSize="22sp" android:textColor="@color/c_text_hint"/>
         </LinearLayout>
 
       </LinearLayout>
     </androidx.cardview.widget.CardView>
-
   </LinearLayout>
 </ScrollView>
