@@ -1,7 +1,7 @@
 package com.cricket.scorer.activities;
 import android.content.Intent; import android.os.Bundle; import android.widget.LinearLayout;
 import androidx.appcompat.app.AlertDialog;
-import com.cricket.scorer.R; import com.cricket.scorer.models.Match; import com.cricket.scorer.utils.LiveMatchState;
+import com.cricket.scorer.R; import com.cricket.scorer.models.Match; import com.cricket.scorer.models.Tournament; import com.cricket.scorer.utils.LiveMatchState;
 
 /**
  * HomeActivity
@@ -47,19 +47,57 @@ public class HomeActivity extends BaseNavActivity {
         resumeDialogShown = true;
         String teamCount = t.getTeams().size() + " teams";
         String stage     = t.getStage().name();
+
+        // If a tournament match is mid-tracking, the live match state file
+        // also exists. Mention this so the user knows resuming will pick up
+        // exactly where they left off (ball-by-ball), not restart the match.
+        boolean midMatch = LiveMatchState.hasSavedState(this);
+        String message   = teamCount + " · Stage: " + stage;
+        if (midMatch) {
+            Match liveMatch = LiveMatchState.restore(this);
+            if (liveMatch != null) {
+                String inn   = liveMatch.getCurrentInnings() == 1 ? "1st innings" : "2nd innings";
+                String score = liveMatch.getCurrentInningsData() != null
+                        ? liveMatch.getCurrentInningsData().getScoreString() : "0/0";
+                String overs = liveMatch.getCurrentInningsData() != null
+                        ? liveMatch.getCurrentInningsData().getOversString() : "0.0";
+                message += "\n\n" + liveMatch.getHomeTeamName() + " vs "
+                        + liveMatch.getAwayTeamName() + " — in progress\n"
+                        + inn + " · " + score + " (" + overs + " ov)";
+            }
+        }
+        message += "\n\nWould you like to resume?";
+
+        final Tournament fT = t;
         new AlertDialog.Builder(this).setTitle("Tournament in progress")
-            .setMessage(teamCount + " · Stage: " + stage
-                    + "\n\nWould you like to resume this tournament?")
+            .setMessage(message)
             .setCancelable(false)
-            .setPositiveButton("Resume", (d, w) -> {
-                ((CricketApp)getApplication()).startNewTournament(t);
-                startActivity(new Intent(this, TournamentDashboardActivity.class));
-            })
+            .setPositiveButton("Resume", (d, w) -> resumeTournament(fT))
             .setNegativeButton("Discard", (d, w) -> {
                 com.cricket.scorer.utils.TournamentStorage.clear(this);
+                LiveMatchState.clear(this);
                 resumeDialogShown = false;
             })
             .show();
+    }
+
+    /**
+     * Resumes an active tournament. If a tournament match is mid-tracking
+     * (LiveMatchState present), restores that match and lands directly in
+     * InningsActivity at the exact ball where the user left off. Otherwise
+     * goes to TournamentDashboardActivity.
+     */
+    private void resumeTournament(com.cricket.scorer.models.Tournament t) {
+        ((CricketApp) getApplication()).startNewTournament(t);
+        if (LiveMatchState.hasSavedState(this)) {
+            Match saved = LiveMatchState.restore(this);
+            if (saved != null) {
+                resumeMatch(saved); // goes to InningsActivity / InningsBreakActivity
+                return;
+            }
+        }
+        // No mid-match state — go to dashboard so user can pick the next fixture
+        startActivity(new Intent(this, TournamentDashboardActivity.class));
     }
 
     private void checkForResumeableMatch() {

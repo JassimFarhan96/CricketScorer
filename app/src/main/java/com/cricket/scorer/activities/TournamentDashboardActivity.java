@@ -101,7 +101,7 @@ public class TournamentDashboardActivity extends BaseNavActivity {
                     if (clincher != null) {
                         t.setChampionName(clincher.getName());
                         t.setStage(Tournament.Stage.COMPLETED);
-                        TournamentStorage.save(this, t);
+                        finalizeTournament(t);  // archive + clear tracker
                         render(t);  // re-render in COMPLETED state
                         return;
                     }
@@ -156,8 +156,11 @@ public class TournamentDashboardActivity extends BaseNavActivity {
             case COMPLETED:
                 tvChampion.setVisibility(View.VISIBLE);
                 tvChampion.setText("🏆 Champion: " + t.getChampionName());
+                // Tournament was auto-archived the moment it completed.
+                // Show button as already-saved so user knows their data is safe.
                 btnSaveTournament.setVisibility(View.VISIBLE);
-                btnSaveTournament.setOnClickListener(v -> saveTournament(t));
+                btnSaveTournament.setEnabled(false);
+                btnSaveTournament.setText("Saved \u2713 (auto-archived)");
                 btnShareTournament.setVisibility(View.VISIBLE);
                 btnShareTournament.setOnClickListener(v -> shareTournament(t));
                 break;
@@ -278,14 +281,34 @@ public class TournamentDashboardActivity extends BaseNavActivity {
         if (f != null && f.getWinnerName() != null) {
             t.setChampionName(f.getWinnerName());
             t.setStage(Tournament.Stage.COMPLETED);
-            TournamentStorage.save(this, t);
+            finalizeTournament(t);  // archive + clear tracker
             tvChampion.setVisibility(View.VISIBLE);
             tvChampion.setText("🏆 Champion: " + t.getChampionName());
             btnSaveTournament.setVisibility(View.VISIBLE);
-            btnSaveTournament.setOnClickListener(v -> saveTournament(t));
+            btnSaveTournament.setEnabled(false);
+            btnSaveTournament.setText("Saved \u2713 (auto-archived)");
             btnShareTournament.setVisibility(View.VISIBLE);
             btnShareTournament.setOnClickListener(v -> shareTournament(t));
         }
+    }
+
+    /**
+     * Called the moment a tournament transitions to COMPLETED stage.
+     *
+     *   1. Auto-archives to recent_tournaments/ so the data isn't lost
+     *      even if the user kills the app without tapping Save.
+     *   2. Clears the live tracker (tournament_tracker.json) so HomeActivity
+     *      no longer prompts "Tournament in progress" on next launch.
+     *
+     * The currentTournament singleton is intentionally KEPT so the dashboard
+     * can still render standings, the user can still Share, etc. It's
+     * cleared when the user finally leaves the dashboard.
+     */
+    private void finalizeTournament(Tournament t) {
+        // Archive first so we have a saved copy on disk
+        com.cricket.scorer.utils.TournamentStorage.archiveCompleted(this, t);
+        // Then clear the live tracker — tournament is done, no resume prompt
+        com.cricket.scorer.utils.TournamentStorage.clear(this);
     }
 
     private void startSemifinals(Tournament t) {
@@ -357,12 +380,16 @@ public class TournamentDashboardActivity extends BaseNavActivity {
      * tracker so the user is NOT prompted to resume next launch, and clears
      * the currentTournament singleton so a fresh tournament can be started.
      */
+    /**
+     * No longer called from any listener — auto-archive happens in
+     * finalizeTournament() the moment the tournament hits COMPLETED stage.
+     * Kept here only to avoid breaking any external references.
+     */
+    @Deprecated
     private void saveTournament(Tournament t) {
         java.io.File saved = com.cricket.scorer.utils.TournamentStorage.archiveCompleted(this, t);
         if (saved != null) {
-            // Tournament is fully done — wipe the live tracker and singleton.
-            // Resume dialog on Home will no longer fire for this tournament.
-            com.cricket.scorer.utils.TournamentStorage.clear(this);
+            // tracker is already cleared; just clear the in-memory singleton
             ((CricketApp) getApplication()).clearTournament();
             Toast.makeText(this, "Tournament saved", Toast.LENGTH_SHORT).show();
             btnSaveTournament.setEnabled(false);
