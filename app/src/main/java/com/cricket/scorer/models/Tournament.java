@@ -29,6 +29,13 @@ public class Tournament implements Serializable {
     private int                    maxOversPerMatch  = 6;     // default; configurable later
     private boolean                singleBatsmanMode = false;
 
+    /**
+     * Only used for 2-team tournaments: the total number of matches in the
+     * series (must be odd: 1, 3, 5, 7, ...). Tournament ends as soon as
+     * one team wins majority. Set to 0 for >=3 team tournaments.
+     */
+    private int                    bestOfMatches     = 0;
+
     private List<TournamentTeam>   teams             = new ArrayList<>();
 
     private List<TournamentMatch>  leagueFixtures    = new ArrayList<>();
@@ -48,6 +55,25 @@ public class Tournament implements Serializable {
     public void    setMaxOversPerMatch(int v)         { maxOversPerMatch = v; }
     public boolean isSingleBatsmanMode()              { return singleBatsmanMode; }
     public void    setSingleBatsmanMode(boolean v)    { singleBatsmanMode = v; }
+    public int     getBestOfMatches()                 { return bestOfMatches; }
+    public void    setBestOfMatches(int v)            { bestOfMatches = v; }
+
+    /** True only for 2-team best-of-N tournaments. */
+    public boolean isBestOfSeries() { return teams.size() == 2 && bestOfMatches > 0; }
+
+    /**
+     * For a best-of-N series: returns the team that has clinched the series,
+     * or null if the series is still undecided. Series is decided when one
+     * team has won (N+1)/2 matches.
+     */
+    public TournamentTeam getSeriesWinner() {
+        if (!isBestOfSeries()) return null;
+        int needed = (bestOfMatches + 1) / 2;
+        for (TournamentTeam t : teams) {
+            if (t.getWins() >= needed) return t;
+        }
+        return null;
+    }
 
     public List<TournamentTeam>  getTeams()                { return teams; }
     public void                  setTeams(List<TournamentTeam> v) { teams = v != null ? v : new ArrayList<>(); }

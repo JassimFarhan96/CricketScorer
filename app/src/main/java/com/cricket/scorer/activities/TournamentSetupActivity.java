@@ -43,6 +43,8 @@ public class TournamentSetupActivity extends BaseNavActivity {
 
     private EditText             etPlayersPerTeam;
     private EditText             etNumberOfTeams;
+    private EditText             etBestOfMatches;
+    private android.view.View    bestOfSection;
     private LinearLayout         teamFieldsContainer;
     private HorizontalScrollView teamFieldsScroll;
     private Button               btnContinue;
@@ -59,6 +61,8 @@ public class TournamentSetupActivity extends BaseNavActivity {
 
         etPlayersPerTeam    = findViewById(R.id.et_players_per_team);
         etNumberOfTeams     = findViewById(R.id.et_number_of_teams);
+        etBestOfMatches     = findViewById(R.id.et_best_of_matches);
+        bestOfSection       = findViewById(R.id.best_of_section);
         teamFieldsContainer = findViewById(R.id.team_fields_container);
         teamFieldsScroll    = findViewById(R.id.team_fields_scroll);
         btnContinue         = findViewById(R.id.btn_continue);
@@ -80,14 +84,19 @@ public class TournamentSetupActivity extends BaseNavActivity {
         String txt = etNumberOfTeams.getText().toString().trim();
         if (txt.isEmpty()) {
             teamFieldsScroll.setVisibility(View.GONE);
+            bestOfSection.setVisibility(View.GONE);
             return;
         }
         int n;
         try { n = Integer.parseInt(txt); } catch (Exception e) { return; }
         if (n < 2) {
             teamFieldsScroll.setVisibility(View.GONE);
+            bestOfSection.setVisibility(View.GONE);
             return;
         }
+
+        // Best-of input is only relevant for 2-team tournaments
+        bestOfSection.setVisibility(n == 2 ? View.VISIBLE : View.GONE);
 
         teamFieldsScroll.setVisibility(View.VISIBLE);
         int fieldWidthDp = 160; // each team field is 160dp wide
@@ -142,6 +151,20 @@ public class TournamentSetupActivity extends BaseNavActivity {
         }
         if (teamCount < 2) { etNumberOfTeams.setError("Minimum 2"); return; }
 
+        // 2-team tournaments require a best-of-N (odd) value
+        int bestOfMatches = 0;
+        if (teamCount == 2) {
+            String bo = etBestOfMatches.getText().toString().trim();
+            if (bo.isEmpty()) { etBestOfMatches.setError("Required for 2 teams"); return; }
+            try { bestOfMatches = Integer.parseInt(bo); } catch (Exception e) {
+                etBestOfMatches.setError("Invalid"); return;
+            }
+            if (bestOfMatches < 1) { etBestOfMatches.setError("Minimum 1"); return; }
+            if (bestOfMatches % 2 == 0) {
+                etBestOfMatches.setError("Must be odd (1, 3, 5, ...)"); return;
+            }
+        }
+
         // Validate team names
         List<TournamentTeam> teams = new ArrayList<>();
         java.util.Set<String> seen = new java.util.HashSet<>();
@@ -164,6 +187,7 @@ public class TournamentSetupActivity extends BaseNavActivity {
         // Build Tournament and stash in app singleton; persist
         Tournament t = new Tournament();
         t.setPlayersPerTeam(playersPerTeam);
+        t.setBestOfMatches(bestOfMatches);
         t.setTeams(teams);
         ((CricketApp) getApplication()).startNewTournament(t);
         TournamentStorage.save(this, t);

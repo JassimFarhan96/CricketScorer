@@ -39,7 +39,12 @@ public class TournamentScheduleActivity extends BaseNavActivity {
         if (t == null) { finish(); return; }
 
         if (t.getLeagueFixtures().isEmpty()) {
-            t.setLeagueFixtures(FixtureGenerator.buildRoundRobin(t.getTeams()));
+            if (t.isBestOfSeries()) {
+                t.setLeagueFixtures(FixtureGenerator.buildBestOfSeries(
+                        t.getTeams(), t.getBestOfMatches()));
+            } else {
+                t.setLeagueFixtures(FixtureGenerator.buildRoundRobin(t.getTeams()));
+            }
         }
         renderFixtures(t);
 

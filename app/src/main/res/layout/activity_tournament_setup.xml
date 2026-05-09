@@ -41,6 +41,26 @@
         android:maxLength="3"
         android:layout_marginStart="16dp" android:layout_marginEnd="16dp"/>
 
+    <!-- Best of N matches (only shown when 2 teams) -->
+    <LinearLayout android:id="@+id/best_of_section"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:visibility="gone">
+      <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+          android:text="BEST OF (ODD NUMBER)" android:textSize="11sp"
+          android:textColor="@color/c_text_secondary" android:fontFamily="sans-serif-medium"
+          android:layout_marginStart="20dp" android:layout_marginTop="20dp" android:layout_marginBottom="6dp"/>
+      <EditText android:id="@+id/et_best_of_matches"
+          android:layout_width="match_parent" android:layout_height="wrap_content"
+          android:hint="e.g. 3 or 5 — series ends as soon as one team wins majority"
+          android:inputType="number"
+          android:maxLength="2"
+          android:layout_marginStart="16dp" android:layout_marginEnd="16dp"/>
+      <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+          android:text="With 2 teams there are no semifinals or final — the team that wins the majority of matches in the series is crowned champion."
+          android:textSize="11sp" android:textColor="@color/c_text_hint"
+          android:layout_marginStart="20dp" android:layout_marginEnd="20dp" android:layout_marginTop="6dp"/>
+    </LinearLayout>
+
     <!-- Dynamic team name fields (horizontal scroll) -->
     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
         android:text="TEAM NAMES" android:textSize="11sp"

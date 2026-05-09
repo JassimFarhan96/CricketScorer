@@ -54,6 +54,7 @@ public class TournamentStorage {
             root.put("playersPerTeam",    t.getPlayersPerTeam());
             root.put("maxOversPerMatch",  t.getMaxOversPerMatch());
             root.put("singleBatsmanMode", t.isSingleBatsmanMode());
+            root.put("bestOfMatches",    t.getBestOfMatches());
             root.put("stage",             t.getStage().name());
             root.put("currentMatchIndex", t.getCurrentMatchIndex());
             root.put("championName",      nvl(t.getChampionName()));
@@ -106,6 +107,7 @@ public class TournamentStorage {
             t.setPlayersPerTeam(root.optInt("playersPerTeam", 11));
             t.setMaxOversPerMatch(root.optInt("maxOversPerMatch", 6));
             t.setSingleBatsmanMode(root.optBoolean("singleBatsmanMode", false));
+            t.setBestOfMatches(root.optInt("bestOfMatches", 0));
             try {
                 t.setStage(Tournament.Stage.valueOf(root.optString("stage", "LEAGUE")));
             } catch (Exception e) { t.setStage(Tournament.Stage.LEAGUE); }
@@ -300,6 +302,7 @@ public class TournamentStorage {
         root.put("playersPerTeam",    t.getPlayersPerTeam());
         root.put("maxOversPerMatch",  t.getMaxOversPerMatch());
         root.put("singleBatsmanMode", t.isSingleBatsmanMode());
+        root.put("bestOfMatches",    t.getBestOfMatches());
         root.put("stage",             t.getStage().name());
         root.put("currentMatchIndex", t.getCurrentMatchIndex());
         root.put("championName",      nvl(t.getChampionName()));
@@ -337,6 +340,7 @@ public class TournamentStorage {
         t.setPlayersPerTeam(root.optInt("playersPerTeam", 11));
         t.setMaxOversPerMatch(root.optInt("maxOversPerMatch", 6));
         t.setSingleBatsmanMode(root.optBoolean("singleBatsmanMode", false));
+        t.setBestOfMatches(root.optInt("bestOfMatches", 0));
         try {
             t.setStage(Tournament.Stage.valueOf(root.optString("stage", "LEAGUE")));
         } catch (Exception e) { t.setStage(Tournament.Stage.LEAGUE); }

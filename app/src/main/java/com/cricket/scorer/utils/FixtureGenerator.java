@@ -30,4 +30,21 @@ public class FixtureGenerator {
         }
         return out;
     }
+
+    /**
+     * For 2-team best-of-N tournaments: generates N copies of A vs B.
+     * Tournament logic stops the series early once a team has clinched
+     * (N+1)/2 wins, so unplayed matches at the tail are simply ignored.
+     */
+    public static List<TournamentMatch> buildBestOfSeries(List<TournamentTeam> teams,
+                                                            int bestOfN) {
+        List<TournamentMatch> out = new ArrayList<>();
+        if (teams.size() != 2 || bestOfN <= 0) return out;
+        String a = teams.get(0).getName();
+        String b = teams.get(1).getName();
+        for (int i = 0; i < bestOfN; i++) {
+            out.add(new TournamentMatch(a, b));
+        }
+        return out;
+    }
 }

@@ -94,11 +94,35 @@ public class TournamentDashboardActivity extends BaseNavActivity {
 
         switch (t.getStage()) {
             case LEAGUE:
+                // 2-team series: check if a team has clinched the majority.
+                // If so, declare champion and skip straight to COMPLETED.
+                if (t.isBestOfSeries()) {
+                    TournamentTeam clincher = t.getSeriesWinner();
+                    if (clincher != null) {
+                        t.setChampionName(clincher.getName());
+                        t.setStage(Tournament.Stage.COMPLETED);
+                        TournamentStorage.save(this, t);
+                        render(t);  // re-render in COMPLETED state
+                        return;
+                    }
+                    // Series still in progress — show next match in the series
+                    if (!t.isCurrentStageComplete()) {
+                        showNextMatch(t);
+                    } else {
+                        // All N matches played without majority (only possible if
+                        // somehow N was even, but we validate odd at setup so this
+                        // is just a safety net — declare a tie / finish anyway)
+                        showSeriesTie(t);
+                    }
+                    break;
+                }
+
                 if (t.isCurrentStageComplete()) {
                     // League finished — depending on team count, either:
-                    //   exactly 4 teams → skip semis, top 2 → final
-                    //   more than 4    → top 4 → semis
-                    if (t.getTeams().size() == 4) {
+                    //   3 or 4 teams → skip semis, top 2 → final
+                    //   5+ teams     → top 4 → semis
+                    int teamCount = t.getTeams().size();
+                    if (teamCount == 3 || teamCount == 4) {
                         showTopTwo(t);
                         btnStartSemis.setVisibility(View.VISIBLE);
                         btnStartSemis.setText("Start Final (Top 2)");
@@ -144,10 +168,39 @@ public class TournamentDashboardActivity extends BaseNavActivity {
         TournamentMatch next = t.getCurrentMatch();
         if (next == null) return;
         tvNextMatch.setVisibility(View.VISIBLE);
-        tvNextMatch.setText("Next match: " + next.getLabel());
+        // For 2-team series, also show the series score (e.g. "Match 2 — Lions lead 1-0")
+        if (t.isBestOfSeries() && t.getTeams().size() == 2) {
+            int currentMatchNum = t.getCurrentMatchIndex() + 1;
+            int aWins = t.getTeams().get(0).getWins();
+            int bWins = t.getTeams().get(1).getWins();
+            int needed = (t.getBestOfMatches() + 1) / 2;
+            tvNextMatch.setText("Match " + currentMatchNum + " of "
+                    + t.getBestOfMatches() + "  ·  Series: "
+                    + t.getTeams().get(0).getName() + " " + aWins + "-" + bWins + " "
+                    + t.getTeams().get(1).getName() + "  (best of " + t.getBestOfMatches()
+                    + ", first to " + needed + ")");
+        } else {
+            tvNextMatch.setText("Next match: " + next.getLabel());
+        }
         btnStartNext.setVisibility(View.VISIBLE);
         btnStartNext.setText("Start: " + next.getLabel());
         btnStartNext.setOnClickListener(v -> launchMatch(t, next));
+    }
+
+    /**
+     * Edge case: best-of-N series fully played without a majority winner.
+     * (Should not happen with odd N, but kept as a safety net.)
+     */
+    private void showSeriesTie(Tournament t) {
+        layoutSemiTeams.setVisibility(View.VISIBLE);
+        layoutSemiTeams.removeAllViews();
+        TextView tv = new TextView(this);
+        tv.setText("Series ended — no majority winner");
+        tv.setTextSize(14f);
+        tv.setTypeface(null, Typeface.BOLD);
+        tv.setPadding(dp(16), dp(8), dp(16), dp(8));
+        tv.setTextColor(getResources().getColor(R.color.c_text_primary, getTheme()));
+        layoutSemiTeams.addView(tv);
     }
 
     private void showTopFour(Tournament t) {
@@ -236,9 +289,10 @@ public class TournamentDashboardActivity extends BaseNavActivity {
     }
 
     private void startSemifinals(Tournament t) {
-        // RULE: with exactly 4 teams in the tournament, skip the semifinals
-        // and go straight to a final between the top 2 teams.
-        if (t.getTeams().size() == 4) {
+        // RULE: with 3 or 4 teams, skip the semifinals and go straight
+        // to a final between the top 2 teams.
+        int teamCount = t.getTeams().size();
+        if (teamCount == 3 || teamCount == 4) {
             startFinalDirectly(t);
             return;
         }
@@ -276,7 +330,7 @@ public class TournamentDashboardActivity extends BaseNavActivity {
         t.setCurrentMatchIndex(0);
         TournamentStorage.save(this, t);
         Toast.makeText(this,
-                "4-team tournament: skipping semis — Top 2 advance to Final!",
+                t.getTeams().size() + "-team tournament: skipping semis — Top 2 advance to Final!",
                 Toast.LENGTH_LONG).show();
         render(t);
     }
