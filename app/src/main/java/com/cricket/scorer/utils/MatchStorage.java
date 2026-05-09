@@ -45,6 +45,12 @@ public class MatchStorage {
 
     private static final String TAG      = "MatchStorage";
     private static final String DIR_NAME = "recent_matches";
+    /**
+     * Tournament matches are saved here, NOT in recent_matches/, so
+     * RecentMatchesActivity (which lists recent_matches/) doesn't show them.
+     * TournamentDetailsActivity reads from this directory instead.
+     */
+    private static final String TOURNAMENT_DIR_NAME = "recent_tournaments";
 
     // ─── Directory ────────────────────────────────────────────────────────────
 
@@ -52,6 +58,65 @@ public class MatchStorage {
         File dir = new File(context.getFilesDir(), DIR_NAME);
         if (!dir.exists()) dir.mkdirs();
         return dir;
+    }
+
+    /** Directory for tournament matches — kept separate from recent_matches/. */
+    public static File getTournamentStorageDir(Context context) {
+        File dir = new File(context.getFilesDir(), TOURNAMENT_DIR_NAME);
+        if (!dir.exists()) dir.mkdirs();
+        return dir;
+    }
+
+    // ─── Tournament match save / load ─────────────────────────────────────────
+    //
+    // Same JSON format as the regular match save, just a different directory,
+    // so RecentMatchesActivity (scans recent_matches/) doesn't show them and
+    // TournamentDetailsActivity (loads from recent_tournaments/) can find them.
+
+    public static File saveTournamentMatch(Context context, Match match) {
+        return saveMatchToDir(match, getTournamentStorageDir(context));
+    }
+
+    /** Loads a tournament match by file name from recent_tournaments/. */
+    public static Match loadTournamentMatch(Context context, String fileName) {
+        if (fileName == null) return null;
+        File file = new File(getTournamentStorageDir(context), fileName);
+        if (!file.exists()) return null;
+        try {
+            StringBuilder sb = new StringBuilder();
+            BufferedReader br = new BufferedReader(new FileReader(file));
+            String line;
+            while ((line = br.readLine()) != null) sb.append(line);
+            br.close();
+            Match m = jsonToMatch(new JSONObject(sb.toString()));
+            m.setSavedFileName(file.getName());
+            return m;
+        } catch (Exception e) {
+            Log.e(TAG, "loadTournamentMatch failed", e);
+            return null;
+        }
+    }
+
+    /** Internal: write a Match to JSON in the given target directory. */
+    private static File saveMatchToDir(Match match, File targetDir) {
+        try {
+            JSONObject root = matchToJson(match);
+            String ts       = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
+            String safeName = sanitize(match.getHomeTeamName())
+                    + "_vs_" + sanitize(match.getAwayTeamName());
+            String fileName = ts + "_" + safeName + ".json";
+
+            File file = new File(targetDir, fileName);
+            FileWriter fw = new FileWriter(file);
+            fw.write(root.toString(2));
+            fw.flush();
+            fw.close();
+            Log.d(TAG, "Match saved: " + file.getAbsolutePath());
+            return file;
+        } catch (Exception e) {
+            Log.e(TAG, "saveMatchToDir failed", e);
+            return null;
+        }
     }
 
     // ─── Save ─────────────────────────────────────────────────────────────────

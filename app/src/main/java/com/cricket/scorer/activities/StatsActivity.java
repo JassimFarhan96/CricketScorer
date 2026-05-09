@@ -30,6 +30,12 @@ import java.util.Locale;
 public class StatsActivity extends BaseNavActivity {
 
     public static final String EXTRA_SAVED_FILE_NAME = "saved_file_name";
+    /**
+     * When true, EXTRA_SAVED_FILE_NAME refers to a file in recent_tournaments/
+     * instead of recent_matches/. Used by TournamentDetailsActivity so that
+     * tournament match scorecards are loaded from their own directory.
+     */
+    public static final String EXTRA_FROM_TOURNAMENT_DIR = "from_tournament_dir";
 
     private TextView     tvLabelFirstBatting, tvLabelFirstBowling;
     private TextView     tvLabelSecondBatting, tvLabelSecondBowling;
@@ -54,8 +60,15 @@ public class StatsActivity extends BaseNavActivity {
         String savedFile = getIntent().getStringExtra(EXTRA_SAVED_FILE_NAME);
         if (savedFile != null) {
             isViewingFromDisk = true;
-            for (Match m : MatchStorage.loadAllMatches(this))
-                if (savedFile.equals(m.getSavedFileName())) { match = m; break; }
+            boolean fromTournamentDir = getIntent().getBooleanExtra(EXTRA_FROM_TOURNAMENT_DIR, false);
+            if (fromTournamentDir) {
+                // Tournament-match scorecard — load from recent_tournaments/
+                match = MatchStorage.loadTournamentMatch(this, savedFile);
+            } else {
+                // Regular match — load from recent_matches/
+                for (Match m : MatchStorage.loadAllMatches(this))
+                    if (savedFile.equals(m.getSavedFileName())) { match = m; break; }
+            }
         } else {
             match = ((CricketApp) getApplication()).getCurrentMatch();
             LiveMatchState.clear(this);
@@ -113,8 +126,9 @@ public class StatsActivity extends BaseNavActivity {
         fixture.setResultDescription(match.getResultDescription());
 
         // Auto-save the match to disk so TournamentDetailsActivity can later
-        // reload and render the full StatsActivity view for it.
-        java.io.File savedFile = com.cricket.scorer.utils.MatchStorage.saveMatch(this, match);
+        // reload and render the full StatsActivity view for it. Goes to
+        // recent_tournaments/ NOT recent_matches/ — keeps the two lists clean.
+        java.io.File savedFile = com.cricket.scorer.utils.MatchStorage.saveTournamentMatch(this, match);
         if (savedFile != null) {
             fixture.setSavedMatchFile(savedFile.getName());
         }

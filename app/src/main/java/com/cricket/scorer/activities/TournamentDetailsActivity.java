@@ -161,6 +161,7 @@ public class TournamentDetailsActivity extends BaseNavActivity {
             btnOpen.setOnClickListener(v -> {
                 android.content.Intent i = new android.content.Intent(this, StatsActivity.class);
                 i.putExtra(StatsActivity.EXTRA_SAVED_FILE_NAME, m.getSavedMatchFile());
+                i.putExtra(StatsActivity.EXTRA_FROM_TOURNAMENT_DIR, true);
                 startActivity(i);
             });
             pageContent.addView(btnOpen);
