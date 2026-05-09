@@ -243,12 +243,24 @@ public class TournamentStorage {
     public static java.util.List<ArchivedTournament> loadArchived(Context ctx) {
         java.util.List<ArchivedTournament> out = new ArrayList<>();
         java.io.File dir = archiveDir(ctx);
-        java.io.File[] files = dir.listFiles((d, name) -> name.endsWith(".json"));
+        // Only top-level .json files — explicitly exclude the "matches/"
+        // subdirectory which holds individual tournament match files.
+        java.io.File[] files = dir.listFiles((d, name) -> {
+            if (!name.endsWith(".json")) return false;
+            java.io.File f = new java.io.File(d, name);
+            return f.isFile();
+        });
         if (files == null) return out;
         for (java.io.File f : files) {
             try (InputStream is = new java.io.FileInputStream(f)) {
                 String json = new Scanner(is).useDelimiter("\\A").next();
                 JSONObject root = new JSONObject(json);
+                // Defensive: only accept files that actually look like a
+                // tournament archive (must have a teams array with entries
+                // AND at least one tournament-specific field set). Stray
+                // match files would not have a teams array.
+                if (!root.has("teams") || root.optJSONArray("teams") == null
+                        || root.optJSONArray("teams").length() == 0) continue;
                 Tournament t = parseTournament(root);
                 long when = root.optLong("savedAtMillis", f.lastModified());
                 out.add(new ArchivedTournament(t, when, f.getName()));

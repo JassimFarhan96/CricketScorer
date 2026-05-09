@@ -46,11 +46,13 @@ public class MatchStorage {
     private static final String TAG      = "MatchStorage";
     private static final String DIR_NAME = "recent_matches";
     /**
-     * Tournament matches are saved here, NOT in recent_matches/, so
-     * RecentMatchesActivity (which lists recent_matches/) doesn't show them.
-     * TournamentDetailsActivity reads from this directory instead.
+     * Tournament matches are saved under recent_tournaments/matches/ — a
+     * subdirectory of recent_tournaments. This keeps tournament *archive*
+     * files (which live directly under recent_tournaments/) separate from
+     * individual *match* files, so RecentTournamentsActivity sees only
+     * archive entries and not stray match-file entries.
      */
-    private static final String TOURNAMENT_DIR_NAME = "recent_tournaments";
+    private static final String TOURNAMENT_DIR_NAME = "recent_tournaments/matches";
 
     // ─── Directory ────────────────────────────────────────────────────────────
 
