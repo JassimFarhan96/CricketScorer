@@ -54,7 +54,6 @@ public class TournamentStorage {
             root.put("playersPerTeam",    t.getPlayersPerTeam());
             root.put("maxOversPerMatch",  t.getMaxOversPerMatch());
             root.put("singleBatsmanMode", t.isSingleBatsmanMode());
-            root.put("bestOfMatches",    t.getBestOfMatches());
             root.put("stage",             t.getStage().name());
             root.put("currentMatchIndex", t.getCurrentMatchIndex());
             root.put("championName",      nvl(t.getChampionName()));
@@ -107,7 +106,6 @@ public class TournamentStorage {
             t.setPlayersPerTeam(root.optInt("playersPerTeam", 11));
             t.setMaxOversPerMatch(root.optInt("maxOversPerMatch", 6));
             t.setSingleBatsmanMode(root.optBoolean("singleBatsmanMode", false));
-            t.setBestOfMatches(root.optInt("bestOfMatches", 0));
             try {
                 t.setStage(Tournament.Stage.valueOf(root.optString("stage", "LEAGUE")));
             } catch (Exception e) { t.setStage(Tournament.Stage.LEAGUE); }
@@ -285,6 +283,47 @@ public class TournamentStorage {
         } catch (Exception e) { e.printStackTrace(); return null; }
     }
 
+    /**
+     * Deletes a tournament archive and ALL its associated match files.
+     * Match files live in <filesDir>/recent_tournaments/matches/ and each
+     * TournamentMatch carries the filename in savedMatchFile.
+     *
+     * @return true if the archive file was deleted (match deletions are
+     *         best-effort and don't fail the operation)
+     */
+    public static boolean deleteArchive(Context ctx, String fileName) {
+        if (fileName == null) return false;
+        // Load to get the list of match files to delete
+        Tournament t = loadArchivedByName(ctx, fileName);
+
+        // Delete all associated match files first
+        if (t != null) {
+            java.io.File matchesDir = MatchStorage.getTournamentStorageDir(ctx);
+            deleteMatchFilesFor(matchesDir, t.getLeagueFixtures());
+            deleteMatchFilesFor(matchesDir, t.getSemiFixtures());
+            if (t.getFinalFixture() != null) {
+                java.util.List<TournamentMatch> oneShot = new ArrayList<>();
+                oneShot.add(t.getFinalFixture());
+                deleteMatchFilesFor(matchesDir, oneShot);
+            }
+        }
+
+        // Delete the archive file itself
+        java.io.File archive = new java.io.File(archiveDir(ctx), fileName);
+        return archive.exists() && archive.delete();
+    }
+
+    private static void deleteMatchFilesFor(java.io.File matchesDir,
+                                              java.util.List<TournamentMatch> matches) {
+        if (matchesDir == null || !matchesDir.exists() || matches == null) return;
+        for (TournamentMatch m : matches) {
+            String fn = m.getSavedMatchFile();
+            if (fn == null || fn.isEmpty()) continue;
+            java.io.File mf = new java.io.File(matchesDir, fn);
+            if (mf.exists()) mf.delete();
+        }
+    }
+
     /** Wrapper holding an archived tournament + its save timestamp + filename. */
     public static class ArchivedTournament {
         public final Tournament tournament;
@@ -302,7 +341,6 @@ public class TournamentStorage {
         root.put("playersPerTeam",    t.getPlayersPerTeam());
         root.put("maxOversPerMatch",  t.getMaxOversPerMatch());
         root.put("singleBatsmanMode", t.isSingleBatsmanMode());
-        root.put("bestOfMatches",    t.getBestOfMatches());
         root.put("stage",             t.getStage().name());
         root.put("currentMatchIndex", t.getCurrentMatchIndex());
         root.put("championName",      nvl(t.getChampionName()));
@@ -340,7 +378,6 @@ public class TournamentStorage {
         t.setPlayersPerTeam(root.optInt("playersPerTeam", 11));
         t.setMaxOversPerMatch(root.optInt("maxOversPerMatch", 6));
         t.setSingleBatsmanMode(root.optBoolean("singleBatsmanMode", false));
-        t.setBestOfMatches(root.optInt("bestOfMatches", 0));
         try {
             t.setStage(Tournament.Stage.valueOf(root.optString("stage", "LEAGUE")));
         } catch (Exception e) { t.setStage(Tournament.Stage.LEAGUE); }

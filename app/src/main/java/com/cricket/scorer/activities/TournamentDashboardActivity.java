@@ -109,9 +109,17 @@ public class TournamentDashboardActivity extends BaseNavActivity {
                     if (!t.isCurrentStageComplete()) {
                         showNextMatch(t);
                     } else {
-                        // All N matches played without majority (only possible if
-                        // somehow N was even, but we validate odd at setup so this
-                        // is just a safety net — declare a tie / finish anyway)
+                        // All N matches played without majority (e.g. ties counted
+                        // as draws so neither team reached the (N+1)/2 threshold).
+                        // Treat as a completed tournament with no champion —
+                        // user can still save and share the result.
+                        if (t.getStage() != Tournament.Stage.COMPLETED) {
+                            t.setChampionName("Series tied — no winner");
+                            t.setStage(Tournament.Stage.COMPLETED);
+                            finalizeTournament(t);
+                            render(t);
+                            return;
+                        }
                         showSeriesTie(t);
                     }
                     break;
@@ -155,12 +163,16 @@ public class TournamentDashboardActivity extends BaseNavActivity {
                 break;
             case COMPLETED:
                 tvChampion.setVisibility(View.VISIBLE);
-                tvChampion.setText("🏆 Champion: " + t.getChampionName());
-                // Tournament was auto-archived the moment it completed.
-                // Show button as already-saved so user knows their data is safe.
+                String champ = t.getChampionName();
+                if (champ != null && champ.startsWith("Series tied")) {
+                    tvChampion.setText("🤝 " + champ);
+                } else {
+                    tvChampion.setText("🏆 Champion: " + champ);
+                }
                 btnSaveTournament.setVisibility(View.VISIBLE);
-                btnSaveTournament.setEnabled(false);
-                btnSaveTournament.setText("Saved \u2713 (auto-archived)");
+                btnSaveTournament.setEnabled(true);
+                btnSaveTournament.setText("Save Tournament");
+                btnSaveTournament.setOnClickListener(v -> saveTournament(t));
                 btnShareTournament.setVisibility(View.VISIBLE);
                 btnShareTournament.setOnClickListener(v -> shareTournament(t));
                 break;
@@ -281,12 +293,13 @@ public class TournamentDashboardActivity extends BaseNavActivity {
         if (f != null && f.getWinnerName() != null) {
             t.setChampionName(f.getWinnerName());
             t.setStage(Tournament.Stage.COMPLETED);
-            finalizeTournament(t);  // archive + clear tracker
+            finalizeTournament(t);  // clear tracker only
             tvChampion.setVisibility(View.VISIBLE);
             tvChampion.setText("🏆 Champion: " + t.getChampionName());
             btnSaveTournament.setVisibility(View.VISIBLE);
-            btnSaveTournament.setEnabled(false);
-            btnSaveTournament.setText("Saved \u2713 (auto-archived)");
+            btnSaveTournament.setEnabled(true);
+            btnSaveTournament.setText("Save Tournament");
+            btnSaveTournament.setOnClickListener(v -> saveTournament(t));
             btnShareTournament.setVisibility(View.VISIBLE);
             btnShareTournament.setOnClickListener(v -> shareTournament(t));
         }
@@ -295,19 +308,18 @@ public class TournamentDashboardActivity extends BaseNavActivity {
     /**
      * Called the moment a tournament transitions to COMPLETED stage.
      *
-     *   1. Auto-archives to recent_tournaments/ so the data isn't lost
-     *      even if the user kills the app without tapping Save.
-     *   2. Clears the live tracker (tournament_tracker.json) so HomeActivity
-     *      no longer prompts "Tournament in progress" on next launch.
+     * Clears the live tracker (tournament_tracker.json) so HomeActivity no
+     * longer prompts "Tournament in progress" on next launch.
+     *
+     * Archiving is NOT automatic — the user explicitly taps Save Tournament
+     * from the COMPLETED dashboard to persist the data to recent_tournaments.
+     * If they back out without saving, the tournament data is lost (their
+     * choice — same as a regular match where Save is also manual).
      *
      * The currentTournament singleton is intentionally KEPT so the dashboard
-     * can still render standings, the user can still Share, etc. It's
-     * cleared when the user finally leaves the dashboard.
+     * can still render standings, the user can still Share, etc.
      */
     private void finalizeTournament(Tournament t) {
-        // Archive first so we have a saved copy on disk
-        com.cricket.scorer.utils.TournamentStorage.archiveCompleted(this, t);
-        // Then clear the live tracker — tournament is done, no resume prompt
         com.cricket.scorer.utils.TournamentStorage.clear(this);
     }
 
@@ -381,11 +393,10 @@ public class TournamentDashboardActivity extends BaseNavActivity {
      * the currentTournament singleton so a fresh tournament can be started.
      */
     /**
-     * No longer called from any listener — auto-archive happens in
-     * finalizeTournament() the moment the tournament hits COMPLETED stage.
-     * Kept here only to avoid breaking any external references.
+     * Manual save action triggered by the Save Tournament button.
+     * Archives the tournament to recent_tournaments/ and clears the
+     * currentTournament singleton so a fresh tournament can be started.
      */
-    @Deprecated
     private void saveTournament(Tournament t) {
         java.io.File saved = com.cricket.scorer.utils.TournamentStorage.archiveCompleted(this, t);
         if (saved != null) {

@@ -115,7 +115,9 @@ public class RecentTournamentsActivity extends BaseNavActivity {
         // View button
         Button btnView = new Button(this);
         btnView.setText("View");
-        btnView.setLayoutParams(new LinearLayout.LayoutParams(dp(80), dp(40)));
+        LinearLayout.LayoutParams viewLp = new LinearLayout.LayoutParams(dp(72), dp(40));
+        viewLp.setMarginEnd(dp(4));
+        btnView.setLayoutParams(viewLp);
         btnView.setOnClickListener(v -> {
             Intent i = new Intent(this, TournamentDetailsActivity.class);
             i.putExtra(TournamentDetailsActivity.EXTRA_FILE_NAME, a.fileName);
@@ -123,7 +125,50 @@ public class RecentTournamentsActivity extends BaseNavActivity {
         });
         row.addView(btnView);
 
+        // Delete button — wipes the archive + all its match files
+        Button btnDelete = new Button(this);
+        btnDelete.setText("Delete");
+        btnDelete.setTextColor(0xFFFFFFFF);
+        btnDelete.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFB00020));
+        btnDelete.setLayoutParams(new LinearLayout.LayoutParams(dp(72), dp(40)));
+        btnDelete.setOnClickListener(v -> showDeleteConfirm(a));
+        row.addView(btnDelete);
+
         return row;
+    }
+
+    /**
+     * Shows a confirmation dialog before deleting a tournament archive.
+     * Deletion removes the archive JSON AND all match files associated
+     * with that tournament — the operation is permanent.
+     */
+    private void showDeleteConfirm(TournamentStorage.ArchivedTournament a) {
+        String name = a.tournament.getChampionName() != null
+                ? a.tournament.getChampionName() : "this tournament";
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Delete tournament?")
+                .setMessage("Permanently delete the tournament won by " + name
+                        + " and all its match scorecards?\n\nThis cannot be undone.")
+                .setPositiveButton("Delete", (d, w) -> {
+                    boolean ok = TournamentStorage.deleteArchive(this, a.fileName);
+                    if (ok) {
+                        android.widget.Toast.makeText(this, "Tournament deleted",
+                                android.widget.Toast.LENGTH_SHORT).show();
+                        // Reload the list and re-render
+                        archived = TournamentStorage.loadArchived(this);
+                        // If we deleted the last item on this page, step back a page
+                        int totalPages = Math.max(1,
+                                (archived.size() + PAGE_SIZE - 1) / PAGE_SIZE);
+                        if (currentPage >= totalPages) currentPage = totalPages - 1;
+                        if (currentPage < 0) currentPage = 0;
+                        renderPage();
+                    } else {
+                        android.widget.Toast.makeText(this, "Failed to delete",
+                                android.widget.Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private int dp(int v) { return (int)(v * getResources().getDisplayMetrics().density); }
