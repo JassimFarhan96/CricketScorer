@@ -58,6 +58,12 @@ import java.util.Locale;
 public class DeepStatsActivity extends BaseNavActivity {
 
     public static final String EXTRA_SAVED_FILE_NAME = "deep_stats_file";
+    /**
+     * When true, EXTRA_SAVED_FILE_NAME refers to a file in
+     * recent_tournaments/matches/ instead of recent_matches/.
+     * Set by StatsActivity when the user opened a tournament-match scorecard.
+     */
+    public static final String EXTRA_FROM_TOURNAMENT_DIR = "from_tournament_dir";
 
     private Match match;
 
@@ -67,8 +73,14 @@ public class DeepStatsActivity extends BaseNavActivity {
 
         String savedFile = getIntent().getStringExtra(EXTRA_SAVED_FILE_NAME);
         if (savedFile != null) {
-            for (Match m : MatchStorage.loadAllMatches(this))
-                if (savedFile.equals(m.getSavedFileName())) { match = m; break; }
+            boolean fromTournamentDir = getIntent().getBooleanExtra(EXTRA_FROM_TOURNAMENT_DIR, false);
+            if (fromTournamentDir) {
+                // Tournament-match deep stats — load from recent_tournaments/matches/
+                match = MatchStorage.loadTournamentMatch(this, savedFile);
+            } else {
+                for (Match m : MatchStorage.loadAllMatches(this))
+                    if (savedFile.equals(m.getSavedFileName())) { match = m; break; }
+            }
         } else {
             match = ((CricketApp) getApplication()).getCurrentMatch();
         }

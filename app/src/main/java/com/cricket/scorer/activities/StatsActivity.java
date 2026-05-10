@@ -49,7 +49,8 @@ public class StatsActivity extends BaseNavActivity {
     private Button       btnSaveMatch, btnDeepStats, btnShareWhatsApp, btnShareGeneral, btnNewMatch;
 
     private Match   match;
-    private boolean isViewingFromDisk = false;
+    private boolean isViewingFromDisk    = false;
+    private boolean isFromTournamentDir  = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,8 +61,8 @@ public class StatsActivity extends BaseNavActivity {
         String savedFile = getIntent().getStringExtra(EXTRA_SAVED_FILE_NAME);
         if (savedFile != null) {
             isViewingFromDisk = true;
-            boolean fromTournamentDir = getIntent().getBooleanExtra(EXTRA_FROM_TOURNAMENT_DIR, false);
-            if (fromTournamentDir) {
+            isFromTournamentDir = getIntent().getBooleanExtra(EXTRA_FROM_TOURNAMENT_DIR, false);
+            if (isFromTournamentDir) {
                 // Tournament-match scorecard — load from recent_tournaments/
                 match = MatchStorage.loadTournamentMatch(this, savedFile);
             } else {
@@ -334,6 +335,10 @@ public class StatsActivity extends BaseNavActivity {
             if (isViewingFromDisk && match.getSavedFileName() != null) {
                 intent.putExtra(DeepStatsActivity.EXTRA_SAVED_FILE_NAME,
                         match.getSavedFileName());
+                // Forward the tournament-dir flag so DeepStatsActivity
+                // looks in the right directory.
+                intent.putExtra(DeepStatsActivity.EXTRA_FROM_TOURNAMENT_DIR,
+                        isFromTournamentDir);
             }
             startActivity(intent);
         });
