@@ -50,9 +50,13 @@
             android:exported="false" android:label="In-Depth Statistics"
             android:parentActivityName=".activities.StatsActivity"/>
 
+        <activity android:name=".activities.RecentMenuActivity"
+            android:exported="false" android:label="Recent"
+            android:parentActivityName=".activities.HomeActivity"/>
+
         <activity android:name=".activities.RecentMatchesActivity"
             android:exported="false" android:label="Recent Matches"
-            android:parentActivityName=".activities.HomeActivity"/>
+            android:parentActivityName=".activities.RecentMenuActivity"/>
 
         <activity android:name=".activities.MatchSelectActivity"
             android:exported="false" android:label="Select Match"
@@ -77,7 +81,7 @@
 
         <activity android:name=".activities.RecentTournamentsActivity"
             android:exported="false" android:label="Recent Tournaments"
-            android:parentActivityName=".activities.HomeActivity"/>
+            android:parentActivityName=".activities.RecentMenuActivity"/>
         <activity android:name=".activities.TournamentDetailsActivity"
             android:exported="false" android:label="Tournament Details"
             android:parentActivityName=".activities.RecentTournamentsActivity"/>

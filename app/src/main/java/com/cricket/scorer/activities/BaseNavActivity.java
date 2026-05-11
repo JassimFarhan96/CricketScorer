@@ -18,7 +18,7 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
  *
  * Navigation tabs:
  *   Home       → HomeActivity
- *   Recent     → RecentMatchesActivity
+ *   Recent     → RecentMenuActivity (then matches or tournaments)
  *   Statistics → MatchSelectActivity
  *
  * Each tab clears the back stack so pressing a tab always goes to the
@@ -64,8 +64,14 @@ public abstract class BaseNavActivity extends AppCompatActivity {
                 }
                 return true;
             } else if (id == R.id.nav_recent) {
-                if (!(this instanceof RecentMatchesActivity)) {
-                    navigateTo(RecentMatchesActivity.class);
+                // Recent tab now lands on a sub-menu (matches vs tournaments).
+                // Once the user is inside any of those branches (Recent menu,
+                // Recent matches, or Recent tournaments), tapping the tab
+                // again is a no-op rather than bouncing back to the menu.
+                if (!(this instanceof RecentMenuActivity)) {
+                        //&& !(this instanceof RecentMatchesActivity)
+                        //&& !(this instanceof RecentTournamentsActivity)) {
+                    navigateTo(RecentMenuActivity.class);
                 }
                 return true;
             } else if (id == R.id.nav_stats) {
