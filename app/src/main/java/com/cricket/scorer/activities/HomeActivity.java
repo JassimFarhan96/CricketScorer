@@ -14,13 +14,14 @@ import com.cricket.scorer.R; import com.cricket.scorer.models.Match; import com.
  * launch so users land back in the right place.
  */
 public class HomeActivity extends BaseNavActivity {
-    private LinearLayout layoutMatches, layoutTournaments;
+    private LinearLayout layoutMatches, layoutTournaments, layoutExport;
     private boolean resumeDialogShown = false;
 
     @Override protected void onCreate(Bundle s) {
         super.onCreate(s); setNavContentView(R.layout.activity_home);
         layoutMatches     = findViewById(R.id.layout_matches);
         layoutTournaments = findViewById(R.id.layout_tournaments);
+        layoutExport      = findViewById(R.id.layout_export);
         setClickListeners();
     }
 
@@ -130,6 +131,53 @@ public class HomeActivity extends BaseNavActivity {
                 startActivity(new Intent(this, MatchesMenuActivity.class)));
         layoutTournaments.setOnClickListener(v ->
                 startActivity(new Intent(this, TournamentsMenuActivity.class)));
+        layoutExport.setOnClickListener(v -> exportAllData());
+    }
+
+    /**
+     * Bundles every JSON file in the app's private storage into a single
+     * ZIP and writes it to the device's public Downloads folder. Useful
+     * for testers who need to share their data, and for developer
+     * debugging on devices that aren't plugged into Android Studio.
+     *
+     * The ZIP preserves the on-device folder layout:
+     *   live_match.json
+     *   tournament_tracker.json
+     *   recent_matches/<timestamp>_HomeVsAway.json
+     *   recent_tournaments/<timestamp>_Champion.json
+     *   recent_tournaments/matches/<timestamp>_HomeVsAway.json
+     */
+    private void exportAllData() {
+        android.app.ProgressDialog progress = new android.app.ProgressDialog(this);
+        progress.setMessage("Exporting data…");
+        progress.setCancelable(false);
+        progress.show();
+
+        // File sizes are tiny, but use a background thread to be safe
+        new Thread(() -> {
+            com.cricket.scorer.utils.DataExportUtils.Result result =
+                    com.cricket.scorer.utils.DataExportUtils.exportAll(this);
+            runOnUiThread(() -> {
+                progress.dismiss();
+                if (result.success) {
+                    new AlertDialog.Builder(this)
+                            .setTitle("Export complete")
+                            .setMessage("Bundled " + result.fileCount + " file"
+                                    + (result.fileCount == 1 ? "" : "s") + " into:\n\n"
+                                    + result.displayPath
+                                    + "\n\nOpen any file manager → Downloads to find it.")
+                            .setPositiveButton("OK", null)
+                            .show();
+                } else {
+                    new AlertDialog.Builder(this)
+                            .setTitle("Export failed")
+                            .setMessage(result.errorMessage != null
+                                    ? result.errorMessage : "Unknown error.")
+                            .setPositiveButton("OK", null)
+                            .show();
+                }
+            });
+        }).start();
     }
 
     @Override
