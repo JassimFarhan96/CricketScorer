@@ -3,8 +3,10 @@ package com.cricket.scorer.activities;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.text.InputType;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TableLayout;
 import android.widget.TableRow;
@@ -65,7 +67,7 @@ public class InningsActivity extends AppCompatActivity {
     private RecyclerView rvCurrentOverBalls, rvOverHistory;
     private TextView     tvBowlerSummary;
     private Button       btnDot, btn1, btn2, btn3, btn4, btn6;
-    private Button       btnWide, btnNoBall, btnWicket, btnRetiredHurt, btnBabyOver, btnUndo;
+    private Button       btnWide, btnNoBall, btnWicket, btnRetiredHurt, btnBabyOver, btnUndo, btnEditOvers;
 
     private BallAdapter        ballAdapter;
     private OverHistoryAdapter overHistoryAdapter;
@@ -316,6 +318,117 @@ public class InningsActivity extends AppCompatActivity {
                     refreshUI();
                     Toast.makeText(this,
                             name + " will bowl balls 4–6", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    // ─── Edit Overs dialog ────────────────────────────────────────────────────
+
+    /**
+     * Lets the user adjust the total overs for the match mid-1st-innings.
+     * The new value must be:
+     *   - a positive integer
+     *   - >= the number of overs the batting side has already completed
+     *     (you can't shrink below already-played overs)
+     *   - <= 50 (sanity cap)
+     *
+     * On confirm: updates Match.maxOvers, persists via LiveMatchState so
+     * the change survives an app restart, and refreshes the UI so the
+     * "Ov 0.0 / N" label and any over-dependent calculations reflect the
+     * new total.
+     *
+     * The button itself is hidden in 2nd innings and during tournament
+     * matches (see refreshUI).
+     */
+    private void showEditOversDialog() {
+        Innings innings = match.getCurrentInningsData();
+        int currentMax     = match.getMaxOvers();
+        int totalBalls     = innings.getTotalValidBalls();
+        int completedOvers = totalBalls / 6;
+        boolean midOver    = (totalBalls % 6) != 0;
+
+        // Minimum new value:
+        //   - Nothing bowled yet (totalBalls = 0): min = 1.
+        //   - Exactly between overs, e.g. 2.0 completed and 2.1 not delivered
+        //     (totalBalls = 12, midOver = false): min = completedOvers = 2.
+        //     User can set max to 2 → innings ends immediately at the over
+        //     boundary they're sitting at, which is a valid choice.
+        //   - Mid-over, e.g. 2.1 just delivered (totalBalls = 13, midOver = true):
+        //     min = completedOvers + 1 = 3. Cannot reduce to 2 because over 3
+        //     has already been started.
+        int minAllowed;
+        if (totalBalls == 0) {
+            minAllowed = 1;
+        } else if (midOver) {
+            minAllowed = completedOvers + 1;
+        } else {
+            minAllowed = completedOvers;
+        }
+
+        EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_NUMBER);
+        input.setText(String.valueOf(currentMax));
+        input.setSelection(input.getText().length());
+        input.requestFocus();
+
+        String currentOverLabel = midOver
+                ? "Currently in over " + (completedOvers + 1)
+                  + ", ball " + ((totalBalls % 6) + 1)
+                : (completedOvers > 0
+                        ? completedOvers + " over"
+                          + (completedOvers == 1 ? "" : "s") + " completed"
+                        : "No balls bowled yet");
+
+        new AlertDialog.Builder(this)
+                .setTitle("Edit total overs")
+                .setMessage("Current: " + currentMax + " overs"
+                        + "\n" + currentOverLabel
+                        + "\n\nNew value must be between " + minAllowed + " and 50.")
+                .setView(input)
+                .setPositiveButton("Update", (d, w) -> {
+                    String txt = input.getText().toString().trim();
+                    if (txt.isEmpty()) {
+                        Toast.makeText(this, "Enter a number", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    int newMax;
+                    try { newMax = Integer.parseInt(txt); }
+                    catch (NumberFormatException e) {
+                        Toast.makeText(this, "Invalid number", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    if (newMax > 50) {
+                        Toast.makeText(this, "Overs cannot exceed 50",
+                                Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    if (newMax < minAllowed) {
+                        Toast.makeText(this,
+                                "New value must be at least " + minAllowed
+                                        + " (cannot reduce to or below the current over)",
+                                Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    if (newMax == currentMax) return;  // no-op
+
+                    match.setMaxOvers(newMax);
+                    LiveMatchState.persist(this, match);
+                    refreshUI();
+                    Toast.makeText(this, "Total overs updated to " + newMax,
+                            Toast.LENGTH_SHORT).show();
+
+                    // If the new max means the innings has already reached
+                    // its limit (e.g. user is at 4.0 and sets max to 4),
+                    // end the innings immediately instead of waiting for
+                    // the next over to complete. handleMatchState routes
+                    // INNINGS_COMPLETE to the break / target screen.
+                    MatchEngine.MatchState afterEdit = engine.endInningsIfMaxReached();
+                    if (afterEdit == MatchEngine.MatchState.INNINGS_COMPLETE
+                            || afterEdit == MatchEngine.MatchState.MATCH_COMPLETE) {
+                        LiveMatchState.persist(this, match);
+                        handleMatchState(afterEdit);
+                    }
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
@@ -609,6 +722,7 @@ public class InningsActivity extends AppCompatActivity {
         btnWide = findViewById(R.id.btn_wide); btnNoBall = findViewById(R.id.btn_noball);
         btnWicket = findViewById(R.id.btn_wicket); btnRetiredHurt = findViewById(R.id.btn_retired_hurt);
         btnBabyOver = findViewById(R.id.btn_baby_over);
+        btnEditOvers = findViewById(R.id.btn_edit_overs);
         btnUndo = findViewById(R.id.btn_undo);
     }
 
@@ -633,6 +747,7 @@ public class InningsActivity extends AppCompatActivity {
         btnWicket.setOnClickListener(v -> showWicketDialog());
         btnRetiredHurt.setOnClickListener(v -> showRetiredHurtDialog());
         btnBabyOver.setOnClickListener(v -> showBabyOverDialog());
+        btnEditOvers.setOnClickListener(v -> showEditOversDialog());
         btnUndo.setOnClickListener(v -> {
             if (isCurrentOverEmpty()) {
                 if (isInningsJustStarted()) resetAndReshowOpeners();
@@ -810,6 +925,12 @@ public class InningsActivity extends AppCompatActivity {
         tvOversInfo.setText(String.format(Locale.US,"Ov %s / %d",innings.getOversString(),match.getMaxOvers()));
         tvCRR.setText(String.format(Locale.US,"CRR: %.2f",innings.getCurrentRunRate()));
         tvModeBadge.setText(single?"Single bat":"Two bat"); tvModeBadge.setVisibility(View.VISIBLE);
+
+        // Edit Overs button: 1st innings only, never during a tournament match.
+        // 2nd innings inherits whatever overs the 1st innings finished with.
+        boolean tournamentActive = ((CricketApp) getApplication()).isTournamentActive();
+        boolean canEditOvers     = inum == 1 && !tournamentActive;
+        btnEditOvers.setVisibility(canEditOvers ? View.VISIBLE : View.GONE);
 
         if (innings.isBowlerSelected() && !innings.getCurrentBowlerName().isEmpty()) {
             String bowlerLabel;

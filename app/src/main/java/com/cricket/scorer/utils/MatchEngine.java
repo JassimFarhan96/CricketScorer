@@ -272,6 +272,31 @@ public class MatchEngine {
         return endMatch(innings);
     }
 
+    /**
+     * Called by the "Edit overs" dialog after maxOvers has been mutated.
+     * If the new max means the current innings has already reached its
+     * limit AND we are at an over boundary (no balls bowled in the
+     * current over), end the innings immediately. Returns the resulting
+     * MatchState — usually INNINGS_COMPLETE if it ended, or BALL_RECORDED
+     * if no end is triggered.
+     *
+     * Only ends at an over boundary because ending mid-over would orphan
+     * the unfinished over in the scorecard. If the user reduces max while
+     * mid-over, the innings will end naturally when the current over
+     * completes (checkAfterValidBall handles that).
+     */
+    public MatchState endInningsIfMaxReached() {
+        Innings innings = match.getCurrentInningsData();
+        if (innings == null || innings.isComplete()) return MatchState.BALL_RECORDED;
+        int completedOvers = innings.getCompletedOvers().size();
+        boolean atOverBoundary = innings.getCurrentOver() == null
+                || innings.getCurrentOver().getBalls().isEmpty();
+        if (atOverBoundary && completedOvers >= match.getMaxOvers()) {
+            return endInnings(innings);
+        }
+        return MatchState.BALL_RECORDED;
+    }
+
     private MatchState endMatch(Innings secondInnings) {
         secondInnings.setComplete(true);
         match.setMatchCompleted(true);
