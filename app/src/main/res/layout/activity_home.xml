@@ -11,15 +11,13 @@
         android:orientation="vertical" android:background="@color/green_dark"
         android:padding="32dp" android:gravity="center">
 
-      <FrameLayout android:layout_width="72dp" android:layout_height="72dp"
-          android:layout_marginBottom="16dp">
-        <View android:layout_width="72dp" android:layout_height="72dp"
-            android:background="@drawable/bg_cricket_ball"/>
-        <ImageView android:layout_width="44dp" android:layout_height="44dp"
-            android:src="@drawable/ic_hero_bat"
-            android:layout_gravity="center"
-            android:contentDescription="Cricket bat"/>
-      </FrameLayout>
+      <!-- App logo — uses the launcher icon so the in-app branding always
+           matches whatever's on the user's home screen. 88dp is large enough
+           to read on the splash-style header but stays inside the green band. -->
+      <ImageView android:layout_width="88dp" android:layout_height="88dp"
+          android:src="@mipmap/ic_launcher"
+          android:layout_marginBottom="16dp"
+          android:contentDescription="Cricket Scorer app icon"/>
 
       <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
           android:text="Cricket Scorer" android:textColor="#FFFFFF"
