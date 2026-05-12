@@ -1,7 +1,6 @@
 package com.cricket.scorer.utils;
 
 import android.content.Context;
-import android.util.Log;
 
 import com.cricket.scorer.models.Ball;
 import com.cricket.scorer.models.Innings;
@@ -44,19 +43,19 @@ public class LiveMatchState {
 
     public static void persist(Context context, Match match) {
         try { writeFile(getFile(context), matchToJson(match).toString(2)); }
-        catch (Exception e) { Log.e(TAG, "persist failed", e); }
+        catch (Exception e) { AppLogger.e(TAG, "persist failed", e); }
     }
 
     public static Match restore(Context context) {
         File f = getFile(context);
         if (!f.exists() || f.length() == 0) return null;
         try { return jsonToMatch(new JSONObject(readFile(f))); }
-        catch (Exception e) { Log.e(TAG, "restore failed", e); return null; }
+        catch (Exception e) { AppLogger.e(TAG, "restore failed", e); return null; }
     }
 
     public static void clear(Context context) {
         try { writeFile(getFile(context), ""); }
-        catch (Exception e) { Log.e(TAG, "clear failed", e); }
+        catch (Exception e) { AppLogger.e(TAG, "clear failed", e); }
     }
 
     // ── Serialisation ─────────────────────────────────────────────────────────

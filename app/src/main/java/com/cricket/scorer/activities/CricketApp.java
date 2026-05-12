@@ -4,6 +4,8 @@ import android.app.Application;
 
 import com.cricket.scorer.models.Match;
 import com.cricket.scorer.models.Tournament;
+import com.cricket.scorer.utils.AppLogger;
+import com.cricket.scorer.utils.CrashHandler;
 import com.cricket.scorer.utils.MatchEngine;
 
 /**
@@ -22,7 +24,14 @@ public class CricketApp extends Application {
     private Tournament  currentTournament;
 
     @Override
-    public void onCreate() { super.onCreate(); }
+    public void onCreate() {
+        super.onCreate();
+        // Persistent logging + crash capture. Init BEFORE anything else so
+        // a crash during the rest of startup is still recorded to the file.
+        AppLogger.init(this);
+        CrashHandler.install(this);
+        AppLogger.i("CricketApp", "Application launched");
+    }
 
     // ─── Match lifecycle ──────────────────────────────────────────────────────
 

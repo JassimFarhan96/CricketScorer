@@ -81,7 +81,12 @@ public class DataExportUtils {
                     "Failed to build zip: " + e.getMessage());
         }
 
-        if (fileCount == 0) {
+        // Empty-state guard: refuse only if BOTH no JSON files AND no logs.
+        // Logs alone are still worth exporting for fresh-install bug reports.
+        File anyLog        = new File(ctx.getFilesDir(), "app_log.txt");
+        File anyRotatedLog = new File(ctx.getFilesDir(), "app_log.1.txt");
+        boolean hasLogs    = anyLog.isFile() || anyRotatedLog.isFile();
+        if (fileCount == 0 && !hasLogs) {
             tempZip.delete();
             return new Result(false, null, null, 0,
                     "No data to export yet — play a match or tournament first.");
@@ -123,6 +128,15 @@ public class DataExportUtils {
             // recent_tournaments/matches/ — individual tournament match files
             File tournMatches = new File(tournDir, "matches");
             count += addDirToZip(zos, tournMatches, "recent_tournaments/matches/");
+
+            // app_log.txt + app_log.1.txt — persistent diagnostic logs.
+            // Always bundled even if no JSON data exists, since they're the
+            // primary source of info for bug reports. Logs don't count
+            // towards the data-file count (used for the empty-state check).
+            File currentLog = new File(filesDir, "app_log.txt");
+            if (currentLog.isFile()) addToZip(zos, currentLog, "logs/app_log.txt");
+            File rotatedLog = new File(filesDir, "app_log.1.txt");
+            if (rotatedLog.isFile()) addToZip(zos, rotatedLog, "logs/app_log.1.txt");
         }
         return count;
     }

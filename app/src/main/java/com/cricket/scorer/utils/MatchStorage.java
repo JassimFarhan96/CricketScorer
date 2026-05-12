@@ -1,7 +1,6 @@
 package com.cricket.scorer.utils;
 
 import android.content.Context;
-import android.util.Log;
 
 import com.cricket.scorer.models.Ball;
 import com.cricket.scorer.models.Innings;
@@ -94,7 +93,7 @@ public class MatchStorage {
             m.setSavedFileName(file.getName());
             return m;
         } catch (Exception e) {
-            Log.e(TAG, "loadTournamentMatch failed", e);
+            AppLogger.e(TAG, "loadTournamentMatch failed", e);
             return null;
         }
     }
@@ -113,10 +112,10 @@ public class MatchStorage {
             fw.write(root.toString(2));
             fw.flush();
             fw.close();
-            Log.d(TAG, "Match saved: " + file.getAbsolutePath());
+            AppLogger.d(TAG, "Match saved: " + file.getAbsolutePath());
             return file;
         } catch (Exception e) {
-            Log.e(TAG, "saveMatchToDir failed", e);
+            AppLogger.e(TAG, "saveMatchToDir failed", e);
             return null;
         }
     }
@@ -136,10 +135,10 @@ public class MatchStorage {
             fw.write(root.toString(2));
             fw.flush();
             fw.close();
-            Log.d(TAG, "Match saved: " + file.getAbsolutePath());
+            AppLogger.d(TAG, "Match saved: " + file.getAbsolutePath());
             return file;
         } catch (Exception e) {
-            Log.e(TAG, "saveMatch failed", e);
+            AppLogger.e(TAG, "saveMatch failed", e);
             return null;
         }
     }
@@ -166,7 +165,7 @@ public class MatchStorage {
                 m.setSavedFileName(f.getName());
                 matches.add(m);
             } catch (Exception e) {
-                Log.e(TAG, "Failed to parse " + f.getName(), e);
+                AppLogger.e(TAG, "Failed to parse " + f.getName(), e);
             }
         }
         return matches;
