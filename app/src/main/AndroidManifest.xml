@@ -86,5 +86,17 @@
             android:exported="false" android:label="Tournament Details"
             android:parentActivityName=".activities.RecentTournamentsActivity"/>
 
+        <!-- FileProvider for sharing bug-report attachments to email apps.
+             The authority is referenced in BugReportUtils#FP_AUTHORITY. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.cricket.scorer.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
     </application>
 </manifest>

@@ -8,6 +8,8 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.cricket.scorer.R;
+import com.cricket.scorer.utils.BugReportUtils;
+import com.cricket.scorer.utils.ShakeDetector;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 /**
@@ -65,9 +67,16 @@ public abstract class BaseNavActivity extends AppCompatActivity {
         return false;
     };
 
+    /** Shake-to-report — initialized lazily in onCreate. */
+    private ShakeDetector shakeDetector;
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Listen for shake-to-report. Bug report capture uses the current
+        // foreground activity's view, so we initialise per-activity rather
+        // than at the Application level.
+        shakeDetector = new ShakeDetector(this, () -> BugReportUtils.launch(this));
     }
 
     /**
@@ -98,6 +107,13 @@ public abstract class BaseNavActivity extends AppCompatActivity {
             bottomNav.setSelectedItemId(getCurrentNavItem());
             bottomNav.setOnItemSelectedListener(navListener);
         }
+        if (shakeDetector != null) shakeDetector.start();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (shakeDetector != null) shakeDetector.stop();
     }
 
     /**

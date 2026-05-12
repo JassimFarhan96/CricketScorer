@@ -28,6 +28,8 @@ import com.cricket.scorer.models.Over;
 import com.cricket.scorer.models.Player;
 import com.cricket.scorer.utils.LiveMatchState;
 import com.cricket.scorer.utils.MatchEngine;
+import com.cricket.scorer.utils.ShakeDetector;
+import com.cricket.scorer.utils.BugReportUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -58,6 +60,7 @@ public class InningsActivity extends AppCompatActivity {
     private CricketApp  app;
     private Match       match;
     private MatchEngine engine;
+    private ShakeDetector shakeDetector;
 
     private TextView     tvInningsTitle, tvScore, tvOversInfo, tvCRR, tvRRR, tvModeBadge;
     private LinearLayout layoutTargetBanner;
@@ -97,11 +100,21 @@ public class InningsActivity extends AppCompatActivity {
         } else {
             setBallButtonsEnabled(true);
         }
+
+        // Shake-to-report
+        shakeDetector = new ShakeDetector(this, () -> BugReportUtils.launch(this));
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (shakeDetector != null) shakeDetector.start();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        if (shakeDetector != null) shakeDetector.stop();
         if (match != null && !match.isMatchCompleted())
             LiveMatchState.persist(this, match);
     }

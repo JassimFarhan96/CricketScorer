@@ -33,6 +33,8 @@ import com.cricket.scorer.models.Match;
 import com.cricket.scorer.models.Over;
 import com.cricket.scorer.models.Player;
 import com.cricket.scorer.utils.LiveMatchState;
+import com.cricket.scorer.utils.ShakeDetector;
+import com.cricket.scorer.utils.BugReportUtils;
 
 import java.util.List;
 import java.util.Locale;
@@ -64,6 +66,7 @@ public class InningsBreakActivity extends AppCompatActivity {
 
     private Match  match;
     private String bat1Team, bowl1Team;
+    private ShakeDetector shakeDetector;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,11 +78,19 @@ public class InningsBreakActivity extends AppCompatActivity {
         deriveTeams();
         populateData();
         setClickListeners();
+        shakeDetector = new ShakeDetector(this, () -> BugReportUtils.launch(this));
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (shakeDetector != null) shakeDetector.start();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        if (shakeDetector != null) shakeDetector.stop();
         if (match != null && !match.isMatchCompleted())
             LiveMatchState.persist(this, match);
     }

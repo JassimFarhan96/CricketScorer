@@ -14,7 +14,7 @@ import com.cricket.scorer.R; import com.cricket.scorer.models.Match; import com.
  * launch so users land back in the right place.
  */
 public class HomeActivity extends BaseNavActivity {
-    private LinearLayout layoutMatches, layoutTournaments, layoutExport;
+    private LinearLayout layoutMatches, layoutTournaments, layoutExport, layoutReportBug;
     private boolean resumeDialogShown = false;
 
     @Override protected void onCreate(Bundle s) {
@@ -22,6 +22,7 @@ public class HomeActivity extends BaseNavActivity {
         layoutMatches     = findViewById(R.id.layout_matches);
         layoutTournaments = findViewById(R.id.layout_tournaments);
         layoutExport      = findViewById(R.id.layout_export);
+        layoutReportBug   = findViewById(R.id.layout_report_bug);
         setClickListeners();
     }
 
@@ -132,6 +133,8 @@ public class HomeActivity extends BaseNavActivity {
         layoutTournaments.setOnClickListener(v ->
                 startActivity(new Intent(this, TournamentsMenuActivity.class)));
         layoutExport.setOnClickListener(v -> exportAllData());
+        layoutReportBug.setOnClickListener(v ->
+                com.cricket.scorer.utils.BugReportUtils.launch(this));
     }
 
     /**
