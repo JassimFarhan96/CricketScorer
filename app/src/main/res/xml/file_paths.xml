@@ -12,6 +12,7 @@
 -->
 <paths>
     <external-cache-path name="bug_reports" path="bug_reports/" />
+    <external-cache-path name="exports"     path="exports/"     />
     <cache-path          name="cache"       path="."            />
     <files-path          name="files"       path="."            />
 </paths>

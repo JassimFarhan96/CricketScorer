@@ -349,7 +349,8 @@ public class StatsActivity extends BaseNavActivity {
             if (!n.startsWith("+")) n = "+" + n;
             ShareUtils.shareViaWhatsApp(this, n, match);
         });
-        btnShareGeneral.setOnClickListener(v -> ShareUtils.shareAsText(this, match));
+        btnShareGeneral.setOnClickListener(v ->
+                com.cricket.scorer.utils.ShareDispatcher.show(this, match));
         btnNewMatch.setOnClickListener(v -> {
             ((CricketApp)getApplication()).clearMatch();
             // If tournament active, return to dashboard instead of Home

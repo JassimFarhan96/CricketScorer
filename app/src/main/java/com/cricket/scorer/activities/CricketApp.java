@@ -26,6 +26,25 @@ public class CricketApp extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+
+        // poi-android (the Android-stripped POI fork) ships its own
+        // javax.xml.stream shim that looks for an XMLEventFactory via
+        // system properties. Without these three lines it tries to load
+        // com.bea.xml.stream.EventFactory which doesn't exist on Android
+        // and throws FactoryConfigurationError at the first XSSFWorkbook call.
+        // These must be set BEFORE any POI class is loaded (i.e. before
+        // MatchExcelExporter.export() is called). Placing them here in
+        // Application.onCreate() guarantees that.
+        System.setProperty(
+            "org.apache.poi.javax.xml.stream.XMLInputFactory",
+            "com.fasterxml.aalto.stax.InputFactoryImpl");
+        System.setProperty(
+            "org.apache.poi.javax.xml.stream.XMLOutputFactory",
+            "com.fasterxml.aalto.stax.OutputFactoryImpl");
+        System.setProperty(
+            "org.apache.poi.javax.xml.stream.XMLEventFactory",
+            "com.fasterxml.aalto.stax.EventFactoryImpl");
+
         // Persistent logging + crash capture. Init BEFORE anything else so
         // a crash during the rest of startup is still recorded to the file.
         AppLogger.init(this);

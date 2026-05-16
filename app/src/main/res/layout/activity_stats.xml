@@ -199,7 +199,7 @@
                 android:backgroundTint="@color/whatsapp_green" android:layout_marginBottom="8dp"/>
             <Button android:id="@+id/btn_share_general"
                 android:layout_width="match_parent" android:layout_height="48dp"
-                android:text="Share via other apps..." android:textSize="14sp"
+                android:text="Share match data (Excel / Image)" android:textSize="14sp"
                 android:textColor="@color/c_btn_outline_fg"
                 android:background="@drawable/bg_btn_outline" android:layout_marginBottom="8dp"/>
             <Button android:id="@+id/btn_new_match"
