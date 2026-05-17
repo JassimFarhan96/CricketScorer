@@ -1,16 +1,18 @@
 package com.cricket.scorer.utils;
 
 import android.app.Activity;
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.Intent;
 import android.net.Uri;
+import android.view.ContextThemeWrapper;
 import android.widget.ArrayAdapter;
 import android.widget.Spinner;
 import android.widget.Toast;
 
 import androidx.core.content.FileProvider;
 
+import com.cricket.scorer.R;
 import com.cricket.scorer.models.Match;
 
 import java.io.File;
@@ -46,14 +48,17 @@ public final class ShareDispatcher {
 
     /** Called by StatsActivity when the user taps "Share match data". */
     public static void show(Activity activity, Match match) {
-        Spinner spinner = new Spinner(activity);
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(activity,
+        // Use a themed context to ensure the Spinner and Dialog pick up the correct colors
+        ContextThemeWrapper themedContext = new ContextThemeWrapper(activity, R.style.Theme_CricketScorer_Dialog);
+
+        Spinner spinner = new Spinner(themedContext);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(themedContext,
                 android.R.layout.simple_spinner_item,
                 new String[]{ "Excel spreadsheet (.xlsx)", "Images (.png)" });
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinner.setAdapter(adapter);
 
-        new AlertDialog.Builder(activity)
+        new AlertDialog.Builder(themedContext)
                 .setTitle("Share match data")
                 .setMessage("Choose a format:")
                 .setView(spinner)
