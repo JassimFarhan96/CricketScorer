@@ -48,7 +48,11 @@ public final class MatchScorecardBuilder {
                         (match.isSingleBatsmanMode() ? "Single bat" : "Two bat")});
         rows.add(new String[]{"Teams",
                 safe(match.getHomeTeamName()) + " vs " + safe(match.getAwayTeamName())});
-        rows.add(new String[]{"Batted first", safe(match.getBattingFirstTeam())});
+        // Resolve "home"/"away" to the actual team name for display
+        String battedFirst = "home".equals(match.getBattingFirstTeam())
+                ? safe(match.getHomeTeamName())
+                : safe(match.getAwayTeamName());
+        rows.add(new String[]{"Batted first", battedFirst});
 
         Innings i1 = match.getFirstInnings();
         if (i1 != null) {
@@ -78,8 +82,8 @@ public final class MatchScorecardBuilder {
                 { "Batter", "Status", "R", "B", "4s", "6s", "SR" }
         };
         // Derive which team's players batted in this innings
-        boolean homeFirst = match.getBattingFirstTeam() != null
-                && match.getBattingFirstTeam().equals(match.getHomeTeamName());
+        // battingFirstTeam stores "home" or "away", NOT the team name
+        boolean homeFirst = "home".equals(match.getBattingFirstTeam());
         List<Player> players = (innings == 1)
                 ? (homeFirst ? match.getHomePlayers() : match.getAwayPlayers())
                 : (homeFirst ? match.getAwayPlayers() : match.getHomePlayers());
@@ -166,7 +170,8 @@ public final class MatchScorecardBuilder {
     public static String inningsHeading(Match match, int innings) {
         String bf = match.getBattingFirstTeam();
         if (bf == null) return "Innings " + innings + " score";
-        boolean homeFirst = bf.equals(match.getHomeTeamName());
+        // battingFirstTeam stores "home" or "away", NOT the team name
+        boolean homeFirst = "home".equals(bf);
         String name;
         if (innings == 1) name = homeFirst ? match.getHomeTeamName() : match.getAwayTeamName();
         else              name = homeFirst ? match.getAwayTeamName() : match.getHomeTeamName();
