@@ -193,6 +193,7 @@ public class Innings implements Serializable {
         currentOver.addBall(Ball.wicket());
         totalWickets    += 1;
         totalValidBalls += 1;
+        outPlayer.addBallFaced(); // wicket ball counts as a ball faced
         outPlayer.dismiss("out");
         String bowler = getActiveBowlerName();
         if (!bowler.isEmpty()) {
@@ -248,6 +249,10 @@ public class Innings implements Serializable {
             case WICKET:
                 totalValidBalls -= 1;
                 totalWickets    -= 1;
+                // Reverse the addBallFaced() from recordWicket
+                if (striker != null && striker.getBallsFaced() > 0) {
+                    striker.setBallsFaced(striker.getBallsFaced() - 1);
+                }
                 if (!bowler.isEmpty()) {
                     subtractFromMap(bowlerWicketsMap, bowler, 1);
                     subtractFromMap(bowlerBallsMap,   bowler, 1);
