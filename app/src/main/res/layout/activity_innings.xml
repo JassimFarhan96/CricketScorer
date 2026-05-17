@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@color/c_bg_page">
 
-    <!-- ═══════════ SCOREBOARD HEADER ═══════════ -->
+    <!-- SCOREBOARD HEADER -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -20,13 +21,14 @@
                 android:layout_width="0dp" android:layout_height="wrap_content"
                 android:layout_weight="1" android:text="1st Innings"
                 android:textColor="#FFFFFF" android:textSize="12sp" android:alpha="0.85"/>
-            <Button android:id="@+id/btn_edit_overs"
+            <androidx.appcompat.widget.AppCompatButton android:id="@+id/btn_edit_overs"
                 style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="✎ Edit overs"
-                android:textColor="#FFFFFF" android:textSize="11sp"
+                android:text="Edit overs"
+                android:textColor="@color/c_mode_badge_fg" android:textSize="11sp"
                 android:fontFamily="sans-serif-medium"
                 android:background="@drawable/bg_mode_badge"
+                app:backgroundTint="@null"
                 android:paddingStart="10dp" android:paddingEnd="10dp"
                 android:paddingTop="3dp" android:paddingBottom="3dp"
                 android:layout_marginEnd="6dp"
@@ -36,6 +38,7 @@
                 android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text="Two bat" android:textSize="11sp"
                 android:fontFamily="sans-serif-medium"
+                android:textColor="@color/c_mode_badge_fg"
                 android:background="@drawable/bg_mode_badge"
                 android:paddingStart="10dp" android:paddingEnd="10dp"
                 android:paddingTop="3dp" android:paddingBottom="3dp"
@@ -72,7 +75,7 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- ═══════════ TARGET BANNER ═══════════ -->
+    <!-- TARGET BANNER -->
     <LinearLayout android:id="@+id/layout_target_banner"
         android:layout_width="match_parent" android:layout_height="wrap_content"
         android:orientation="horizontal" android:background="@color/amber_dark"
@@ -89,7 +92,7 @@
             android:text="" android:textColor="#F5C475" android:textSize="12sp"/>
     </LinearLayout>
 
-    <!-- ═══════════ BATTING PANEL — weight 3, scrollable ═══════════ -->
+    <!-- BATTING PANEL -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -112,7 +115,7 @@
         </LinearLayout>
     </ScrollView>
 
-    <!-- ═══════════ OVER TRACKER — weight 7 ═══════════ -->
+    <!-- OVER TRACKER -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -121,7 +124,6 @@
         android:background="@color/c_scoreboard_section_bg"
         android:elevation="4dp">
 
-        <!-- Current over: label + bowler + ball circles + buttons -->
         <LinearLayout
             android:layout_width="match_parent" android:layout_height="wrap_content"
             android:orientation="horizontal"
@@ -156,86 +158,83 @@
             android:layout_width="match_parent" android:layout_height="wrap_content"
             android:paddingStart="10dp" android:paddingEnd="10dp"
             android:paddingTop="4dp" android:paddingBottom="4dp"
-            app:flexWrap="wrap" app:justifyContent="flex_start"
-            xmlns:app="http://schemas.android.com/apk/res-auto">
-            <Button android:id="@+id/btn_dot" style="@style/Widget.AppCompat.Button.Borderless"
+            app:flexWrap="wrap" app:justifyContent="flex_start">
+            <androidx.appcompat.widget.AppCompatButton android:id="@+id/btn_dot" style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="wrap_content" android:layout_height="36dp"
                 android:text="Dot" android:textSize="13sp" android:textColor="@color/c_btn_default_fg"
                 android:background="@drawable/bg_ball_btn_default"
                 android:layout_margin="3dp" android:paddingStart="12dp" android:paddingEnd="12dp"/>
-            <Button android:id="@+id/btn_1" style="@style/Widget.AppCompat.Button.Borderless"
+            <androidx.appcompat.widget.AppCompatButton android:id="@+id/btn_1" style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="wrap_content" android:layout_height="36dp"
                 android:text="1" android:textSize="13sp" android:textColor="@color/c_btn_default_fg"
                 android:background="@drawable/bg_ball_btn_default"
                 android:layout_margin="3dp" android:paddingStart="12dp" android:paddingEnd="12dp"/>
-            <Button android:id="@+id/btn_2" style="@style/Widget.AppCompat.Button.Borderless"
+            <androidx.appcompat.widget.AppCompatButton android:id="@+id/btn_2" style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="wrap_content" android:layout_height="36dp"
                 android:text="2" android:textSize="13sp" android:textColor="@color/c_btn_default_fg"
                 android:background="@drawable/bg_ball_btn_default"
                 android:layout_margin="3dp" android:paddingStart="12dp" android:paddingEnd="12dp"/>
-            <Button android:id="@+id/btn_3" style="@style/Widget.AppCompat.Button.Borderless"
+            <androidx.appcompat.widget.AppCompatButton android:id="@+id/btn_3" style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="wrap_content" android:layout_height="36dp"
                 android:text="3" android:textSize="13sp" android:textColor="@color/c_btn_default_fg"
                 android:background="@drawable/bg_ball_btn_default"
                 android:layout_margin="3dp" android:paddingStart="12dp" android:paddingEnd="12dp"/>
-            <Button android:id="@+id/btn_4" style="@style/Widget.AppCompat.Button.Borderless"
+            <androidx.appcompat.widget.AppCompatButton android:id="@+id/btn_4" style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="wrap_content" android:layout_height="36dp"
                 android:text="4" android:textSize="13sp" android:textColor="@color/c_ball_four_fg"
                 android:background="@drawable/bg_ball_btn_four"
                 android:layout_margin="3dp" android:paddingStart="12dp" android:paddingEnd="12dp"/>
-            <Button android:id="@+id/btn_6" style="@style/Widget.AppCompat.Button.Borderless"
+            <androidx.appcompat.widget.AppCompatButton android:id="@+id/btn_6" style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="wrap_content" android:layout_height="36dp"
                 android:text="6" android:textSize="13sp" android:textColor="@color/c_ball_six_fg"
                 android:background="@drawable/bg_ball_btn_six"
                 android:layout_margin="3dp" android:paddingStart="12dp" android:paddingEnd="12dp"/>
-            <Button android:id="@+id/btn_wide" style="@style/Widget.AppCompat.Button.Borderless"
+            <androidx.appcompat.widget.AppCompatButton android:id="@+id/btn_wide" style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="wrap_content" android:layout_height="36dp"
                 android:text="Wide" android:textSize="13sp" android:textColor="@color/c_ball_wide_fg"
                 android:background="@drawable/bg_ball_btn_wide"
                 android:layout_margin="3dp" android:paddingStart="12dp" android:paddingEnd="12dp"/>
-            <Button android:id="@+id/btn_noball" style="@style/Widget.AppCompat.Button.Borderless"
+            <androidx.appcompat.widget.AppCompatButton android:id="@+id/btn_noball" style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="wrap_content" android:layout_height="36dp"
                 android:text="No Ball" android:textSize="13sp" android:textColor="@color/c_ball_noball_fg"
                 android:background="@drawable/bg_ball_btn_noball"
                 android:layout_margin="3dp" android:paddingStart="12dp" android:paddingEnd="12dp"/>
-            <Button android:id="@+id/btn_wicket" style="@style/Widget.AppCompat.Button.Borderless"
+            <androidx.appcompat.widget.AppCompatButton android:id="@+id/btn_wicket" style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="wrap_content" android:layout_height="36dp"
                 android:text="Wicket" android:textSize="13sp" android:textColor="@color/c_ball_wicket_fg"
                 android:background="@drawable/bg_ball_btn_wicket"
+                app:backgroundTint="@null"
                 android:layout_margin="3dp" android:paddingStart="12dp" android:paddingEnd="12dp"/>
-            <Button android:id="@+id/btn_retired_hurt" style="@style/Widget.AppCompat.Button.Borderless"
+            <androidx.appcompat.widget.AppCompatButton android:id="@+id/btn_retired_hurt" style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="wrap_content" android:layout_height="36dp"
                 android:text="Ret. Hurt" android:textSize="12sp"
-                android:textColor="@color/amber_dark"
+                android:textColor="@color/c_btn_retired_fg"
                 android:background="@drawable/bg_ball_btn_retired"
+                app:backgroundTint="@null"
                 android:layout_margin="3dp" android:paddingStart="10dp" android:paddingEnd="10dp"/>
-            <!-- Baby Over button — only visible after ball 3, hidden by Java -->
-            <Button android:id="@+id/btn_baby_over" style="@style/Widget.AppCompat.Button.Borderless"
+            <androidx.appcompat.widget.AppCompatButton android:id="@+id/btn_baby_over" style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="wrap_content" android:layout_height="36dp"
                 android:text="Baby Over" android:textSize="12sp"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/c_btn_babyover_fg"
                 android:background="@drawable/bg_ball_btn_babyover"
+                app:backgroundTint="@null"
                 android:layout_margin="3dp" android:paddingStart="10dp" android:paddingEnd="10dp"
                 android:visibility="gone"/>
-            <Button android:id="@+id/btn_undo" style="@style/Widget.AppCompat.Button.Borderless"
+            <androidx.appcompat.widget.AppCompatButton android:id="@+id/btn_undo" style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="wrap_content" android:layout_height="36dp"
-                android:text="&#x21A9; Undo" android:textSize="13sp"
-                android:textColor="@color/c_text_secondary"
+                android:text="Undo" android:textSize="13sp"
+                android:textColor="@color/c_btn_undo_fg"
                 android:background="@drawable/bg_ball_btn_undo"
+                app:backgroundTint="@null"
                 android:layout_margin="3dp" android:paddingStart="12dp" android:paddingEnd="12dp"/>
         </com.google.android.flexbox.FlexboxLayout>
 
-        <!-- ══ HISTORY + BOWLING side by side, both independently scrollable ══
-             Remaining vertical space split: history 60% | bowling 40%
-             Each column has its own label + scrollable content.
-        ══ -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
             android:orientation="horizontal">
 
-            <!-- LEFT: Over history (ball circles per over) — 60% width -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
@@ -259,13 +258,11 @@
                     android:clipToPadding="false"/>
             </LinearLayout>
 
-            <!-- Divider -->
             <View
                 android:layout_width="0.5dp"
                 android:layout_height="match_parent"
                 android:background="@color/c_divider"/>
 
-            <!-- RIGHT: Bowling summary (overs per bowler) — 40% width -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="match_parent"

@@ -47,6 +47,15 @@
     <color name="c_ball_wicket_bg">#E24B4A</color>
     <color name="c_ball_wicket_fg">#FFFFFF</color>
     <color name="c_ball_empty_border">#CCCCCC</color>
+    <color name="c_btn_retired_bg">#F57C00</color>
+    <color name="c_btn_retired_fg">#FFFFFF</color>
+    <color name="c_btn_retired_border">#E65100</color>
+    <color name="c_btn_undo_bg">#1976D2</color>
+    <color name="c_btn_undo_fg">#FFFFFF</color>
+    <color name="c_btn_undo_border">#0D47A1</color>
+    <color name="c_btn_babyover_bg">#7B1FA2</color>
+    <color name="c_btn_babyover_fg">#FFFFFF</color>
+    <color name="c_btn_babyover_border">#4A148C</color>
     <color name="c_btn_default_bg">#FFFFFF</color>
     <color name="c_btn_default_fg">#111111</color>
     <color name="c_btn_outline_border">#085041</color>
