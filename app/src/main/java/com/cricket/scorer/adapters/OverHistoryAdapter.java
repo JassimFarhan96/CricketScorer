@@ -187,9 +187,11 @@ public class OverHistoryAdapter extends RecyclerView.Adapter<OverHistoryAdapter.
         p.setMargins(marg, marg, marg, marg);
         tv.setLayoutParams(p);
         tv.setGravity(Gravity.CENTER);
-        tv.setTextSize(9.5f);
+        String label = ball.getDisplayLabel();
+        // Run-out wickets show "N+W" (3+ chars). Shrink to fit the small history circle.
+        tv.setTextSize(label.length() >= 3 ? 7.5f : 9.5f);
         tv.setTypeface(null, Typeface.BOLD);
-        tv.setText(ball.getDisplayLabel());
+        tv.setText(label);
 
         int[] colors = ballColors(ctx, ball);
         GradientDrawable gd = new GradientDrawable();

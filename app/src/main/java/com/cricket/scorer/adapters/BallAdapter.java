@@ -37,7 +37,10 @@ public class BallAdapter extends RecyclerView.Adapter<BallAdapter.BallViewHolder
             tv.setBackground(oval(Color.TRANSPARENT, c(ctx, R.color.c_ball_empty_border), 3));
             return;
         }
-        tv.setText(ball.getDisplayLabel());
+        String label = ball.getDisplayLabel();
+        tv.setText(label);
+        // Run-out wickets show "N+W" (3+ chars). Use a smaller text size to fit.
+        tv.setTextSize(label.length() >= 3 ? 10f : 13f);
         int[] col = colors(ctx, ball);
         tv.setBackground(oval(col[0], 0, 0));
         tv.setTextColor(col[1]);

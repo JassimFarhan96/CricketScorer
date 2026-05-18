@@ -202,6 +202,48 @@ public class Innings implements Serializable {
         }
     }
 
+    /**
+     * Run-out wicket where the batters completed some runs before dismissal.
+     *
+     * Cricket flow being modelled:
+     *   1. Striker faces the delivery → records 1 ball faced.
+     *   2. Batters take {@code runsCompleted} runs that crossed safely.
+     *      Those runs are credited to the striker and the team total.
+     *      Strike swaps if {@code runsCompleted} is odd (normal rotation).
+     *   3. On the next attempted run, {@code outPlayer} is run out.
+     *      The attempted run does NOT count.
+     *
+     * Caller (MatchEngine) is responsible for setting the new striker index
+     * after this method returns (since either batter could be the one out).
+     *
+     * @param striker        the batter who faced the delivery
+     * @param outPlayer      the batter who is run out (may equal striker or non-striker)
+     * @param runsCompleted  runs successfully completed before the wicket (0..4)
+     */
+    public void recordRunOutWicket(Player striker, Player outPlayer, int runsCompleted) {
+        currentOver.addBall(Ball.runOutWicket(runsCompleted));
+        totalRuns       += runsCompleted;
+        totalWickets    += 1;
+        totalValidBalls += 1;
+
+        // Striker gets credited the completed runs + 1 ball faced
+        striker.addRuns(runsCompleted);
+        // addRuns already increments ballsFaced once (matches recordNormalBall behaviour).
+        // We do NOT call addBallFaced() again here — the delivery is one ball faced total.
+
+        // Strike rotation from completed runs (odd → swap), then dismissed player is removed
+        if (!singleBatsmanMode && runsCompleted % 2 == 1) swapStrike();
+
+        outPlayer.dismiss("run out");
+
+        String bowler = getActiveBowlerName();
+        if (!bowler.isEmpty()) {
+            addToMap(bowlerRunsMap,    bowler, runsCompleted);
+            addToMap(bowlerWicketsMap, bowler, 1);
+            addToMap(bowlerBallsMap,   bowler, 1);
+        }
+    }
+
     public Ball undoLastBall(Player striker) {
         Ball removed = currentOver.removeLastBall();
         if (removed == null) return null;
@@ -249,13 +291,29 @@ public class Innings implements Serializable {
             case WICKET:
                 totalValidBalls -= 1;
                 totalWickets    -= 1;
-                // Reverse the addBallFaced() from recordWicket
-                if (striker != null && striker.getBallsFaced() > 0) {
-                    striker.setBallsFaced(striker.getBallsFaced() - 1);
-                }
                 if (!bowler.isEmpty()) {
                     subtractFromMap(bowlerWicketsMap, bowler, 1);
                     subtractFromMap(bowlerBallsMap,   bowler, 1);
+                }
+                if (removed.isRunOutWicket() && removed.getRuns() > 0) {
+                    // Reverse the completed runs. The strike swap and player stat
+                    // reversal are handled by MatchEngine.undoLastBall() which has
+                    // access to the full batters list. We only handle totals + bowler here.
+                    int rc = removed.getRuns();
+                    totalRuns -= rc;
+                    // Reverse the strike swap caused by odd completed runs so the
+                    // striker index is restored BEFORE MatchEngine reads it.
+                    if (!singleBatsmanMode && rc % 2 == 1) swapStrike();
+                    if (!bowler.isEmpty()) {
+                        subtractFromMap(bowlerRunsMap, bowler, rc);
+                    }
+                    // Player stat reversal (runsScored, ballsFaced) done in MatchEngine
+                    // using the actual Player reference from the batters list.
+                } else {
+                    // Plain wicket: reverse the addBallFaced() from recordWicket
+                    if (striker != null && striker.getBallsFaced() > 0) {
+                        striker.setBallsFaced(striker.getBallsFaced() - 1);
+                    }
                 }
                 if (currentOver.isBabyOver()
                         && currentOver.getValidBallCount() < currentOver.getSecondBowlerFromBall() - 1) {

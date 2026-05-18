@@ -8,6 +8,10 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
+import android.widget.Spinner;
+import android.widget.ArrayAdapter;
 import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
@@ -758,6 +762,7 @@ public class InningsActivity extends AppCompatActivity {
         btnWide.setOnClickListener(v -> handleMatchState(engine.deliverWide()));
         btnNoBall.setOnClickListener(v -> handleMatchState(engine.deliverNoBall()));
         btnWicket.setOnClickListener(v -> showWicketDialog());
+        btnWicket.setOnLongClickListener(v -> { showRunOutWicketDialog(); return true; });
         btnRetiredHurt.setOnClickListener(v -> showRetiredHurtDialog());
         btnBabyOver.setOnClickListener(v -> showBabyOverDialog());
         btnEditOvers.setOnClickListener(v -> showEditOversDialog());
@@ -802,6 +807,118 @@ public class InningsActivity extends AppCompatActivity {
                     handleMatchState(engine.deliverWicket(batters.indexOf(incoming)));
                 })
                 .setNegativeButton("Cancel", null).show();
+    }
+
+    /**
+     * Long-press Wicket flow: run-out wicket where some runs were completed first.
+     *
+     * Step 1: Ask user how many runs were completed (0–4) and who was run out
+     *         (striker or non-striker). Both options are presented in a single dialog.
+     * Step 2: Reuse the same "choose next batsman" picker as a regular wicket.
+     * Step 3: Call engine.deliverRunOutWicket() with all collected inputs.
+     */
+    private void showRunOutWicketDialog() {
+        Player striker    = engine.getStriker();
+        Player nonStriker = engine.getNonStriker();
+        if (striker == null) return;
+
+        // Build the dialog body programmatically: Spinner for runs + radio for who is out
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.VERTICAL);
+        body.setPadding(pad, pad, pad, 0);
+
+        TextView lblRuns = new TextView(this);
+        lblRuns.setText("Runs completed before run-out:");
+        body.addView(lblRuns);
+
+        Spinner spRuns = new Spinner(this);
+        ArrayAdapter<String> runsAdapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item,
+                new String[]{"0", "1", "2", "3", "4"});
+        runsAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spRuns.setAdapter(runsAdapter);
+        spRuns.setSelection(2); // default 2 runs — the most common scenario
+        body.addView(spRuns);
+
+        TextView lblWho = new TextView(this);
+        lblWho.setText("Who is run out?");
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = pad;
+        lblWho.setLayoutParams(lp);
+        body.addView(lblWho);
+
+        RadioGroup rg = new RadioGroup(this);
+        rg.setOrientation(RadioGroup.VERTICAL);
+        RadioButton rbStriker = new RadioButton(this);
+        rbStriker.setText("Striker — " + striker.getName());
+        rbStriker.setId(View.generateViewId());
+        rg.addView(rbStriker);
+
+        RadioButton rbNon = new RadioButton(this);
+        if (nonStriker != null && !match.isSingleBatsmanMode()) {
+            rbNon.setText("Non-striker — " + nonStriker.getName());
+            rbNon.setId(View.generateViewId());
+            rg.addView(rbNon);
+        }
+        rbStriker.setChecked(true); // default: striker (single-bat mode forces this)
+        body.addView(rg);
+
+        new AlertDialog.Builder(this)
+                .setTitle("Run-out with runs")
+                .setView(body)
+                .setPositiveButton("Next", (d, w) -> {
+                    int runs = spRuns.getSelectedItemPosition(); // 0..4
+                    boolean strikerOut = (rg.getCheckedRadioButtonId() == rbStriker.getId())
+                            || match.isSingleBatsmanMode();
+                    chooseIncomingForRunOut(runs, strikerOut);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    /**
+     * Second step of the run-out flow: pick the incoming batsman, mirroring
+     * the regular wicket dialog. The "Confirm" button then dispatches
+     * engine.deliverRunOutWicket() with all three inputs.
+     */
+    private void chooseIncomingForRunOut(int runsCompleted, boolean strikerOut) {
+        List<Player> available = engine.getAvailableBatsmen();
+        List<Player> filtered = new ArrayList<>();
+        for (Player p : available) {
+            if (match.hasJoker() && match.getJokerName().equals(p.getName())
+                    && match.isJokerBowling()) continue;
+            filtered.add(p);
+        }
+        if (filtered.isEmpty()) {
+            handleMatchState(engine.deliverRunOutWicket(
+                    runsCompleted, strikerOut, engine.getNextBatsmanIndex()));
+            return;
+        }
+        String[] names = new String[filtered.size()];
+        List<Player> batters = match.getCurrentBattingPlayers();
+        for (int i = 0; i < filtered.size(); i++) {
+            boolean isJoker = match.hasJoker()
+                    && match.getJokerName().equals(filtered.get(i).getName());
+            names[i] = (i + 1) + ". " + filtered.get(i).getName()
+                    + (isJoker ? " \u26A1 Joker" : "");
+        }
+        final int[] ch = {0};
+        new AlertDialog.Builder(this)
+                .setTitle("Run-out — choose next batsman")
+                .setSingleChoiceItems(names, 0, (d, w) -> ch[0] = w)
+                .setPositiveButton("Confirm", (d, w) -> {
+                    Player incoming = filtered.get(ch[0]);
+                    if (match.hasJoker() && match.getJokerName().equals(incoming.getName())) {
+                        match.setJokerBatting();
+                    }
+                    handleMatchState(engine.deliverRunOutWicket(
+                            runsCompleted, strikerOut, batters.indexOf(incoming)));
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     // ─── Match state routing ──────────────────────────────────────────────────

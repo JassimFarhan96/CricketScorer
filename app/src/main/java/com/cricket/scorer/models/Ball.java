@@ -24,6 +24,7 @@ public class Ball implements Serializable {
     private BallType type;
     private int runs;           // runs scored off this ball (including extras)
     private boolean isValid;    // whether this counts as one of the 6 balls in an over
+    private boolean runOutWicket;  // true if this WICKET ball also had completed runs (run out)
 
     // ─── Factory methods ──────────────────────────────────────────────────────
 
@@ -59,6 +60,20 @@ public class Ball implements Serializable {
         return b;
     }
 
+    /**
+     * Run-out wicket where some runs were completed before the dismissal.
+     * Example: batsmen take 2 then are run out attempting the 3rd → runsCompleted=2.
+     * The completed runs count for the team and the on-strike batter.
+     */
+    public static Ball runOutWicket(int runsCompleted) {
+        Ball b = new Ball();
+        b.type = BallType.WICKET;
+        b.runs = runsCompleted;
+        b.isValid = true;
+        b.runOutWicket = true;
+        return b;
+    }
+
     // ─── Display helpers ──────────────────────────────────────────────────────
 
     /** Short label displayed on the ball circle in the over tracker */
@@ -66,7 +81,7 @@ public class Ball implements Serializable {
         switch (type) {
             case WIDE:    return "Wd";
             case NO_BALL: return "NB";
-            case WICKET:  return "W";
+            case WICKET:  return runOutWicket && runs > 0 ? runs + "+W" : "W";
             case NORMAL:  return runs == 0 ? "·" : String.valueOf(runs);
             default:      return "?";
         }
@@ -96,5 +111,7 @@ public class Ball implements Serializable {
     public void setRuns(int runs) { this.runs = runs; }
 
     public boolean isValid() { return isValid; }
+    public boolean isRunOutWicket() { return runOutWicket; }
+    public void setRunOutWicket(boolean v) { runOutWicket = v; }
     public void setValid(boolean valid) { isValid = valid; }
 }
