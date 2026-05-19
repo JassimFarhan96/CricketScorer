@@ -8,10 +8,6 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.RadioButton;
-import android.widget.RadioGroup;
-import android.widget.Spinner;
-import android.widget.ArrayAdapter;
 import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
@@ -760,9 +756,9 @@ public class InningsActivity extends AppCompatActivity {
         btn3.setOnClickListener(v -> handleBall(3)); btn4.setOnClickListener(v -> handleBall(4));
         btn6.setOnClickListener(v -> handleBall(6));
         btnWide.setOnClickListener(v -> handleMatchState(engine.deliverWide()));
+        btnWide.setOnLongClickListener(v -> { showWideExtrasDialog(); return true; });
         btnNoBall.setOnClickListener(v -> handleMatchState(engine.deliverNoBall()));
         btnWicket.setOnClickListener(v -> showWicketDialog());
-        btnWicket.setOnLongClickListener(v -> { showRunOutWicketDialog(); return true; });
         btnRetiredHurt.setOnClickListener(v -> showRetiredHurtDialog());
         btnBabyOver.setOnClickListener(v -> showBabyOverDialog());
         btnEditOvers.setOnClickListener(v -> showEditOversDialog());
@@ -810,91 +806,123 @@ public class InningsActivity extends AppCompatActivity {
     }
 
     /**
-     * Long-press Wicket flow: run-out wicket where some runs were completed first.
+     * Long-press Wide flow: wide delivery with optional extra runs and/or run-out.
      *
-     * Step 1: Ask user how many runs were completed (0–4) and who was run out
-     *         (striker or non-striker). Both options are presented in a single dialog.
-     * Step 2: Reuse the same "choose next batsman" picker as a regular wicket.
-     * Step 3: Call engine.deliverRunOutWicket() with all collected inputs.
+     * Dialog shows:
+     *   - Spinner: how many extra runs batters completed (0–4, in addition to the wide penalty)
+     *   - Checkbox: "Run-out on this wide?"
+     *   - RadioGroup (shown only when run-out checked): Striker / Non-striker
+     *
+     * Outcomes:
+     *   - 0 extra + no run-out  → plain wide (same as tapping Wide)
+     *   - N extra + no run-out  → wide + N runs → displayed as "(N+1)Wd"
+     *   - N extra + run-out     → wide + N runs + wicket → displayed as "(N+1)Wd+W"
+     *
+     * Cricket rules applied:
+     *   - ALL runs (wide penalty + completed runs) are extras — no batsman credit
+     *   - Strike swaps if extra runs are odd
+     *   - Wide stays an invalid ball even with a run-out
      */
-    private void showRunOutWicketDialog() {
+    private void showWideExtrasDialog() {
         Player striker    = engine.getStriker();
         Player nonStriker = engine.getNonStriker();
         if (striker == null) return;
 
-        // Build the dialog body programmatically: Spinner for runs + radio for who is out
-        int pad = (int) (16 * getResources().getDisplayMetrics().density);
-        LinearLayout body = new LinearLayout(this);
-        body.setOrientation(LinearLayout.VERTICAL);
-        body.setPadding(pad, pad, pad, 0);
+        int dp = (int) (getResources().getDisplayMetrics().density * 16);
 
-        TextView lblRuns = new TextView(this);
-        lblRuns.setText("Runs completed before run-out:");
+        android.widget.LinearLayout body = new android.widget.LinearLayout(this);
+        body.setOrientation(android.widget.LinearLayout.VERTICAL);
+        body.setPadding(dp, dp, dp, 0);
+
+        // ── Extra runs spinner ────────────────────────────────────────────
+        android.widget.TextView lblRuns = new android.widget.TextView(this);
+        lblRuns.setText("Extra runs completed (besides the wide penalty):");
         body.addView(lblRuns);
 
-        Spinner spRuns = new Spinner(this);
-        ArrayAdapter<String> runsAdapter = new ArrayAdapter<>(this,
+        android.widget.Spinner spRuns = new android.widget.Spinner(this);
+        android.widget.ArrayAdapter<String> runsAdapter = new android.widget.ArrayAdapter<>(this,
                 android.R.layout.simple_spinner_item,
-                new String[]{"0", "1", "2", "3", "4"});
+                new String[]{"0 (plain wide)", "1", "2", "3", "4"});
         runsAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spRuns.setAdapter(runsAdapter);
-        spRuns.setSelection(2); // default 2 runs — the most common scenario
+        spRuns.setSelection(0);
         body.addView(spRuns);
 
-        TextView lblWho = new TextView(this);
-        lblWho.setText("Who is run out?");
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.topMargin = pad;
-        lblWho.setLayoutParams(lp);
-        body.addView(lblWho);
+        // ── Run-out checkbox ──────────────────────────────────────────────
+        android.widget.CheckBox chkRunOut = new android.widget.CheckBox(this);
+        chkRunOut.setText("Run-out on this wide?");
+        android.widget.LinearLayout.LayoutParams cbLp = new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        cbLp.topMargin = dp;
+        chkRunOut.setLayoutParams(cbLp);
+        body.addView(chkRunOut);
 
-        RadioGroup rg = new RadioGroup(this);
-        rg.setOrientation(RadioGroup.VERTICAL);
-        RadioButton rbStriker = new RadioButton(this);
+        // ── Who is run out (hidden until checkbox ticked) ─────────────────
+        android.widget.LinearLayout whoLayout = new android.widget.LinearLayout(this);
+        whoLayout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        whoLayout.setVisibility(android.view.View.GONE);
+
+        android.widget.TextView lblWho = new android.widget.TextView(this);
+        lblWho.setText("Who is run out?");
+        whoLayout.addView(lblWho);
+
+        android.widget.RadioGroup rg = new android.widget.RadioGroup(this);
+        rg.setOrientation(android.widget.RadioGroup.VERTICAL);
+
+        android.widget.RadioButton rbStriker = new android.widget.RadioButton(this);
         rbStriker.setText("Striker — " + striker.getName());
-        rbStriker.setId(View.generateViewId());
+        rbStriker.setId(android.view.View.generateViewId());
         rg.addView(rbStriker);
 
-        RadioButton rbNon = new RadioButton(this);
+        android.widget.RadioButton rbNon = new android.widget.RadioButton(this);
         if (nonStriker != null && !match.isSingleBatsmanMode()) {
             rbNon.setText("Non-striker — " + nonStriker.getName());
-            rbNon.setId(View.generateViewId());
+            rbNon.setId(android.view.View.generateViewId());
             rg.addView(rbNon);
         }
-        rbStriker.setChecked(true); // default: striker (single-bat mode forces this)
-        body.addView(rg);
+        rbStriker.setChecked(true);
+        whoLayout.addView(rg);
+        body.addView(whoLayout);
 
-        new AlertDialog.Builder(this)
-                .setTitle("Run-out with runs")
+        // Show/hide the who-is-out section when checkbox is toggled
+        chkRunOut.setOnCheckedChangeListener((btn, checked) ->
+                whoLayout.setVisibility(checked
+                        ? android.view.View.VISIBLE
+                        : android.view.View.GONE));
+
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Wide — extra runs")
                 .setView(body)
-                .setPositiveButton("Next", (d, w) -> {
-                    int runs = spRuns.getSelectedItemPosition(); // 0..4
-                    boolean strikerOut = (rg.getCheckedRadioButtonId() == rbStriker.getId())
-                            || match.isSingleBatsmanMode();
-                    chooseIncomingForRunOut(runs, strikerOut);
+                .setPositiveButton("Record", (d, w) -> {
+                    int extraRuns = spRuns.getSelectedItemPosition(); // 0..4
+                    boolean isRunOut = chkRunOut.isChecked();
+                    if (!isRunOut) {
+                        handleMatchState(engine.deliverWideWithRuns(extraRuns));
+                    } else {
+                        boolean strikerOut = (rg.getCheckedRadioButtonId() == rbStriker.getId())
+                                || match.isSingleBatsmanMode();
+                        chooseIncomingForWideRunOut(extraRuns, strikerOut);
+                    }
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
     }
 
     /**
-     * Second step of the run-out flow: pick the incoming batsman, mirroring
-     * the regular wicket dialog. The "Confirm" button then dispatches
-     * engine.deliverRunOutWicket() with all three inputs.
+     * Second step of the wide run-out flow: pick the incoming batsman.
      */
-    private void chooseIncomingForRunOut(int runsCompleted, boolean strikerOut) {
+    private void chooseIncomingForWideRunOut(int extraRuns, boolean strikerOut) {
         List<Player> available = engine.getAvailableBatsmen();
-        List<Player> filtered = new ArrayList<>();
+        List<Player> filtered  = new ArrayList<>();
         for (Player p : available) {
             if (match.hasJoker() && match.getJokerName().equals(p.getName())
                     && match.isJokerBowling()) continue;
             filtered.add(p);
         }
         if (filtered.isEmpty()) {
-            handleMatchState(engine.deliverRunOutWicket(
-                    runsCompleted, strikerOut, engine.getNextBatsmanIndex()));
+            handleMatchState(engine.deliverWideRunOut(
+                    extraRuns, strikerOut, engine.getNextBatsmanIndex()));
             return;
         }
         String[] names = new String[filtered.size()];
@@ -906,16 +934,16 @@ public class InningsActivity extends AppCompatActivity {
                     + (isJoker ? " \u26A1 Joker" : "");
         }
         final int[] ch = {0};
-        new AlertDialog.Builder(this)
-                .setTitle("Run-out — choose next batsman")
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Wide run-out — choose next batsman")
                 .setSingleChoiceItems(names, 0, (d, w) -> ch[0] = w)
                 .setPositiveButton("Confirm", (d, w) -> {
                     Player incoming = filtered.get(ch[0]);
                     if (match.hasJoker() && match.getJokerName().equals(incoming.getName())) {
                         match.setJokerBatting();
                     }
-                    handleMatchState(engine.deliverRunOutWicket(
-                            runsCompleted, strikerOut, batters.indexOf(incoming)));
+                    handleMatchState(engine.deliverWideRunOut(
+                            extraRuns, strikerOut, batters.indexOf(incoming)));
                 })
                 .setNegativeButton("Cancel", null)
                 .show();

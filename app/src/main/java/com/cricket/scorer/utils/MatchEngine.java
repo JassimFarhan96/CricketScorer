@@ -62,6 +62,53 @@ public class MatchEngine {
     public MatchState deliverWide()   { match.getCurrentInningsData().recordWide();   return MatchState.BALL_RECORDED; }
     public MatchState deliverNoBall() { match.getCurrentInningsData().recordNoBall(); return MatchState.BALL_RECORDED; }
 
+    /**
+     * Wide delivery with extra completed runs (no wicket).
+     * @param extraRuns runs the batters completed on top of the wide penalty (0 = plain wide)
+     */
+    public MatchState deliverWideWithRuns(int extraRuns) {
+        if (extraRuns == 0) return deliverWide(); // plain wide — no change needed
+        match.getCurrentInningsData().recordWideWithRuns(extraRuns);
+        return MatchState.BALL_RECORDED;
+    }
+
+    /**
+     * Wide delivery with extra completed runs AND a run-out dismissal.
+     * @param extraRuns   runs completed before the run-out (not counting the wide penalty)
+     * @param strikerOut  true if the striker is run out; false if the non-striker is out
+     * @param newBatsmanIndex  index of the incoming batsman in the current batting list
+     */
+    public MatchState deliverWideRunOut(int extraRuns, boolean strikerOut,
+                                        int newBatsmanIndex) {
+        Innings      innings    = match.getCurrentInningsData();
+        Player       striker    = getStriker();
+        Player       nonStriker = getNonStriker();
+        Player       outPlayer  = strikerOut ? striker : nonStriker;
+        List<Player> batters    = match.getCurrentBattingPlayers();
+
+        if (nonStriker != null) nonStriker.setHasNotBatted(false);
+        striker.setHasNotBatted(false);
+
+        innings.recordWideRunOut(outPlayer, extraRuns);
+
+        if (match.isJoker(outPlayer.getName())) match.clearJokerRole();
+
+        if (isAllOut(innings, batters)) return handleAllOut(innings, batters);
+
+        // Place new batsman in the dismissed player's slot (after any strike swap from runs)
+        int dismissedIdx = batters.indexOf(outPlayer);
+        if (innings.getStrikerIndex() == dismissedIdx) {
+            innings.setStrikerIndex(newBatsmanIndex);
+        } else if (innings.getNonStrikerIndex() == dismissedIdx) {
+            innings.setNonStrikerIndex(newBatsmanIndex);
+        }
+        if (newBatsmanIndex < batters.size()) batters.get(newBatsmanIndex).setHasNotBatted(false);
+        if (innings.getNextBatsmanIndex() <= newBatsmanIndex) {
+            innings.setNextBatsmanIndex(newBatsmanIndex + 1);
+        }
+        return MatchState.BALL_RECORDED;
+    }
+
     public MatchState deliverWicket(int newBatsmanIndex) {
         Innings      innings = match.getCurrentInningsData();
         Player       striker = getStriker();
@@ -81,57 +128,6 @@ public class MatchEngine {
         }
 
         innings.setStrikerIndex(newBatsmanIndex);
-        if (newBatsmanIndex < batters.size()) batters.get(newBatsmanIndex).setHasNotBatted(false);
-        if (innings.getNextBatsmanIndex() <= newBatsmanIndex) innings.setNextBatsmanIndex(newBatsmanIndex + 1);
-
-        return checkAfterValidBall(innings);
-    }
-
-    /**
-     * Run-out wicket where some runs were completed before the dismissal.
-     *
-     * @param runsCompleted   how many runs successfully crossed before the wicket (0..4)
-     * @param strikerOut      true if the striker is the one run out; false if non-striker is out
-     * @param newBatsmanIndex index in current batting list of the incoming batter
-     */
-    public MatchState deliverRunOutWicket(int runsCompleted, boolean strikerOut,
-                                          int newBatsmanIndex) {
-        Innings      innings    = match.getCurrentInningsData();
-        Player       striker    = getStriker();
-        Player       nonStriker = getNonStriker();
-        Player       outPlayer  = strikerOut ? striker : nonStriker;
-        List<Player> batters    = match.getCurrentBattingPlayers();
-
-        striker.setHasNotBatted(false);
-        if (nonStriker != null) nonStriker.setHasNotBatted(false);
-
-        // Capture indices BEFORE recordRunOutWicket — recordRunOutWicket swaps strike if
-        // runsCompleted is odd, so striker/non-striker indices may change inside it.
-        int strikerIdxBefore    = innings.getStrikerIndex();
-        int nonStrikerIdxBefore = innings.getNonStrikerIndex();
-
-        innings.recordRunOutWicket(striker, outPlayer, runsCompleted);
-
-        // Clear joker batting role if joker is dismissed
-        if (match.isJoker(outPlayer.getName())) {
-            match.clearJokerRole();
-        }
-
-        // All-out check
-        if (isAllOut(innings, batters)) {
-            return handleAllOut(innings, batters);
-        }
-
-        // Place the new batsman in the slot of the dismissed player.
-        // After recordRunOutWicket, the strike has already swapped if runsCompleted is odd.
-        // We need to figure out which SLOT (striker or non-striker) the dismissed player
-        // currently occupies, then put the incoming batter there.
-        int dismissedIdx = batters.indexOf(outPlayer);
-        if (innings.getStrikerIndex() == dismissedIdx) {
-            innings.setStrikerIndex(newBatsmanIndex);
-        } else if (innings.getNonStrikerIndex() == dismissedIdx) {
-            innings.setNonStrikerIndex(newBatsmanIndex);
-        }
         if (newBatsmanIndex < batters.size()) batters.get(newBatsmanIndex).setHasNotBatted(false);
         if (innings.getNextBatsmanIndex() <= newBatsmanIndex) innings.setNextBatsmanIndex(newBatsmanIndex + 1);
 
@@ -196,83 +192,71 @@ public class MatchEngine {
         Ball lastBall = currentOver.getBalls().get(currentOver.getBalls().size() - 1);
 
         if (lastBall.getType() == Ball.BallType.WICKET) {
-            // For run-out wickets, the dismissed player could have been at either the
-            // striker OR the non-striker slot, and the incoming batter replaces them
-            // in that same slot. Detect by checking whether the current striker or
-            // non-striker slot holds a "fresh" player (hasNotBatted), and the OTHER
-            // slot holds a dismissed player.
-            int strikerIdx    = innings.getStrikerIndex();
-            int nonStrikerIdx = innings.getNonStrikerIndex();
+            int    incomingIndex  = innings.getStrikerIndex();
+            Player incomingBatter = batters.get(incomingIndex);
+            int    nonStrikerIdx  = innings.getNonStrikerIndex();
 
-            int    incomingSlot   = -1;          // which slot the new batter sits in
-            int    dismissedIndex = -1;
+            int    dismissedIndex  = -1;
             Player dismissedPlayer = null;
-
-            // The "incoming" batter is the one in striker/non-striker who is fresh
-            // (no balls faced AND not the actual non-striker from before — i.e.
-            // hasNotBatted is true OR they're the highest-numbered batter in play).
-            // Simpler heuristic: the dismissed player is the only "out" player NOT
-            // already at one of the two crease slots.
             for (int i = 0; i < batters.size(); i++) {
-                if (batters.get(i).isOut() && i != strikerIdx && i != nonStrikerIdx) {
+                if (batters.get(i).isOut() && i != nonStrikerIdx) {
                     dismissedIndex  = i;
                     dismissedPlayer = batters.get(i);
                     break;
                 }
             }
-            // Figure out which slot the dismissed player should be restored to.
-            // The OTHER slot still has its original occupant; the slot with a
-            // hasNotBatted player is the one that just received the incoming batter.
             if (dismissedPlayer != null) {
+                innings.setStrikerIndex(dismissedIndex);
+                dismissedPlayer.setOut(false);
+                dismissedPlayer.setDismissalInfo("");
+                // Restore joker batting role if dismissed player was joker
+                if (match.isJoker(dismissedPlayer.getName())) match.setJokerBatting();
+                incomingBatter.setHasNotBatted(true);
+                if (innings.getNextBatsmanIndex() > 1) innings.setNextBatsmanIndex(innings.getNextBatsmanIndex() - 1);
+            }
+            innings.undoLastBall(getStriker());
+            return true;
+        }
+
+        // Wide run-out: type is WIDE but contains a wicket — restore dismissed player
+        if (lastBall.getType() == Ball.BallType.WIDE && lastBall.isRunOutWicket()) {
+            // Find the dismissed player (the one marked out) and which slot the incoming batter took
+            int strikerIdx    = innings.getStrikerIndex();
+            int nonStrikerIdx = innings.getNonStrikerIndex();
+
+            int    dismissedIndex  = -1;
+            Player dismissedPlayer = null;
+            for (int i = 0; i < batters.size(); i++) {
+                if (batters.get(i).isOut()) {
+                    dismissedIndex  = i;
+                    dismissedPlayer = batters.get(i);
+                    break;
+                }
+            }
+            if (dismissedPlayer != null) {
+                // Figure out which slot has the incoming batter (hasNotBatted=true)
                 Player atStriker    = batters.get(strikerIdx);
                 Player atNonStriker = (nonStrikerIdx >= 0 && nonStrikerIdx < batters.size())
                                       ? batters.get(nonStrikerIdx) : null;
-                Player incomingBatter;
-                if (atStriker.isHasNotBatted() && atStriker.getBallsFaced() == 0
-                        && atStriker.getRunsScored() == 0) {
-                    incomingSlot   = strikerIdx;
-                    incomingBatter = atStriker;
+                if (atStriker.isHasNotBatted() && atStriker.getBallsFaced() == 0) {
                     innings.setStrikerIndex(dismissedIndex);
+                    atStriker.setHasNotBatted(true);
                 } else if (atNonStriker != null && atNonStriker.isHasNotBatted()
-                        && atNonStriker.getBallsFaced() == 0
-                        && atNonStriker.getRunsScored() == 0) {
-                    incomingSlot   = nonStrikerIdx;
-                    incomingBatter = atNonStriker;
+                        && atNonStriker.getBallsFaced() == 0) {
                     innings.setNonStrikerIndex(dismissedIndex);
+                    atNonStriker.setHasNotBatted(true);
                 } else {
-                    // Fallback to legacy behaviour (regular wicket where striker is out)
-                    incomingBatter = atStriker;
                     innings.setStrikerIndex(dismissedIndex);
                 }
-
                 dismissedPlayer.setOut(false);
                 dismissedPlayer.setDismissalInfo("");
                 if (match.isJoker(dismissedPlayer.getName())) match.setJokerBatting();
-                incomingBatter.setHasNotBatted(true);
                 if (innings.getNextBatsmanIndex() > 1) {
                     innings.setNextBatsmanIndex(innings.getNextBatsmanIndex() - 1);
                 }
             }
-            Ball removed = innings.undoLastBall(getStriker());
-            // For run-out wickets, reverse the completed-runs stats on the striker.
-            // Innings.undoLastBall() has already swapped the strike index back, so
-            // getStriker() now returns the batter who originally faced the delivery.
-            if (removed != null && removed.isRunOutWicket() && removed.getRuns() > 0) {
-                Player originalStriker = getStriker();
-                if (originalStriker != null) {
-                    int rc = removed.getRuns();
-                    originalStriker.setRunsScored(originalStriker.getRunsScored() - rc);
-                    if (originalStriker.getBallsFaced() > 0) {
-                        originalStriker.setBallsFaced(originalStriker.getBallsFaced() - 1);
-                    }
-                    if (rc == 4 && originalStriker.getFours() > 0) {
-                        originalStriker.setFours(originalStriker.getFours() - 1);
-                    }
-                    if (rc == 6 && originalStriker.getSixes() > 0) {
-                        originalStriker.setSixes(originalStriker.getSixes() - 1);
-                    }
-                }
-            }
+            // Innings.undoLastBall handles: totalRuns, totalWickets, strike swap reversal, bowler maps
+            innings.undoLastBall(getStriker());
             return true;
         }
 
