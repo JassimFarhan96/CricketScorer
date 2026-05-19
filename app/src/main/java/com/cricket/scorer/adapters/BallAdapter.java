@@ -39,7 +39,7 @@ public class BallAdapter extends RecyclerView.Adapter<BallAdapter.BallViewHolder
         }
         String label = ball.getDisplayLabel();
         tv.setText(label);
-        // Run-out wickets show "N+W" (3+ chars). Use a smaller text size to fit.
+        // Multi-char labels (2+W, 3Wd+W etc) need smaller text to fit the circle
         tv.setTextSize(label.length() >= 3 ? 10f : 13f);
         int[] col = colors(ctx, ball);
         tv.setBackground(oval(col[0], 0, 0));

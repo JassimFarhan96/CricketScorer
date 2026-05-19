@@ -62,51 +62,51 @@ public class MatchEngine {
     public MatchState deliverWide()   { match.getCurrentInningsData().recordWide();   return MatchState.BALL_RECORDED; }
     public MatchState deliverNoBall() { match.getCurrentInningsData().recordNoBall(); return MatchState.BALL_RECORDED; }
 
-    /**
-     * Wide delivery with extra completed runs (no wicket).
-     * @param extraRuns runs the batters completed on top of the wide penalty (0 = plain wide)
-     */
+    /** Wide + extra runs (no wicket). extraRuns=0 falls back to plain wide. */
     public MatchState deliverWideWithRuns(int extraRuns) {
-        if (extraRuns == 0) return deliverWide(); // plain wide — no change needed
+        if (extraRuns == 0) return deliverWide();
         match.getCurrentInningsData().recordWideWithRuns(extraRuns);
         return MatchState.BALL_RECORDED;
     }
 
-    /**
-     * Wide delivery with extra completed runs AND a run-out dismissal.
-     * @param extraRuns   runs completed before the run-out (not counting the wide penalty)
-     * @param strikerOut  true if the striker is run out; false if the non-striker is out
-     * @param newBatsmanIndex  index of the incoming batsman in the current batting list
-     */
-    public MatchState deliverWideRunOut(int extraRuns, boolean strikerOut,
-                                        int newBatsmanIndex) {
+    /** Wide + extra runs + run-out. All runs are extras; dismissed player restored by undo. */
+    public MatchState deliverWideRunOut(int extraRuns, boolean strikerOut, int newBatsmanIndex) {
         Innings      innings    = match.getCurrentInningsData();
         Player       striker    = getStriker();
         Player       nonStriker = getNonStriker();
         Player       outPlayer  = strikerOut ? striker : nonStriker;
         List<Player> batters    = match.getCurrentBattingPlayers();
-
-        if (nonStriker != null) nonStriker.setHasNotBatted(false);
         striker.setHasNotBatted(false);
-
+        if (nonStriker != null) nonStriker.setHasNotBatted(false);
         innings.recordWideRunOut(outPlayer, extraRuns);
-
         if (match.isJoker(outPlayer.getName())) match.clearJokerRole();
-
         if (isAllOut(innings, batters)) return handleAllOut(innings, batters);
-
-        // Place new batsman in the dismissed player's slot (after any strike swap from runs)
         int dismissedIdx = batters.indexOf(outPlayer);
-        if (innings.getStrikerIndex() == dismissedIdx) {
-            innings.setStrikerIndex(newBatsmanIndex);
-        } else if (innings.getNonStrikerIndex() == dismissedIdx) {
-            innings.setNonStrikerIndex(newBatsmanIndex);
-        }
+        if (innings.getStrikerIndex() == dismissedIdx)    innings.setStrikerIndex(newBatsmanIndex);
+        else if (innings.getNonStrikerIndex() == dismissedIdx) innings.setNonStrikerIndex(newBatsmanIndex);
         if (newBatsmanIndex < batters.size()) batters.get(newBatsmanIndex).setHasNotBatted(false);
-        if (innings.getNextBatsmanIndex() <= newBatsmanIndex) {
-            innings.setNextBatsmanIndex(newBatsmanIndex + 1);
-        }
+        if (innings.getNextBatsmanIndex() <= newBatsmanIndex) innings.setNextBatsmanIndex(newBatsmanIndex + 1);
         return MatchState.BALL_RECORDED;
+    }
+
+    /** Non-wide wicket where runs were completed before the run-out. */
+    public MatchState deliverRunOutWicket(int runsCompleted, boolean strikerOut, int newBatsmanIndex) {
+        Innings      innings    = match.getCurrentInningsData();
+        Player       striker    = getStriker();
+        Player       nonStriker = getNonStriker();
+        Player       outPlayer  = strikerOut ? striker : nonStriker;
+        List<Player> batters    = match.getCurrentBattingPlayers();
+        striker.setHasNotBatted(false);
+        if (nonStriker != null) nonStriker.setHasNotBatted(false);
+        innings.recordRunOutWicket(striker, outPlayer, runsCompleted);
+        if (match.isJoker(outPlayer.getName())) match.clearJokerRole();
+        if (isAllOut(innings, batters)) return handleAllOut(innings, batters);
+        int dismissedIdx = batters.indexOf(outPlayer);
+        if (innings.getStrikerIndex() == dismissedIdx)    innings.setStrikerIndex(newBatsmanIndex);
+        else if (innings.getNonStrikerIndex() == dismissedIdx) innings.setNonStrikerIndex(newBatsmanIndex);
+        if (newBatsmanIndex < batters.size()) batters.get(newBatsmanIndex).setHasNotBatted(false);
+        if (innings.getNextBatsmanIndex() <= newBatsmanIndex) innings.setNextBatsmanIndex(newBatsmanIndex + 1);
+        return checkAfterValidBall(innings);
     }
 
     public MatchState deliverWicket(int newBatsmanIndex) {
@@ -191,36 +191,10 @@ public class MatchEngine {
 
         Ball lastBall = currentOver.getBalls().get(currentOver.getBalls().size() - 1);
 
-        if (lastBall.getType() == Ball.BallType.WICKET) {
-            int    incomingIndex  = innings.getStrikerIndex();
-            Player incomingBatter = batters.get(incomingIndex);
-            int    nonStrikerIdx  = innings.getNonStrikerIndex();
-
-            int    dismissedIndex  = -1;
-            Player dismissedPlayer = null;
-            for (int i = 0; i < batters.size(); i++) {
-                if (batters.get(i).isOut() && i != nonStrikerIdx) {
-                    dismissedIndex  = i;
-                    dismissedPlayer = batters.get(i);
-                    break;
-                }
-            }
-            if (dismissedPlayer != null) {
-                innings.setStrikerIndex(dismissedIndex);
-                dismissedPlayer.setOut(false);
-                dismissedPlayer.setDismissalInfo("");
-                // Restore joker batting role if dismissed player was joker
-                if (match.isJoker(dismissedPlayer.getName())) match.setJokerBatting();
-                incomingBatter.setHasNotBatted(true);
-                if (innings.getNextBatsmanIndex() > 1) innings.setNextBatsmanIndex(innings.getNextBatsmanIndex() - 1);
-            }
-            innings.undoLastBall(getStriker());
-            return true;
-        }
-
-        // Wide run-out: type is WIDE but contains a wicket — restore dismissed player
-        if (lastBall.getType() == Ball.BallType.WIDE && lastBall.isRunOutWicket()) {
-            // Find the dismissed player (the one marked out) and which slot the incoming batter took
+        // Helper: find and restore the dismissed player for any run-out undo
+        // Works for both BallType.WICKET run-outs and BallType.WIDE run-outs.
+        if ((lastBall.getType() == Ball.BallType.WICKET)
+                || (lastBall.getType() == Ball.BallType.WIDE && lastBall.isRunOutWicket())) {
             int strikerIdx    = innings.getStrikerIndex();
             int nonStrikerIdx = innings.getNonStrikerIndex();
 
@@ -234,29 +208,45 @@ public class MatchEngine {
                 }
             }
             if (dismissedPlayer != null) {
-                // Figure out which slot has the incoming batter (hasNotBatted=true)
+                // Determine which slot holds the incoming (fresh) batter
                 Player atStriker    = batters.get(strikerIdx);
                 Player atNonStriker = (nonStrikerIdx >= 0 && nonStrikerIdx < batters.size())
                                       ? batters.get(nonStrikerIdx) : null;
-                if (atStriker.isHasNotBatted() && atStriker.getBallsFaced() == 0) {
+                Player incomingBatter;
+                if (atStriker.isHasNotBatted() && atStriker.getBallsFaced() == 0
+                        && atStriker.getRunsScored() == 0) {
+                    incomingBatter = atStriker;
                     innings.setStrikerIndex(dismissedIndex);
-                    atStriker.setHasNotBatted(true);
                 } else if (atNonStriker != null && atNonStriker.isHasNotBatted()
-                        && atNonStriker.getBallsFaced() == 0) {
+                        && atNonStriker.getBallsFaced() == 0
+                        && atNonStriker.getRunsScored() == 0) {
+                    incomingBatter = atNonStriker;
                     innings.setNonStrikerIndex(dismissedIndex);
-                    atNonStriker.setHasNotBatted(true);
                 } else {
+                    incomingBatter = atStriker;
                     innings.setStrikerIndex(dismissedIndex);
                 }
                 dismissedPlayer.setOut(false);
                 dismissedPlayer.setDismissalInfo("");
                 if (match.isJoker(dismissedPlayer.getName())) match.setJokerBatting();
+                incomingBatter.setHasNotBatted(true);
                 if (innings.getNextBatsmanIndex() > 1) {
                     innings.setNextBatsmanIndex(innings.getNextBatsmanIndex() - 1);
                 }
             }
-            // Innings.undoLastBall handles: totalRuns, totalWickets, strike swap reversal, bowler maps
-            innings.undoLastBall(getStriker());
+            Ball removed = innings.undoLastBall(getStriker());
+            // For non-wide run-out: reverse the completed-runs player stats
+            if (removed != null && removed.getType() == Ball.BallType.WICKET
+                    && removed.isRunOutWicket() && removed.getRuns() > 0) {
+                Player originalStriker = getStriker();
+                if (originalStriker != null) {
+                    int rc = removed.getRuns();
+                    originalStriker.setRunsScored(originalStriker.getRunsScored() - rc);
+                    if (originalStriker.getBallsFaced() > 0) originalStriker.setBallsFaced(originalStriker.getBallsFaced() - 1);
+                    if (rc == 4 && originalStriker.getFours() > 0) originalStriker.setFours(originalStriker.getFours() - 1);
+                    if (rc == 6 && originalStriker.getSixes() > 0) originalStriker.setSixes(originalStriker.getSixes() - 1);
+                }
+            }
             return true;
         }
 

@@ -183,52 +183,55 @@ public class Innings implements Serializable {
     }
 
     /**
-     * Wide delivery where the batters completed extra runs.
-     *
-     * Cricket rules:
-     *   - Wide penalty (1 run) + extra completed runs → ALL credited as extras to team total
-     *   - NO runs credited to any batsman
-     *   - Strike swaps if extraRuns is odd (e.g. 1 extra run = odd → swap)
-     *   - Ball does NOT count as a valid delivery in the over
-     *
-     * @param extraRuns  additional runs completed by batters (not counting the wide penalty)
+     * Regular (non-wide) wicket where some runs were completed before the dismissal.
+     * Runs credited to striker; strike swaps if odd; outPlayer dismissed as "run out".
+     */
+    public void recordRunOutWicket(Player striker, Player outPlayer, int runsCompleted) {
+        currentOver.addBall(Ball.runOutWicket(runsCompleted));
+        totalRuns       += runsCompleted;
+        totalWickets    += 1;
+        totalValidBalls += 1;
+        striker.addRuns(runsCompleted); // also increments ballsFaced once
+        if (!singleBatsmanMode && runsCompleted % 2 == 1) swapStrike();
+        outPlayer.dismiss("run out");
+        String bowler = getActiveBowlerName();
+        if (!bowler.isEmpty()) {
+            addToMap(bowlerRunsMap,    bowler, runsCompleted);
+            addToMap(bowlerWicketsMap, bowler, 1);
+            addToMap(bowlerBallsMap,   bowler, 1);
+        }
+    }
+
+    /**
+     * Wide delivery where the batters completed extra runs (no wicket).
+     * ALL runs (wide penalty + completed) are extras — no batsman credit.
+     * Strike swaps if extraRuns is odd. Ball stays invalid.
      */
     public void recordWideWithRuns(int extraRuns) {
-        int wideTotal = 1 + extraRuns;  // wide penalty + completed runs
+        int wideTotal = 1 + extraRuns;
         currentOver.addBall(Ball.wideWithRuns(wideTotal));
         this.totalRuns += wideTotal;
-        // Strike swap: odd extra runs means batters crossed odd times → swap
         if (!singleBatsmanMode && extraRuns % 2 == 1) swapStrike();
         String bowler = getActiveBowlerName();
         if (!bowler.isEmpty()) addToMap(bowlerRunsMap, bowler, wideTotal);
     }
 
     /**
-     * Wide delivery where the batters completed extra runs AND one batter was run out.
-     *
-     * Cricket rules:
-     *   - Wide penalty + extra completed runs → all extras, no batsman credit
-     *   - Run out IS a wicket; ball stays invalid (not a valid delivery)
-     *   - Strike swap from completed runs applies BEFORE the dismissal
-     *   - Caller (MatchEngine) sets the new striker/non-striker index
-     *
-     * @param outPlayer   the batter who is run out
-     * @param extraRuns   runs completed before the wicket (not counting the wide penalty)
+     * Wide delivery where batters completed extra runs AND one batter was run out.
+     * ALL runs are extras — no batsman credit. Ball stays invalid even with run-out.
      */
     public void recordWideRunOut(Player outPlayer, int extraRuns) {
         int wideTotal = 1 + extraRuns;
         currentOver.addBall(Ball.wideRunOut(wideTotal));
         this.totalRuns += wideTotal;
-        totalWickets += 1;
-        // Ball is still NOT valid (wide stays invalid even with a run-out)
-        // Strike rotation before dismissal
+        totalWickets   += 1;
         if (!singleBatsmanMode && extraRuns % 2 == 1) swapStrike();
         outPlayer.dismiss("run out");
         String bowler = getActiveBowlerName();
         if (!bowler.isEmpty()) {
             addToMap(bowlerRunsMap,    bowler, wideTotal);
             addToMap(bowlerWicketsMap, bowler, 1);
-            // Note: bowlerBallsMap NOT incremented — wide is not a valid ball
+            // bowlerBallsMap NOT incremented — wide is not a valid ball
         }
     }
 
@@ -243,6 +246,7 @@ public class Innings implements Serializable {
         currentOver.addBall(Ball.wicket());
         totalWickets    += 1;
         totalValidBalls += 1;
+        outPlayer.addBallFaced(); // wicket ball counts as a ball faced
         outPlayer.dismiss("out");
         String bowler = getActiveBowlerName();
         if (!bowler.isEmpty()) {
@@ -288,12 +292,9 @@ public class Innings implements Serializable {
                 if (!singleBatsmanMode && removed.getRuns() % 2 == 1) swapStrike();
                 break;
             case WIDE:
-                // Wide with extra runs: reverse totalRuns by full amount, reverse strike swap,
-                // reverse wicket if run-out. No player stat reversal needed (no batsman credit).
-                totalRuns -= removed.getRuns();  // covers plain Wd (1) and Wd+extras (N)
+                totalRuns -= removed.getRuns(); // covers plain Wd(1) and Wd+extras(N)
                 if (removed.isRunOutWicket()) {
                     totalWickets -= 1;
-                    // Reverse strike swap from extra runs (extraRuns = totalRuns - 1)
                     int extraRuns = removed.getRuns() - 1;
                     if (!singleBatsmanMode && extraRuns % 2 == 1) swapStrike();
                     if (!bowler.isEmpty()) {
@@ -301,7 +302,6 @@ public class Innings implements Serializable {
                         subtractFromMap(bowlerWicketsMap, bowler, 1);
                     }
                 } else {
-                    // Plain wide or wide+runs (no wicket)
                     if (removed.isWideWithExtras()) {
                         int extraRuns = removed.getRuns() - 1;
                         if (!singleBatsmanMode && extraRuns % 2 == 1) swapStrike();
@@ -319,6 +319,18 @@ public class Innings implements Serializable {
                 if (!bowler.isEmpty()) {
                     subtractFromMap(bowlerWicketsMap, bowler, 1);
                     subtractFromMap(bowlerBallsMap,   bowler, 1);
+                }
+                if (removed.isRunOutWicket() && removed.getRuns() > 0) {
+                    // Reverse completed runs and strike swap — player stat reversal done in MatchEngine
+                    int rc = removed.getRuns();
+                    totalRuns -= rc;
+                    if (!singleBatsmanMode && rc % 2 == 1) swapStrike();
+                    if (!bowler.isEmpty()) subtractFromMap(bowlerRunsMap, bowler, rc);
+                } else {
+                    // Plain wicket: reverse addBallFaced()
+                    if (striker != null && striker.getBallsFaced() > 0) {
+                        striker.setBallsFaced(striker.getBallsFaced() - 1);
+                    }
                 }
                 if (currentOver.isBabyOver()
                         && currentOver.getValidBallCount() < currentOver.getSecondBowlerFromBall() - 1) {

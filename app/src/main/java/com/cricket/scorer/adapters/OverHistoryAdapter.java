@@ -188,7 +188,6 @@ public class OverHistoryAdapter extends RecyclerView.Adapter<OverHistoryAdapter.
         tv.setLayoutParams(p);
         tv.setGravity(Gravity.CENTER);
         String label = ball.getDisplayLabel();
-        // Run-out wickets show "N+W" (3+ chars). Shrink to fit the small history circle.
         tv.setTextSize(label.length() >= 3 ? 7.5f : 9.5f);
         tv.setTypeface(null, Typeface.BOLD);
         tv.setText(label);

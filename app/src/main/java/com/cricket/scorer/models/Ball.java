@@ -24,7 +24,7 @@ public class Ball implements Serializable {
     private BallType type;
     private int runs;           // runs scored off this ball (including extras)
     private boolean isValid;    // whether this counts as one of the 6 balls in an over
-    private boolean runOutWicket;  // true if this ball (WICKET or WIDE) also had a run-out
+    private boolean runOutWicket;   // true if this ball (WICKET or WIDE) also had a run-out
     private boolean wideWithExtras; // true if this WIDE ball had extra completed runs
 
     // ─── Factory methods ──────────────────────────────────────────────────────
@@ -72,6 +72,20 @@ public class Ball implements Serializable {
         return b;
     }
 
+    /**
+     * Regular (non-wide) wicket where some runs were completed before the dismissal.
+     * Example: batsmen take 2 then are run out attempting the 3rd → runsCompleted=2.
+     * The completed runs count for the team and the on-strike batter.
+     */
+    public static Ball runOutWicket(int runsCompleted) {
+        Ball b = new Ball();
+        b.type = BallType.WICKET;
+        b.runs = runsCompleted;
+        b.isValid = true;
+        b.runOutWicket = true;
+        return b;
+    }
+
     public static Ball noBall() {
         Ball b = new Ball();
         b.type = BallType.NO_BALL;
@@ -98,7 +112,7 @@ public class Ball implements Serializable {
                 if (wideWithExtras) return runs + "Wd";
                 return "Wd";
             case NO_BALL: return "NB";
-            case WICKET:  return "W";
+            case WICKET:  return runOutWicket && runs > 0 ? runs + "+W" : "W";
             case NORMAL:  return runs == 0 ? "·" : String.valueOf(runs);
             default:      return "?";
         }
