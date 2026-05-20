@@ -78,6 +78,7 @@ public class MatchEngine {
         List<Player> batters    = match.getCurrentBattingPlayers();
         striker.setHasNotBatted(false);
         if (nonStriker != null) nonStriker.setHasNotBatted(false);
+        innings.setLastDeliveryStrikerIndex(innings.getStrikerIndex()); // capture BEFORE swap
         innings.recordWideRunOut(outPlayer, extraRuns);
         if (match.isJoker(outPlayer.getName())) match.clearJokerRole();
         if (isAllOut(innings, batters)) return handleAllOut(innings, batters);
@@ -99,6 +100,7 @@ public class MatchEngine {
         List<Player> batters    = match.getCurrentBattingPlayers();
         striker.setHasNotBatted(false);
         if (nonStriker != null) nonStriker.setHasNotBatted(false);
+        innings.setLastDeliveryStrikerIndex(innings.getStrikerIndex()); // capture BEFORE swap
         innings.recordRunOutWicket(striker, outPlayer, runsCompleted);
         if (match.isJoker(outPlayer.getName())) match.clearJokerRole();
         if (isAllOut(innings, batters)) return handleAllOut(innings, batters);
@@ -232,11 +234,17 @@ public class MatchEngine {
                 innings.setLastIncomingBatsmanIndex(-1); // reset
             }
 
-            // Capture the striker reference BEFORE innings.undoLastBall() may swap strike,
-            // so we know exactly which player faced the delivery.
-            Player originalStriker = getStriker();
+            // Use the delivery-time striker index stored BEFORE recordRunOutWicket ran.
+            // getStriker() here is WRONG for odd-run run-outs: after setStrikerIndex(dismissedIndex)
+            // above, the striker slot holds the dismissed player, not the delivery striker.
+            // e.g. 1 run + non-striker out → swapStrike() fires inside recordRunOutWicket
+            //   → dismissed player ends up at strikerIdx → getStriker() returns them → -ve runs.
+            int deliveryStrikerIdx = innings.getLastDeliveryStrikerIndex();
+            Player originalStriker = (deliveryStrikerIdx >= 0 && deliveryStrikerIdx < batters.size())
+                    ? batters.get(deliveryStrikerIdx) : getStriker();
+            innings.setLastDeliveryStrikerIndex(-1);
 
-            Ball removed = innings.undoLastBall(getStriker());
+            Ball removed = innings.undoLastBall(originalStriker);
 
             // For non-wide run-out: reverse completed-runs stats on the original striker.
             // innings.undoLastBall() has already reversed the strike swap (if any),

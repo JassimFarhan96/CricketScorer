@@ -49,6 +49,7 @@ public class Innings implements Serializable {
     private int strikerIndex;
     private int nonStrikerIndex;
     private int lastIncomingBatsmanIndex = -1; // index of batter who came in after last wicket
+    private int lastDeliveryStrikerIndex = -1; // striker index captured BEFORE delivery swap
     private int nextBatsmanIndex;
 
     private boolean isComplete;
@@ -464,6 +465,8 @@ public class Innings implements Serializable {
     public int     getStrikerIndex()                 { return strikerIndex; }
     public int     getLastIncomingBatsmanIndex()     { return lastIncomingBatsmanIndex; }
     public void    setLastIncomingBatsmanIndex(int v){ lastIncomingBatsmanIndex = v; }
+    public int     getLastDeliveryStrikerIndex()     { return lastDeliveryStrikerIndex; }
+    public void    setLastDeliveryStrikerIndex(int v){ lastDeliveryStrikerIndex = v; }
     public void    setStrikerIndex(int v)            { strikerIndex = v; }
     public int     getNonStrikerIndex()              { return nonStrikerIndex; }
     public void    setNonStrikerIndex(int v)         { nonStrikerIndex = v; }
