@@ -279,9 +279,14 @@ public class MatchEngine {
             // For non-wide run-out: reverse completed-runs stats on the original striker.
             // innings.undoLastBall() has already reversed the strike swap (if any),
             // so we use the pre-undo striker reference captured above.
-            if (removed != null && removed.isRunOutWicket() && originalStriker != null) {
-                // WICKET run-out: all runs credited to striker
-                // NO_BALL run-out: batsmanRuns = totalRuns - 1 (strip NB penalty)
+            // Reverse batsman run stats on the original striker — but ONLY when runs
+            // were actually credited to a batsman. Wide extras are NEVER batsman credit,
+            // so WIDE run-outs have nothing to reverse on the player's scorecard.
+            //   WICKET run-out: rc = runsCompleted (all go to striker)
+            //   NO_BALL run-out: rc = batsmanRuns = totalRuns - 1 (strip NB penalty)
+            //   WIDE run-out:   rc = 0 — skip entirely, all runs are extras
+            if (removed != null && removed.isRunOutWicket() && originalStriker != null
+                    && removed.getType() != Ball.BallType.WIDE) {
                 int rc = removed.getType() == Ball.BallType.NO_BALL
                         ? removed.getRuns() - 1 : removed.getRuns();
                 if (rc > 0) {
