@@ -40,7 +40,7 @@ public class BallAdapter extends RecyclerView.Adapter<BallAdapter.BallViewHolder
         String label = ball.getDisplayLabel();
         tv.setText(label);
         // Multi-char labels (2+W, 3Wd+W etc) need smaller text to fit the circle
-        tv.setTextSize(label.length() >= 3 ? 10f : 13f);
+        tv.setTextSize(label.length() >= 5 ? 9f : label.length() >= 3 ? 10f : 13f);
         int[] col = colors(ctx, ball);
         tv.setBackground(oval(col[0], 0, 0));
         tv.setTextColor(col[1]);

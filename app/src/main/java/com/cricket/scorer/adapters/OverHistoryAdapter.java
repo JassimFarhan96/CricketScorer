@@ -188,7 +188,7 @@ public class OverHistoryAdapter extends RecyclerView.Adapter<OverHistoryAdapter.
         tv.setLayoutParams(p);
         tv.setGravity(Gravity.CENTER);
         String label = ball.getDisplayLabel();
-        tv.setTextSize(label.length() >= 3 ? 7.5f : 9.5f);
+        tv.setTextSize(label.length() >= 5 ? 6.5f : label.length() >= 3 ? 7.5f : 9.5f);
         tv.setTypeface(null, Typeface.BOLD);
         tv.setText(label);
 

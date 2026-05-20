@@ -25,7 +25,8 @@ public class Ball implements Serializable {
     private int runs;           // runs scored off this ball (including extras)
     private boolean isValid;    // whether this counts as one of the 6 balls in an over
     private boolean runOutWicket;   // true if this ball (WICKET or WIDE) also had a run-out
-    private boolean wideWithExtras; // true if this WIDE ball had extra completed runs
+    private boolean wideWithExtras;  // true if this WIDE ball had extra completed runs
+    private boolean noBallWithExtras; // true if this NO_BALL had batsman runs or a run-out
 
     // ─── Factory methods ──────────────────────────────────────────────────────
 
@@ -94,6 +95,34 @@ public class Ball implements Serializable {
         return b;
     }
 
+    /**
+     * No-ball where the batsman also scored runs (no wicket).
+     * Ball stores: runs = 1 (NB penalty) + batsmanRuns.
+     * The NB penalty is an extra; batsmanRuns are credited to the striker.
+     */
+    public static Ball noBallWithRuns(int batsmanRuns) {
+        Ball b = new Ball();
+        b.type = BallType.NO_BALL;
+        b.runs = 1 + batsmanRuns;
+        b.isValid = false;
+        b.noBallWithExtras = true;
+        return b;
+    }
+
+    /**
+     * No-ball where batsman scored runs AND a run-out occurred.
+     * Run-out IS a wicket even on a no-ball. Ball stays invalid.
+     */
+    public static Ball noBallRunOut(int batsmanRuns) {
+        Ball b = new Ball();
+        b.type = BallType.NO_BALL;
+        b.runs = 1 + batsmanRuns;
+        b.isValid = false;
+        b.noBallWithExtras = true;
+        b.runOutWicket = true;
+        return b;
+    }
+
     public static Ball wicket() {
         Ball b = new Ball();
         b.type = BallType.WICKET;
@@ -111,7 +140,10 @@ public class Ball implements Serializable {
                 if (runOutWicket) return runs + "Wd+W";
                 if (wideWithExtras) return runs + "Wd";
                 return "Wd";
-            case NO_BALL: return "NB";
+            case NO_BALL:
+                if (runOutWicket) return runs + "NB+W";
+                if (noBallWithExtras) return runs + "NB";
+                return "NB";
             case WICKET:  return runOutWicket && runs > 0 ? runs + "+W" : "W";
             case NORMAL:  return runs == 0 ? "·" : String.valueOf(runs);
             default:      return "?";
@@ -144,6 +176,7 @@ public class Ball implements Serializable {
     public boolean isValid() { return isValid; }
     public boolean isRunOutWicket()    { return runOutWicket; }
     public void    setRunOutWicket(boolean v) { runOutWicket = v; }
-    public boolean isWideWithExtras()  { return wideWithExtras; }
+    public boolean isWideWithExtras()   { return wideWithExtras; }
+    public boolean isNoBallWithExtras() { return noBallWithExtras; }
     public void setValid(boolean valid) { isValid = valid; }
 }
