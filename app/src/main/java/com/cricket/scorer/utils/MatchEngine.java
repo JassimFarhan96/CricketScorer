@@ -55,6 +55,7 @@ public class MatchEngine {
         Innings innings = match.getCurrentInningsData();
         Player  striker = getStriker();
         striker.setHasNotBatted(false);
+        innings.setLastDeliveryStrikerIndex(innings.getStrikerIndex()); // capture BEFORE swap
         innings.recordNormalBall(runs, striker);
         return checkAfterValidBall(innings);
     }
@@ -62,7 +63,6 @@ public class MatchEngine {
     public MatchState deliverWide()   { match.getCurrentInningsData().recordWide();   return MatchState.BALL_RECORDED; }
     public MatchState deliverNoBall() { match.getCurrentInningsData().recordNoBall(); return MatchState.BALL_RECORDED; }
 
-    /** No-ball where the batsman scored runs (no wicket). batsmanRuns=0 = plain no-ball. */
     public MatchState deliverNoBallWithRuns(int batsmanRuns) {
         if (batsmanRuns == 0) return deliverNoBall();
         Player striker = getStriker();
@@ -70,10 +70,7 @@ public class MatchEngine {
         return MatchState.BALL_RECORDED;
     }
 
-    /** No-ball where batsman scored runs AND a run-out occurred.
-     *  Uses lastDeliveryStrikerIndex pattern to prevent negative-runs undo bug. */
-    public MatchState deliverNoBallRunOut(int batsmanRuns, boolean strikerOut,
-                                          int newBatsmanIndex) {
+    public MatchState deliverNoBallRunOut(int batsmanRuns, boolean strikerOut, int newBatsmanIndex) {
         Innings      innings    = match.getCurrentInningsData();
         Player       striker    = getStriker();
         Player       nonStriker = getNonStriker();
@@ -81,8 +78,7 @@ public class MatchEngine {
         List<Player> batters    = match.getCurrentBattingPlayers();
         striker.setHasNotBatted(false);
         if (nonStriker != null) nonStriker.setHasNotBatted(false);
-        // Capture BEFORE recordNoBallRunOut — it calls swapStrike() for odd batsmanRuns
-        innings.setLastDeliveryStrikerIndex(innings.getStrikerIndex());
+        innings.setLastDeliveryStrikerIndex(innings.getStrikerIndex()); // capture BEFORE swap
         innings.recordNoBallRunOut(striker, outPlayer, batsmanRuns);
         if (match.isJoker(outPlayer.getName())) match.clearJokerRole();
         if (isAllOut(innings, batters)) return handleAllOut(innings, batters);
@@ -283,14 +279,11 @@ public class MatchEngine {
             // For non-wide run-out: reverse completed-runs stats on the original striker.
             // innings.undoLastBall() has already reversed the strike swap (if any),
             // so we use the pre-undo striker reference captured above.
-            // Reverse batsmanRuns stats on the original striker.
-            // For WICKET run-out: rc = runsCompleted (all go to striker).
-            // For NO_BALL run-out: rc = batsmanRuns = removed.getRuns() - 1
-            //   (the -1 removes the NB penalty which was never credited to the striker).
             if (removed != null && removed.isRunOutWicket() && originalStriker != null) {
+                // WICKET run-out: all runs credited to striker
+                // NO_BALL run-out: batsmanRuns = totalRuns - 1 (strip NB penalty)
                 int rc = removed.getType() == Ball.BallType.NO_BALL
-                        ? removed.getRuns() - 1   // strip NB penalty
-                        : removed.getRuns();       // WICKET: all runs are batsmanRuns
+                        ? removed.getRuns() - 1 : removed.getRuns();
                 if (rc > 0) {
                     originalStriker.setRunsScored(originalStriker.getRunsScored() - rc);
                     if (originalStriker.getBallsFaced() > 0) originalStriker.setBallsFaced(originalStriker.getBallsFaced() - 1);
@@ -301,16 +294,26 @@ public class MatchEngine {
             return true;
         }
 
-        // NO_BALL with batsman runs (no wicket): reverse player stats.
-        // innings.undoLastBall() reverses totals + swap; we then reverse
-        // the striker's runsScored/ballsFaced using the post-swap striker.
-        if (lastBall.getType() == Ball.BallType.NO_BALL
-                && lastBall.isNoBallWithExtras() && !lastBall.isRunOutWicket()) {
-            int batsmanRuns = lastBall.getRuns() - 1;
-            innings.undoLastBall(getStriker()); // reverses totals + swap
+        // NORMAL ball: reverse player stats after undoLastBall (swap already done inside)
+        Ball undoBall = innings.undoLastBall(getStriker());
+        if (undoBall != null && undoBall.getType() == Ball.BallType.NORMAL) {
+            int deliveryStrikerIdx = innings.getLastDeliveryStrikerIndex();
+            innings.setLastDeliveryStrikerIndex(-1);
+            Player originalStriker = (deliveryStrikerIdx >= 0 && deliveryStrikerIdx < batters.size())
+                    ? batters.get(deliveryStrikerIdx) : getStriker();
+            if (originalStriker != null) {
+                int runs = undoBall.getRuns();
+                originalStriker.setRunsScored(originalStriker.getRunsScored() - runs);
+                if (originalStriker.getBallsFaced() > 0) originalStriker.setBallsFaced(originalStriker.getBallsFaced() - 1);
+                if (runs == 4 && originalStriker.getFours() > 0) originalStriker.setFours(originalStriker.getFours() - 1);
+                if (runs == 6 && originalStriker.getSixes() > 0) originalStriker.setSixes(originalStriker.getSixes() - 1);
+            }
+        } else if (undoBall != null && undoBall.getType() == Ball.BallType.NO_BALL
+                && undoBall.isNoBallWithExtras() && !undoBall.isRunOutWicket()) {
+            // NB + batsman runs (no wicket): reverse player stats
+            int batsmanRuns = undoBall.getRuns() - 1;
             if (batsmanRuns > 0) {
-                // After swap reversal, getStriker() is the original striker
-                Player s = getStriker();
+                Player s = getStriker(); // swap already reversed inside undoLastBall
                 if (s != null) {
                     s.setRunsScored(s.getRunsScored() - batsmanRuns);
                     if (s.getBallsFaced() > 0) s.setBallsFaced(s.getBallsFaced() - 1);
@@ -318,10 +321,7 @@ public class MatchEngine {
                     if (batsmanRuns == 6 && s.getSixes() > 0) s.setSixes(s.getSixes() - 1);
                 }
             }
-            return true;
         }
-
-        innings.undoLastBall(getStriker());
         return true;
     }
 

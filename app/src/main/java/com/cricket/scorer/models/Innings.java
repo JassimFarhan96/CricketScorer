@@ -244,41 +244,28 @@ public class Innings implements Serializable {
         if (!bowler.isEmpty()) addToMap(bowlerRunsMap, bowler, 1);
     }
 
-    /**
-     * No-ball where the batsman scored runs (no wicket).
-     * NB penalty (1 run) is an extra; batsmanRuns are credited to the striker.
-     * Strike swaps if batsmanRuns is odd. Ball stays invalid.
-     */
     public void recordNoBallWithRuns(Player striker, int batsmanRuns) {
         int total = 1 + batsmanRuns;
         currentOver.addBall(Ball.noBallWithRuns(batsmanRuns));
         this.totalRuns += total;
-        if (batsmanRuns > 0) striker.addRuns(batsmanRuns); // credits runs + ballsFaced
+        if (batsmanRuns > 0) striker.addRuns(batsmanRuns);
         if (!singleBatsmanMode && batsmanRuns % 2 == 1) swapStrike();
         String bowler = getActiveBowlerName();
         if (!bowler.isEmpty()) addToMap(bowlerRunsMap, bowler, total);
     }
 
-    /**
-     * No-ball where the batsman scored runs AND a run-out occurred.
-     * NB penalty is extra; batsmanRuns credited to striker.
-     * Ball stays INVALID (no-ball doesn't count toward over even with run-out).
-     * Caller (MatchEngine) records lastDeliveryStrikerIndex BEFORE calling this.
-     */
     public void recordNoBallRunOut(Player striker, Player outPlayer, int batsmanRuns) {
         int total = 1 + batsmanRuns;
         currentOver.addBall(Ball.noBallRunOut(batsmanRuns));
         this.totalRuns += total;
         totalWickets   += 1;
-        // totalValidBalls NOT incremented — no-ball is always invalid
-        if (batsmanRuns > 0) striker.addRuns(batsmanRuns); // credits runs + ballsFaced
+        if (batsmanRuns > 0) striker.addRuns(batsmanRuns);
         if (!singleBatsmanMode && batsmanRuns % 2 == 1) swapStrike();
         outPlayer.dismiss("run out");
         String bowler = getActiveBowlerName();
         if (!bowler.isEmpty()) {
             addToMap(bowlerRunsMap,    bowler, total);
             addToMap(bowlerWicketsMap, bowler, 1);
-            // bowlerBallsMap NOT incremented — no-ball is invalid
         }
     }
 
@@ -313,22 +300,19 @@ public class Innings implements Serializable {
 
         switch (removed.getType()) {
             case NORMAL:
+                // Totals + bowler maps only — player stat reversal moved to MatchEngine
+                // so that swapStrike() runs BEFORE stats are reversed (fixes -ve runs bug).
                 totalRuns       -= removed.getRuns();
                 totalValidBalls -= 1;
-                striker.setRunsScored(striker.getRunsScored() - removed.getRuns());
-                striker.setBallsFaced(striker.getBallsFaced() - 1);
-                if (removed.getRuns() == 4) striker.setFours(striker.getFours() - 1);
-                if (removed.getRuns() == 6) striker.setSixes(striker.getSixes() - 1);
                 if (!bowler.isEmpty()) {
                     subtractFromMap(bowlerRunsMap,  bowler, removed.getRuns());
                     subtractFromMap(bowlerBallsMap, bowler, 1);
                 }
-                // Undo ball 4 when it was the first ball after baby over swap:
-                // also reset baby over state so user can re-trigger baby over
                 if (currentOver.isBabyOver()
                         && currentOver.getValidBallCount() < currentOver.getSecondBowlerFromBall() - 1) {
                     resetBabyOverState();
                 }
+                // Swap FIRST so MatchEngine's getStriker() after this call = original striker
                 if (!singleBatsmanMode && removed.getRuns() % 2 == 1) swapStrike();
                 break;
             case WIDE:
@@ -350,11 +334,8 @@ public class Innings implements Serializable {
                 }
                 break;
             case NO_BALL:
-                // Reverse: plain NB (1 run) | NB+batsmanRuns | NB+batsmanRuns+runOut
                 totalRuns -= removed.getRuns();
                 if (removed.isRunOutWicket()) {
-                    // Run-out: reverse wicket count, swap if odd batsmanRuns,
-                    // then MatchEngine reverses batsmanRuns on originalStriker
                     totalWickets -= 1;
                     int batsmanRuns = removed.getRuns() - 1;
                     if (!singleBatsmanMode && batsmanRuns % 2 == 1) swapStrike();
@@ -363,12 +344,10 @@ public class Innings implements Serializable {
                         subtractFromMap(bowlerWicketsMap, bowler, 1);
                     }
                 } else if (removed.isNoBallWithExtras()) {
-                    // NB+runs (no wicket): reverse swap; MatchEngine reverses player stats
                     int batsmanRuns = removed.getRuns() - 1;
                     if (!singleBatsmanMode && batsmanRuns % 2 == 1) swapStrike();
                     if (!bowler.isEmpty()) subtractFromMap(bowlerRunsMap, bowler, removed.getRuns());
                 } else {
-                    // Plain NB
                     if (!bowler.isEmpty()) subtractFromMap(bowlerRunsMap, bowler, 1);
                 }
                 break;

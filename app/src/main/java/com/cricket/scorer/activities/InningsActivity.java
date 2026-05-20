@@ -1030,32 +1030,17 @@ public class InningsActivity extends AppCompatActivity {
                 .show();
     }
 
-    /**
-     * Long-press No Ball: ask for batsman runs (0–6) and optional run-out.
-     *
-     * Cricket rules:
-     *   - NB penalty (1 run) → always an extra, never credited to batsman
-     *   - Batsman runs → credited to striker's score (unlike wide where all are extras)
-     *   - Strike swaps if batsman runs are odd
-     *   - Run-out IS a wicket even on a no-ball
-     *   - Ball stays invalid regardless of runs or wicket
-     *
-     * Display: "3NB" (1 penalty + 2 batsman runs), "3NB+W" (with run-out)
-     */
     private void showNoBallExtrasDialog() {
         Player striker    = engine.getStriker();
         Player nonStriker = engine.getNonStriker();
         if (striker == null) return;
-
         int dp = (int) (getResources().getDisplayMetrics().density * 16);
         android.widget.LinearLayout body = new android.widget.LinearLayout(this);
         body.setOrientation(android.widget.LinearLayout.VERTICAL);
         body.setPadding(dp, dp, dp, 0);
-
         android.widget.TextView lblRuns = new android.widget.TextView(this);
         lblRuns.setText("Runs scored by batsman off this no-ball:");
         body.addView(lblRuns);
-
         android.widget.Spinner spRuns = new android.widget.Spinner(this);
         android.widget.ArrayAdapter<String> runsAdapter = new android.widget.ArrayAdapter<>(this,
                 android.R.layout.simple_spinner_item,
@@ -1064,7 +1049,6 @@ public class InningsActivity extends AppCompatActivity {
         spRuns.setAdapter(runsAdapter);
         spRuns.setSelection(0);
         body.addView(spRuns);
-
         android.widget.CheckBox chkRunOut = new android.widget.CheckBox(this);
         chkRunOut.setText("Run-out on this no-ball?");
         android.widget.LinearLayout.LayoutParams cbLp = new android.widget.LinearLayout.LayoutParams(
@@ -1073,15 +1057,12 @@ public class InningsActivity extends AppCompatActivity {
         cbLp.topMargin = dp;
         chkRunOut.setLayoutParams(cbLp);
         body.addView(chkRunOut);
-
         android.widget.LinearLayout whoLayout = new android.widget.LinearLayout(this);
         whoLayout.setOrientation(android.widget.LinearLayout.VERTICAL);
         whoLayout.setVisibility(android.view.View.GONE);
-
         android.widget.TextView lblWho = new android.widget.TextView(this);
         lblWho.setText("Who is run out?");
         whoLayout.addView(lblWho);
-
         android.widget.RadioGroup rg = new android.widget.RadioGroup(this);
         rg.setOrientation(android.widget.RadioGroup.VERTICAL);
         android.widget.RadioButton rbStriker = new android.widget.RadioButton(this);
@@ -1097,16 +1078,13 @@ public class InningsActivity extends AppCompatActivity {
         rbStriker.setChecked(true);
         whoLayout.addView(rg);
         body.addView(whoLayout);
-
         chkRunOut.setOnCheckedChangeListener((btn, checked) ->
-                whoLayout.setVisibility(checked
-                        ? android.view.View.VISIBLE : android.view.View.GONE));
-
+                whoLayout.setVisibility(checked ? android.view.View.VISIBLE : android.view.View.GONE));
         new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("No Ball — extra runs")
                 .setView(body)
                 .setPositiveButton("Record", (d, w) -> {
-                    int batsmanRuns = spRuns.getSelectedItemPosition(); // 0..6
+                    int batsmanRuns = spRuns.getSelectedItemPosition();
                     boolean isRunOut = chkRunOut.isChecked();
                     if (!isRunOut) {
                         handleMatchState(engine.deliverNoBallWithRuns(batsmanRuns));
@@ -1120,7 +1098,6 @@ public class InningsActivity extends AppCompatActivity {
                 .show();
     }
 
-    /** Second step of long-press No Ball run-out: pick the incoming batsman. */
     private void chooseIncomingForNoBallRunOut(int batsmanRuns, boolean strikerOut) {
         List<Player> available = engine.getAvailableBatsmen();
         List<Player> filtered  = new ArrayList<>();
@@ -1130,17 +1107,14 @@ public class InningsActivity extends AppCompatActivity {
             filtered.add(p);
         }
         if (filtered.isEmpty()) {
-            handleMatchState(engine.deliverNoBallRunOut(
-                    batsmanRuns, strikerOut, engine.getNextBatsmanIndex()));
+            handleMatchState(engine.deliverNoBallRunOut(batsmanRuns, strikerOut, engine.getNextBatsmanIndex()));
             return;
         }
         String[] names = new String[filtered.size()];
         List<Player> batters = match.getCurrentBattingPlayers();
         for (int i = 0; i < filtered.size(); i++) {
-            boolean isJoker = match.hasJoker()
-                    && match.getJokerName().equals(filtered.get(i).getName());
-            names[i] = (i + 1) + ". " + filtered.get(i).getName()
-                    + (isJoker ? " ⚡ Joker" : "");
+            boolean isJoker = match.hasJoker() && match.getJokerName().equals(filtered.get(i).getName());
+            names[i] = (i + 1) + ". " + filtered.get(i).getName() + (isJoker ? " ⚡ Joker" : "");
         }
         final int[] ch = {0};
         new androidx.appcompat.app.AlertDialog.Builder(this)
@@ -1151,8 +1125,7 @@ public class InningsActivity extends AppCompatActivity {
                     if (match.hasJoker() && match.getJokerName().equals(incoming.getName())) {
                         match.setJokerBatting();
                     }
-                    handleMatchState(engine.deliverNoBallRunOut(
-                            batsmanRuns, strikerOut, batters.indexOf(incoming)));
+                    handleMatchState(engine.deliverNoBallRunOut(batsmanRuns, strikerOut, batters.indexOf(incoming)));
                 })
                 .setNegativeButton("Cancel", null)
                 .show();

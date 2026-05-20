@@ -95,11 +95,6 @@ public class Ball implements Serializable {
         return b;
     }
 
-    /**
-     * No-ball where the batsman also scored runs (no wicket).
-     * Ball stores: runs = 1 (NB penalty) + batsmanRuns.
-     * The NB penalty is an extra; batsmanRuns are credited to the striker.
-     */
     public static Ball noBallWithRuns(int batsmanRuns) {
         Ball b = new Ball();
         b.type = BallType.NO_BALL;
@@ -109,10 +104,6 @@ public class Ball implements Serializable {
         return b;
     }
 
-    /**
-     * No-ball where batsman scored runs AND a run-out occurred.
-     * Run-out IS a wicket even on a no-ball. Ball stays invalid.
-     */
     public static Ball noBallRunOut(int batsmanRuns) {
         Ball b = new Ball();
         b.type = BallType.NO_BALL;
