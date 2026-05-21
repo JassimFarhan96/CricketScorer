@@ -69,7 +69,7 @@ public class InningsActivity extends AppCompatActivity {
     private TextView     tvCurrentOverLabel, tvBallsRemaining, tvCurrentBowler;
     private RecyclerView rvCurrentOverBalls, rvOverHistory;
     private TextView     tvBowlerSummary;
-    private Button       btnDot, btn1, btn2, btn3, btn4, btn6;
+    private Button       btnDot, btn1, btn2, btn3, btn4, btn5, btn6;
     private Button       btnWide, btnNoBall, btnWicket, btnRetiredHurt, btnBabyOver, btnUndo, btnEditOvers;
 
     private BallAdapter        ballAdapter;
@@ -701,7 +701,7 @@ public class InningsActivity extends AppCompatActivity {
         float a = e ? 1f : 0.35f;
         btnDot.setEnabled(e); btnDot.setAlpha(a); btn1.setEnabled(e); btn1.setAlpha(a);
         btn2.setEnabled(e); btn2.setAlpha(a); btn3.setEnabled(e); btn3.setAlpha(a);
-        btn4.setEnabled(e); btn4.setAlpha(a); btn6.setEnabled(e); btn6.setAlpha(a);
+        btn4.setEnabled(e); btn4.setAlpha(a); btn5.setEnabled(e); btn5.setAlpha(a); btn6.setEnabled(e); btn6.setAlpha(a);
         btnWide.setEnabled(e); btnWide.setAlpha(a); btnNoBall.setEnabled(e); btnNoBall.setAlpha(a);
         btnWicket.setEnabled(e); btnWicket.setAlpha(a);
         btnRetiredHurt.setEnabled(e); btnRetiredHurt.setAlpha(a);
@@ -731,7 +731,7 @@ public class InningsActivity extends AppCompatActivity {
         rvCurrentOverBalls = findViewById(R.id.rv_current_over_balls); rvOverHistory = findViewById(R.id.rv_over_history);
         tvBowlerSummary = findViewById(R.id.tv_bowler_summary);
         btnDot = findViewById(R.id.btn_dot); btn1 = findViewById(R.id.btn_1); btn2 = findViewById(R.id.btn_2);
-        btn3 = findViewById(R.id.btn_3); btn4 = findViewById(R.id.btn_4); btn6 = findViewById(R.id.btn_6);
+        btn3 = findViewById(R.id.btn_3); btn4 = findViewById(R.id.btn_4); btn5 = findViewById(R.id.btn_5); btn6 = findViewById(R.id.btn_6);
         btnWide = findViewById(R.id.btn_wide); btnNoBall = findViewById(R.id.btn_noball);
         btnWicket = findViewById(R.id.btn_wicket); btnRetiredHurt = findViewById(R.id.btn_retired_hurt);
         btnBabyOver = findViewById(R.id.btn_baby_over);
@@ -754,7 +754,7 @@ public class InningsActivity extends AppCompatActivity {
         btnDot.setOnClickListener(v -> handleBall(0));
         btn1.setOnClickListener(v -> handleBall(1)); btn2.setOnClickListener(v -> handleBall(2));
         btn3.setOnClickListener(v -> handleBall(3)); btn4.setOnClickListener(v -> handleBall(4));
-        btn6.setOnClickListener(v -> handleBall(6));
+        btn5.setOnClickListener(v -> handleBall(5)); btn6.setOnClickListener(v -> handleBall(6));
         btnWide.setOnClickListener(v -> handleMatchState(engine.deliverWide()));
         btnWide.setOnLongClickListener(v -> { showWideExtrasDialog(); return true; });
         btnNoBall.setOnClickListener(v -> handleMatchState(engine.deliverNoBall()));
