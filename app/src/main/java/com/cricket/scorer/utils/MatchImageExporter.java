@@ -50,20 +50,23 @@ public final class MatchImageExporter {
         parts.add(TableBitmapRenderer.render("Match details",
                 MatchScorecardBuilder.summaryTable(match)));
 
-        // Innings 1 batting + bowling
+        // ── 1st Innings ──
+        parts.add(makeInningsBanner("1st Innings"));
         parts.add(TableBitmapRenderer.render(
                 MatchScorecardBuilder.inningsHeading(match, 1) + " — Batting",
                 MatchScorecardBuilder.battingTable(match, 1)));
         parts.add(TableBitmapRenderer.render(
-                MatchScorecardBuilder.inningsHeading(match, 1) + " — Bowling",
+                MatchScorecardBuilder.bowlingHeading(match, 1) + " — Bowling",
                 MatchScorecardBuilder.bowlingTable(match, 1)));
 
         if (match.getSecondInnings() != null) {
+            // ── 2nd Innings ──
+            parts.add(makeInningsBanner("2nd Innings"));
             parts.add(TableBitmapRenderer.render(
                     MatchScorecardBuilder.inningsHeading(match, 2) + " — Batting",
                     MatchScorecardBuilder.battingTable(match, 2)));
             parts.add(TableBitmapRenderer.render(
-                    MatchScorecardBuilder.inningsHeading(match, 2) + " — Bowling",
+                    MatchScorecardBuilder.bowlingHeading(match, 2) + " — Bowling",
                     MatchScorecardBuilder.bowlingTable(match, 2)));
         }
 
@@ -164,6 +167,20 @@ public final class MatchImageExporter {
     }
 
     /** Title banner bitmap — green strip with white bold text. */
+    private static Bitmap makeInningsBanner(String text) {
+        int w = 1200, h = 60;
+        Bitmap bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        android.graphics.Canvas c = new android.graphics.Canvas(bmp);
+        c.drawColor(0xFF1A6B55);
+        android.graphics.Paint p = new android.graphics.Paint(
+                android.graphics.Paint.ANTI_ALIAS_FLAG);
+        p.setColor(0xFFFFFFFF);
+        p.setTextSize(30);
+        p.setFakeBoldText(true);
+        c.drawText(text, 36, 40, p);
+        return bmp;
+    }
+
     private static Bitmap makeBanner(String text) {
         int w = 1200, h = 90;
         Bitmap bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);

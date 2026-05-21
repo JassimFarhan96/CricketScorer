@@ -179,6 +179,20 @@ public final class MatchScorecardBuilder {
         return safe(name) + " score";
     }
 
+    /**
+     * Returns "[BowlingTeam] score" for the given innings.
+     * The bowling team is the OPPOSITE of the batting team.
+     */
+    public static String bowlingHeading(Match match, int innings) {
+        String bf = match.getBattingFirstTeam();
+        if (bf == null) return "Innings " + innings + " bowling";
+        boolean homeFirst = "home".equals(bf);
+        String name;
+        if (innings == 1) name = homeFirst ? match.getAwayTeamName() : match.getHomeTeamName();
+        else              name = homeFirst ? match.getHomeTeamName() : match.getAwayTeamName();
+        return safe(name) + " score";
+    }
+
     private static String safe(String s) { return s == null ? "" : s; }
     private static String safe(String s, String fallback) {
         return (s == null || s.isEmpty()) ? fallback : s;

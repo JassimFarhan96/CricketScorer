@@ -95,23 +95,28 @@ public final class MatchExcelExporter {
         int row = 2;
         row = writeBlock(sh, styles, row, "Match details",
                 MatchScorecardBuilder.summaryTable(match));
-        row += 1;
+        row += 2;
+
+        // ── 1st Innings ──────────────────────────────────────────────
+        row = writeInningsHeader(sh, styles, row, "1st Innings");
         row = writeBlock(sh, styles, row,
                 MatchScorecardBuilder.inningsHeading(match, 1) + " — Batting",
                 MatchScorecardBuilder.battingTable(match, 1));
         row += 1;
         row = writeBlock(sh, styles, row,
-                MatchScorecardBuilder.inningsHeading(match, 1) + " — Bowling",
+                MatchScorecardBuilder.bowlingHeading(match, 1) + " — Bowling",
                 MatchScorecardBuilder.bowlingTable(match, 1));
-        row += 1;
 
         if (match.getSecondInnings() != null) {
+            row += 2;
+            // ── 2nd Innings ──────────────────────────────────────────
+            row = writeInningsHeader(sh, styles, row, "2nd Innings");
             row = writeBlock(sh, styles, row,
                     MatchScorecardBuilder.inningsHeading(match, 2) + " — Batting",
                     MatchScorecardBuilder.battingTable(match, 2));
             row += 1;
             row = writeBlock(sh, styles, row,
-                    MatchScorecardBuilder.inningsHeading(match, 2) + " — Bowling",
+                    MatchScorecardBuilder.bowlingHeading(match, 2) + " — Bowling",
                     MatchScorecardBuilder.bowlingTable(match, 2));
         }
 
@@ -205,6 +210,18 @@ public final class MatchExcelExporter {
      * (if present, identified by first cell == "TOTAL") gets a light fill.
      * Returns the next free row.
      */
+    private static int writeInningsHeader(org.apache.poi.ss.usermodel.Sheet sh,
+                                          StyleSet styles, int startRow, String label) {
+        Row row = sh.createRow(startRow);
+        row.setHeightInPoints(22);
+        Cell cell = row.createCell(0);
+        cell.setCellValue(label);
+        cell.setCellStyle(styles.inningsHeader);
+        sh.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(
+                startRow, startRow, 0, 6));
+        return startRow + 1;
+    }
+
     private static int writeBlock(org.apache.poi.ss.usermodel.Sheet sh,
                                     StyleSet styles, int startRow, String title,
                                     String[][] rows) {
@@ -266,10 +283,14 @@ public final class MatchExcelExporter {
         final CellStyle body;
         final CellStyle total;
 
+        final CellStyle inningsHeader;
+
         private StyleSet(CellStyle title, CellStyle section,
-                         CellStyle header, CellStyle body, CellStyle total) {
+                         CellStyle header, CellStyle body, CellStyle total,
+                         CellStyle inningsHeader) {
             this.title = title; this.section = section;
             this.header = header; this.body = body; this.total = total;
+            this.inningsHeader = inningsHeader;
         }
 
         static StyleSet create(XSSFWorkbook wb) {
@@ -326,7 +347,18 @@ public final class MatchExcelExporter {
             total.setFillPattern(FillPatternType.SOLID_FOREGROUND);
             applyBorder(total);
 
-            return new StyleSet(title, section, header, body, total);
+            // Innings divider — bold white on medium green
+            XSSFFont inningsFont = wb.createFont();
+            inningsFont.setBold(true);
+            inningsFont.setFontHeightInPoints((short) 12);
+            inningsFont.setColor(IndexedColors.WHITE.getIndex());
+            XSSFCellStyle inningsHeader = wb.createCellStyle();
+            inningsHeader.setFont(inningsFont);
+            inningsHeader.setFillForegroundColor(IndexedColors.SEA_GREEN.getIndex());
+            inningsHeader.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            inningsHeader.setAlignment(HorizontalAlignment.LEFT);
+
+            return new StyleSet(title, section, header, body, total, inningsHeader);
         }
 
         private static void applyBorder(CellStyle style) {
