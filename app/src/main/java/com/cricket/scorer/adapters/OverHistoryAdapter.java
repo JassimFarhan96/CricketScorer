@@ -210,6 +210,7 @@ public class OverHistoryAdapter extends RecyclerView.Adapter<OverHistoryAdapter.
             case WICKET:
                 return new int[]{res(ctx, R.color.c_ball_wicket_bg), res(ctx, R.color.c_ball_wicket_fg)};
             default:
+                if (ball.isByeOrLegBye()) return new int[]{res(ctx,R.color.c_ball_bye_bg), res(ctx,R.color.c_ball_bye_fg)};
                 int r = ball.getRuns();
                 if (r == 0) return new int[]{res(ctx, R.color.c_ball_dot_bg),  res(ctx, R.color.c_ball_dot_fg)};
                 if (r == 4) return new int[]{res(ctx, R.color.c_ball_four_bg), res(ctx, R.color.c_ball_four_fg)};

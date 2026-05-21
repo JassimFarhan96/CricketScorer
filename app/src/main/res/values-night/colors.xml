@@ -53,4 +53,6 @@
     <color name="c_menu_icon_amber_bg">#2E1E00</color>
     <color name="c_menu_icon_blue_bg">#0A1E30</color>
     <color name="c_vs_badge_bg">#2C2C2C</color>
+    <color name="c_ball_bye_bg">#0D2744</color>
+    <color name="c_ball_bye_fg">#90CAF9</color>
 </resources>

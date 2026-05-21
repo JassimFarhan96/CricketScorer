@@ -27,6 +27,8 @@ public class Ball implements Serializable {
     private boolean runOutWicket;   // true if this ball (WICKET or WIDE) also had a run-out
     private boolean wideWithExtras;  // true if this WIDE ball had extra completed runs
     private boolean noBallWithExtras; // true if this NO_BALL had batsman runs or a run-out
+    private boolean bye;    // ball passed bat and body — runs are extras, NOT credited to batsman
+    private boolean legBye; // ball hit body — runs are extras, NOT credited to batsman
 
     // ─── Factory methods ──────────────────────────────────────────────────────
 
@@ -114,6 +116,30 @@ public class Ball implements Serializable {
         return b;
     }
 
+    /** Bye: valid ball, runs = extras only, striker gets ballsFaced++ but no runs credited. */
+    public static Ball bye(int runs) {
+        Ball b = new Ball(); b.type = BallType.NORMAL;
+        b.runs = runs; b.isValid = true; b.bye = true; return b;
+    }
+
+    /** Leg-bye: same as bye but labelled LB. */
+    public static Ball legBye(int runs) {
+        Ball b = new Ball(); b.type = BallType.NORMAL;
+        b.runs = runs; b.isValid = true; b.legBye = true; return b;
+    }
+
+    /** Bye + run-out: bye extras + wicket, valid ball. */
+    public static Ball byeRunOut(int runs) {
+        Ball b = new Ball(); b.type = BallType.NORMAL;
+        b.runs = runs; b.isValid = true; b.bye = true; b.runOutWicket = true; return b;
+    }
+
+    /** Leg-bye + run-out: leg-bye extras + wicket, valid ball. */
+    public static Ball legByeRunOut(int runs) {
+        Ball b = new Ball(); b.type = BallType.NORMAL;
+        b.runs = runs; b.isValid = true; b.legBye = true; b.runOutWicket = true; return b;
+    }
+
     public static Ball wicket() {
         Ball b = new Ball();
         b.type = BallType.WICKET;
@@ -136,7 +162,10 @@ public class Ball implements Serializable {
                 if (noBallWithExtras) return runs + "NB";
                 return "NB";
             case WICKET:  return runOutWicket && runs > 0 ? runs + "+W" : "W";
-            case NORMAL:  return runs == 0 ? "·" : String.valueOf(runs);
+            case NORMAL:
+                if (bye)    return runOutWicket ? runs + "B+W" : runs + "B";
+                if (legBye) return runOutWicket ? runs + "LB+W" : runs + "LB";
+                return runs == 0 ? "·" : String.valueOf(runs);
             default:      return "?";
         }
     }
@@ -169,5 +198,8 @@ public class Ball implements Serializable {
     public void    setRunOutWicket(boolean v) { runOutWicket = v; }
     public boolean isWideWithExtras()   { return wideWithExtras; }
     public boolean isNoBallWithExtras() { return noBallWithExtras; }
+    public boolean isBye()         { return bye; }
+    public boolean isLegBye()      { return legBye; }
+    public boolean isByeOrLegBye() { return bye || legBye; }
     public void setValid(boolean valid) { isValid = valid; }
 }

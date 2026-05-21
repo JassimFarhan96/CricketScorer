@@ -755,6 +755,14 @@ public class InningsActivity extends AppCompatActivity {
         btn1.setOnClickListener(v -> handleBall(1)); btn2.setOnClickListener(v -> handleBall(2));
         btn3.setOnClickListener(v -> handleBall(3)); btn4.setOnClickListener(v -> handleBall(4));
         btn5.setOnClickListener(v -> handleBall(5)); btn6.setOnClickListener(v -> handleBall(6));
+        // Long-press on run buttons → Bye / Leg-bye dialog
+        View.OnLongClickListener byeLP = v -> {
+            int r = v==btn1?1 : v==btn2?2 : v==btn3?3 : v==btn4?4 : v==btn5?5 : 6;
+            showByeLegByeDialog(r); return true;
+        };
+        btn1.setOnLongClickListener(byeLP); btn2.setOnLongClickListener(byeLP);
+        btn3.setOnLongClickListener(byeLP); btn4.setOnLongClickListener(byeLP);
+        btn5.setOnLongClickListener(byeLP); btn6.setOnLongClickListener(byeLP);
         btnWide.setOnClickListener(v -> handleMatchState(engine.deliverWide()));
         btnWide.setOnLongClickListener(v -> { showWideExtrasDialog(); return true; });
         btnNoBall.setOnClickListener(v -> handleMatchState(engine.deliverNoBall()));
@@ -1126,6 +1134,134 @@ public class InningsActivity extends AppCompatActivity {
                         match.setJokerBatting();
                     }
                     handleMatchState(engine.deliverNoBallRunOut(batsmanRuns, strikerOut, batters.indexOf(incoming)));
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    /**
+     * Long-press on 1-6 run button: prompt for Bye / Leg-bye.
+     * Runs are credited as team extras NOT to the batsman.
+     * Striker gets ballsFaced++ but no runsScored.
+     * Run-out can occur — same mechanic as wide/no-ball run-out.
+     */
+    private void showByeLegByeDialog(int runs) {
+        Player striker    = engine.getStriker();
+        Player nonStriker = engine.getNonStriker();
+        if (striker == null) return;
+
+        int dp = (int) (getResources().getDisplayMetrics().density * 16);
+        android.widget.LinearLayout body = new android.widget.LinearLayout(this);
+        body.setOrientation(android.widget.LinearLayout.VERTICAL);
+        body.setPadding(dp, dp, dp, 0);
+
+        // Bye or Leg-bye selector
+        android.widget.TextView lblType = new android.widget.TextView(this);
+        lblType.setText("Type of extra:");
+        body.addView(lblType);
+
+        android.widget.RadioGroup rgType = new android.widget.RadioGroup(this);
+        rgType.setOrientation(android.widget.RadioGroup.HORIZONTAL);
+        android.widget.RadioButton rbBye = new android.widget.RadioButton(this);
+        rbBye.setText("Bye");
+        rbBye.setId(android.view.View.generateViewId());
+        android.widget.RadioButton rbLB = new android.widget.RadioButton(this);
+        rbLB.setText("Leg-bye");
+        rbLB.setId(android.view.View.generateViewId());
+        rbBye.setChecked(true);
+        rgType.addView(rbBye); rgType.addView(rbLB);
+        body.addView(rgType);
+
+        // Run-out checkbox
+        android.widget.CheckBox chkRunOut = new android.widget.CheckBox(this);
+        chkRunOut.setText("Run-out on this delivery?");
+        android.widget.LinearLayout.LayoutParams cbLp = new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        cbLp.topMargin = dp;
+        chkRunOut.setLayoutParams(cbLp);
+        body.addView(chkRunOut);
+
+        // Who is run out (hidden until checkbox ticked)
+        android.widget.LinearLayout whoLayout = new android.widget.LinearLayout(this);
+        whoLayout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        whoLayout.setVisibility(android.view.View.GONE);
+        android.widget.TextView lblWho = new android.widget.TextView(this);
+        lblWho.setText("Who is run out?");
+        whoLayout.addView(lblWho);
+        android.widget.RadioGroup rgWho = new android.widget.RadioGroup(this);
+        rgWho.setOrientation(android.widget.RadioGroup.VERTICAL);
+        android.widget.RadioButton rbStriker = new android.widget.RadioButton(this);
+        rbStriker.setText("Striker — " + striker.getName());
+        rbStriker.setId(android.view.View.generateViewId());
+        rgWho.addView(rbStriker);
+        android.widget.RadioButton rbNon = new android.widget.RadioButton(this);
+        if (nonStriker != null && !match.isSingleBatsmanMode()) {
+            rbNon.setText("Non-striker — " + nonStriker.getName());
+            rbNon.setId(android.view.View.generateViewId());
+            rgWho.addView(rbNon);
+        }
+        rbStriker.setChecked(true);
+        whoLayout.addView(rgWho);
+        body.addView(whoLayout);
+
+        chkRunOut.setOnCheckedChangeListener((btn, checked) ->
+                whoLayout.setVisibility(checked ? android.view.View.VISIBLE : android.view.View.GONE));
+
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(runs + " runs — Bye or Leg-bye?")
+                .setView(body)
+                .setPositiveButton("Record", (d, w) -> {
+                    boolean isBye    = rgType.getCheckedRadioButtonId() == rbBye.getId();
+                    boolean isRunOut = chkRunOut.isChecked();
+                    boolean strikerOut = (rgWho.getCheckedRadioButtonId() == rbStriker.getId())
+                            || match.isSingleBatsmanMode();
+                    if (!isRunOut) {
+                        handleMatchState(isBye
+                                ? engine.deliverBye(runs)
+                                : engine.deliverLegBye(runs));
+                    } else {
+                        chooseIncomingForByeRunOut(runs, isBye, strikerOut);
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    /** Step 2: pick the incoming batsman after a bye/leg-bye run-out. */
+    private void chooseIncomingForByeRunOut(int runs, boolean isBye, boolean strikerOut) {
+        List<Player> available = engine.getAvailableBatsmen();
+        List<Player> filtered  = new ArrayList<>();
+        for (Player p : available) {
+            if (match.hasJoker() && match.getJokerName().equals(p.getName())
+                    && match.isJokerBowling()) continue;
+            filtered.add(p);
+        }
+        if (filtered.isEmpty()) {
+            handleMatchState(isBye
+                    ? engine.deliverByeRunOut(runs, strikerOut, engine.getNextBatsmanIndex())
+                    : engine.deliverLegByeRunOut(runs, strikerOut, engine.getNextBatsmanIndex()));
+            return;
+        }
+        String[] names = new String[filtered.size()];
+        List<Player> batters = match.getCurrentBattingPlayers();
+        for (int i = 0; i < filtered.size(); i++) {
+            boolean isJoker = match.hasJoker()
+                    && match.getJokerName().equals(filtered.get(i).getName());
+            names[i] = (i + 1) + ". " + filtered.get(i).getName()
+                    + (isJoker ? " ⚡ Joker" : "");
+        }
+        final int[] ch = {0};
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle((isBye ? "Bye" : "Leg-bye") + " run-out — next batsman")
+                .setSingleChoiceItems(names, 0, (d, w) -> ch[0] = w)
+                .setPositiveButton("Confirm", (d, w) -> {
+                    Player incoming = filtered.get(ch[0]);
+                    if (match.hasJoker() && match.getJokerName().equals(incoming.getName()))
+                        match.setJokerBatting();
+                    handleMatchState(isBye
+                            ? engine.deliverByeRunOut(runs, strikerOut, batters.indexOf(incoming))
+                            : engine.deliverLegByeRunOut(runs, strikerOut, batters.indexOf(incoming)));
                 })
                 .setNegativeButton("Cancel", null)
                 .show();

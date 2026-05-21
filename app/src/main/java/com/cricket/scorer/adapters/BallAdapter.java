@@ -54,6 +54,7 @@ public class BallAdapter extends RecyclerView.Adapter<BallAdapter.BallViewHolder
             case NO_BALL: return new int[]{c(ctx,R.color.c_ball_noball_bg), c(ctx,R.color.c_ball_noball_fg)};
             case WICKET:  return new int[]{c(ctx,R.color.c_ball_wicket_bg), c(ctx,R.color.c_ball_wicket_fg)};
             default:
+                if (b.isByeOrLegBye()) return new int[]{c(ctx,R.color.c_ball_bye_bg), c(ctx,R.color.c_ball_bye_fg)};
                 int r = b.getRuns();
                 if (r==0) return new int[]{c(ctx,R.color.c_ball_dot_bg),  c(ctx,R.color.c_ball_dot_fg)};
                 if (r==4) return new int[]{c(ctx,R.color.c_ball_four_bg), c(ctx,R.color.c_ball_four_fg)};

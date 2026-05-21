@@ -285,6 +285,74 @@ public class Innings implements Serializable {
         }
     }
 
+    /**
+     * Bye: runs credited to team extras only. Striker gets ballsFaced++.
+     * Valid ball. Strike swaps if odd runs.
+     */
+    public void recordBye(Player striker, int runs) {
+        currentOver.addBall(Ball.bye(runs));
+        this.totalRuns  += runs;
+        totalValidBalls += 1;
+        striker.addBallFaced();
+        if (!singleBatsmanMode && runs % 2 == 1) swapStrike();
+        String bowler = getActiveBowlerName();
+        if (!bowler.isEmpty()) {
+            addToMap(bowlerRunsMap,  bowler, runs);
+            addToMap(bowlerBallsMap, bowler, 1);
+        }
+    }
+
+    /** Leg-bye: same as bye but uses legBye Ball factory. */
+    public void recordLegBye(Player striker, int runs) {
+        currentOver.addBall(Ball.legBye(runs));
+        this.totalRuns  += runs;
+        totalValidBalls += 1;
+        striker.addBallFaced();
+        if (!singleBatsmanMode && runs % 2 == 1) swapStrike();
+        String bowler = getActiveBowlerName();
+        if (!bowler.isEmpty()) {
+            addToMap(bowlerRunsMap,  bowler, runs);
+            addToMap(bowlerBallsMap, bowler, 1);
+        }
+    }
+
+    /**
+     * Bye + run-out: extras + wicket. Valid ball.
+     * Caller records lastDeliveryStrikerIndex BEFORE calling this.
+     */
+    public void recordByeRunOut(Player striker, Player outPlayer, int runs) {
+        currentOver.addBall(Ball.byeRunOut(runs));
+        this.totalRuns  += runs;
+        totalValidBalls += 1;
+        totalWickets    += 1;
+        striker.addBallFaced();
+        if (!singleBatsmanMode && runs % 2 == 1) swapStrike();
+        outPlayer.dismiss("run out");
+        String bowler = getActiveBowlerName();
+        if (!bowler.isEmpty()) {
+            addToMap(bowlerRunsMap,    bowler, runs);
+            addToMap(bowlerBallsMap,   bowler, 1);
+            addToMap(bowlerWicketsMap, bowler, 1);
+        }
+    }
+
+    /** Leg-bye + run-out: same as recordByeRunOut but uses legByeRunOut Ball. */
+    public void recordLegByeRunOut(Player striker, Player outPlayer, int runs) {
+        currentOver.addBall(Ball.legByeRunOut(runs));
+        this.totalRuns  += runs;
+        totalValidBalls += 1;
+        totalWickets    += 1;
+        striker.addBallFaced();
+        if (!singleBatsmanMode && runs % 2 == 1) swapStrike();
+        outPlayer.dismiss("run out");
+        String bowler = getActiveBowlerName();
+        if (!bowler.isEmpty()) {
+            addToMap(bowlerRunsMap,    bowler, runs);
+            addToMap(bowlerBallsMap,   bowler, 1);
+            addToMap(bowlerWicketsMap, bowler, 1);
+        }
+    }
+
     public void recordWicket(Player outPlayer) {
         currentOver.addBall(Ball.wicket());
         totalWickets    += 1;
@@ -316,19 +384,27 @@ public class Innings implements Serializable {
 
         switch (removed.getType()) {
             case NORMAL:
-                // Totals + bowler maps only — player stat reversal moved to MatchEngine
-                // so that swapStrike() runs BEFORE stats are reversed (fixes -ve runs bug).
+                // Totals + bowler maps only — player stat reversal in MatchEngine.
                 totalRuns       -= removed.getRuns();
                 totalValidBalls -= 1;
-                if (!bowler.isEmpty()) {
-                    subtractFromMap(bowlerRunsMap,  bowler, removed.getRuns());
-                    subtractFromMap(bowlerBallsMap, bowler, 1);
+                if (removed.isRunOutWicket()) {
+                    // bye/legBye runOut: also reverse wicket + bowler wicket map
+                    totalWickets -= 1;
+                    if (!bowler.isEmpty()) {
+                        subtractFromMap(bowlerRunsMap,    bowler, removed.getRuns());
+                        subtractFromMap(bowlerBallsMap,   bowler, 1);
+                        subtractFromMap(bowlerWicketsMap, bowler, 1);
+                    }
+                } else {
+                    if (!bowler.isEmpty()) {
+                        subtractFromMap(bowlerRunsMap,  bowler, removed.getRuns());
+                        subtractFromMap(bowlerBallsMap, bowler, 1);
+                    }
                 }
                 if (currentOver.isBabyOver()
                         && currentOver.getValidBallCount() < currentOver.getSecondBowlerFromBall() - 1) {
                     resetBabyOverState();
                 }
-                // Swap FIRST so MatchEngine's getStriker() after this call = original striker
                 if (!singleBatsmanMode && removed.getRuns() % 2 == 1) swapStrike();
                 break;
             case WIDE:

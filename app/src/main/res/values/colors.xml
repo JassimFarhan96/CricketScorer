@@ -75,4 +75,6 @@
     <color name="c_menu_icon_amber_bg">#FAEEDA</color>
     <color name="c_menu_icon_blue_bg">#E6F1FB</color>
     <color name="c_vs_badge_bg">#EDEAE2</color>
+    <color name="c_ball_bye_bg">#E8F4FD</color>
+    <color name="c_ball_bye_fg">#1565C0</color>
 </resources>

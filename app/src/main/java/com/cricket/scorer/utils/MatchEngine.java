@@ -91,6 +91,55 @@ public class MatchEngine {
         return MatchState.BALL_RECORDED;
     }
 
+    /** Bye: extras only, valid ball. */
+    public MatchState deliverBye(int runs) {
+        Innings innings = match.getCurrentInningsData();
+        innings.setLastDeliveryStrikerIndex(innings.getStrikerIndex());
+        innings.recordBye(getStriker(), runs);
+        return checkAfterValidBall(innings);
+    }
+
+    /** Leg-bye: same as bye. */
+    public MatchState deliverLegBye(int runs) {
+        Innings innings = match.getCurrentInningsData();
+        innings.setLastDeliveryStrikerIndex(innings.getStrikerIndex());
+        innings.recordLegBye(getStriker(), runs);
+        return checkAfterValidBall(innings);
+    }
+
+    /** Bye + run-out wicket. */
+    public MatchState deliverByeRunOut(int runs, boolean strikerOut, int newBatsmanIndex) {
+        return deliverByeLegByeRunOut(runs, strikerOut, newBatsmanIndex, false);
+    }
+
+    /** Leg-bye + run-out wicket. */
+    public MatchState deliverLegByeRunOut(int runs, boolean strikerOut, int newBatsmanIndex) {
+        return deliverByeLegByeRunOut(runs, strikerOut, newBatsmanIndex, true);
+    }
+
+    private MatchState deliverByeLegByeRunOut(int runs, boolean strikerOut,
+                                               int newBatsmanIndex, boolean isLegBye) {
+        Innings      innings    = match.getCurrentInningsData();
+        Player       striker    = getStriker();
+        Player       nonStriker = getNonStriker();
+        Player       outPlayer  = strikerOut ? striker : nonStriker;
+        List<Player> batters    = match.getCurrentBattingPlayers();
+        striker.setHasNotBatted(false);
+        if (nonStriker != null) nonStriker.setHasNotBatted(false);
+        innings.setLastDeliveryStrikerIndex(innings.getStrikerIndex());
+        if (isLegBye) innings.recordLegByeRunOut(striker, outPlayer, runs);
+        else          innings.recordByeRunOut(striker, outPlayer, runs);
+        if (match.isJoker(outPlayer.getName())) match.clearJokerRole();
+        if (isAllOut(innings, batters)) return handleAllOut(innings, batters);
+        int dismissedIdx = batters.indexOf(outPlayer);
+        if      (innings.getStrikerIndex()    == dismissedIdx) innings.setStrikerIndex(newBatsmanIndex);
+        else if (innings.getNonStrikerIndex() == dismissedIdx) innings.setNonStrikerIndex(newBatsmanIndex);
+        innings.setLastIncomingBatsmanIndex(newBatsmanIndex);
+        if (newBatsmanIndex < batters.size()) batters.get(newBatsmanIndex).setHasNotBatted(false);
+        if (innings.getNextBatsmanIndex() <= newBatsmanIndex) innings.setNextBatsmanIndex(newBatsmanIndex + 1);
+        return checkAfterValidBall(innings);
+    }
+
     /** Wide + extra runs (no wicket). extraRuns=0 falls back to plain wide. */
     public MatchState deliverWideWithRuns(int extraRuns) {
         if (extraRuns == 0) return deliverWide();
@@ -228,7 +277,8 @@ public class MatchEngine {
         // Wicket undo (plain wicket OR run-out via long-press Wicket/Wide).
         if ((lastBall.getType() == Ball.BallType.WICKET)
                 || (lastBall.getType() == Ball.BallType.WIDE   && lastBall.isRunOutWicket())
-                || (lastBall.getType() == Ball.BallType.NO_BALL && lastBall.isRunOutWicket())) {
+                || (lastBall.getType() == Ball.BallType.NO_BALL && lastBall.isRunOutWicket())
+                || (lastBall.getType() == Ball.BallType.NORMAL  && lastBall.isRunOutWicket())) {
 
             // Use the recorded incoming index to reliably identify which slot
             // the new batsman occupies — avoids fragile "freshness" heuristics
@@ -285,33 +335,47 @@ public class MatchEngine {
             //   WICKET run-out: rc = runsCompleted (all go to striker)
             //   NO_BALL run-out: rc = batsmanRuns = totalRuns - 1 (strip NB penalty)
             //   WIDE run-out:   rc = 0 — skip entirely, all runs are extras
-            if (removed != null && removed.isRunOutWicket() && originalStriker != null
-                    && removed.getType() != Ball.BallType.WIDE) {
-                int rc = removed.getType() == Ball.BallType.NO_BALL
-                        ? removed.getRuns() - 1 : removed.getRuns();
-                if (rc > 0) {
-                    originalStriker.setRunsScored(originalStriker.getRunsScored() - rc);
-                    if (originalStriker.getBallsFaced() > 0) originalStriker.setBallsFaced(originalStriker.getBallsFaced() - 1);
-                    if (rc == 4 && originalStriker.getFours() > 0) originalStriker.setFours(originalStriker.getFours() - 1);
-                    if (rc == 6 && originalStriker.getSixes() > 0) originalStriker.setSixes(originalStriker.getSixes() - 1);
+            if (removed != null && removed.isRunOutWicket() && originalStriker != null) {
+                if (removed.getType() == Ball.BallType.WIDE) {
+                    // Wide: all extras, nothing on player stats
+                } else if (removed.getType() == Ball.BallType.NORMAL && removed.isByeOrLegBye()) {
+                    // Bye/LegBye runOut: only ballsFaced reversed, no runsScored credited
+                    if (originalStriker.getBallsFaced() > 0)
+                        originalStriker.setBallsFaced(originalStriker.getBallsFaced() - 1);
+                } else {
+                    int rc = removed.getType() == Ball.BallType.NO_BALL
+                            ? removed.getRuns() - 1 : removed.getRuns();
+                    if (rc > 0) {
+                        originalStriker.setRunsScored(originalStriker.getRunsScored() - rc);
+                        if (originalStriker.getBallsFaced() > 0) originalStriker.setBallsFaced(originalStriker.getBallsFaced() - 1);
+                        if (rc == 4 && originalStriker.getFours() > 0) originalStriker.setFours(originalStriker.getFours() - 1);
+                        if (rc == 6 && originalStriker.getSixes() > 0) originalStriker.setSixes(originalStriker.getSixes() - 1);
+                    }
                 }
             }
             return true;
         }
 
-        // NORMAL ball: reverse player stats after undoLastBall (swap already done inside)
+        // NORMAL ball (non-runOut): reverse player stats after undoLastBall
         Ball undoBall = innings.undoLastBall(getStriker());
-        if (undoBall != null && undoBall.getType() == Ball.BallType.NORMAL) {
+        if (undoBall != null && undoBall.getType() == Ball.BallType.NORMAL
+                && !undoBall.isRunOutWicket()) {
             int deliveryStrikerIdx = innings.getLastDeliveryStrikerIndex();
             innings.setLastDeliveryStrikerIndex(-1);
             Player originalStriker = (deliveryStrikerIdx >= 0 && deliveryStrikerIdx < batters.size())
                     ? batters.get(deliveryStrikerIdx) : getStriker();
             if (originalStriker != null) {
-                int runs = undoBall.getRuns();
-                originalStriker.setRunsScored(originalStriker.getRunsScored() - runs);
-                if (originalStriker.getBallsFaced() > 0) originalStriker.setBallsFaced(originalStriker.getBallsFaced() - 1);
-                if (runs == 4 && originalStriker.getFours() > 0) originalStriker.setFours(originalStriker.getFours() - 1);
-                if (runs == 6 && originalStriker.getSixes() > 0) originalStriker.setSixes(originalStriker.getSixes() - 1);
+                if (undoBall.isByeOrLegBye()) {
+                    // Bye/LegBye: only ballsFaced was incremented, no runs credited
+                    if (originalStriker.getBallsFaced() > 0)
+                        originalStriker.setBallsFaced(originalStriker.getBallsFaced() - 1);
+                } else {
+                    int runs = undoBall.getRuns();
+                    originalStriker.setRunsScored(originalStriker.getRunsScored() - runs);
+                    if (originalStriker.getBallsFaced() > 0) originalStriker.setBallsFaced(originalStriker.getBallsFaced() - 1);
+                    if (runs == 4 && originalStriker.getFours() > 0) originalStriker.setFours(originalStriker.getFours() - 1);
+                    if (runs == 6 && originalStriker.getSixes() > 0) originalStriker.setSixes(originalStriker.getSixes() - 1);
+                }
             }
         } else if (undoBall != null && undoBall.getType() == Ball.BallType.NO_BALL
                 && undoBall.isNoBallWithExtras() && !undoBall.isRunOutWicket()) {
