@@ -194,8 +194,14 @@ public final class ChartBitmapRenderer {
         Canvas c   = new Canvas(bmp);
         c.drawColor(Color.WHITE);
 
-        c.drawText("Over-by-over runs \u2013 " + inningsLabel(match, innings), 40, 50,
-                makePaint(COLOR_GREEN, TITLE_TS, true));
+        // Auto-shrink title font if team name is long
+        String chartTitle = "Over-by-over runs \u2013 " + inningsLabel(match, innings);
+        Paint titlePaint = makePaint(COLOR_GREEN, TITLE_TS, true);
+        float maxTitleW = CHART_W - 80f;
+        while (titlePaint.measureText(chartTitle) > maxTitleW && titlePaint.getTextSize() > 18) {
+            titlePaint.setTextSize(titlePaint.getTextSize() - 2);
+        }
+        c.drawText(chartTitle, 40, 50, titlePaint);
 
         if (inn == null) return bmp;
         List<Over> overs = inn.getAllOvers();

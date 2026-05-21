@@ -35,22 +35,18 @@ public final class MatchImageExporter {
      * Bundles the summary into a single PNG and writes to disk.
      * @return File reference to the written PNG.
      */
-    public static File exportSummary(Context ctx, Match match, String outFileName)
-            throws IOException {
-        File dir = ensureDir(ctx);
-        File out = new File(dir, outFileName);
+    /** Builds the summary composite bitmap (for side-by-side merge). */
+    public static Bitmap buildSummaryBitmap(Match match) {
+        List<Bitmap> parts = buildSummaryParts(match);
+        return TableBitmapRenderer.stack(parts.toArray(new Bitmap[0]));
+    }
 
+    private static List<Bitmap> buildSummaryParts(Match match) {
         List<Bitmap> parts = new ArrayList<>();
-
-        // Big title bar
         parts.add(makeBanner("Match Summary —  "
                 + safe(match.getHomeTeamName()) + " vs " + safe(match.getAwayTeamName())));
-
-        // Match details table
         parts.add(TableBitmapRenderer.render("Match details",
                 MatchScorecardBuilder.summaryTable(match)));
-
-        // ── 1st Innings ──
         parts.add(makeInningsBanner("1st Innings"));
         parts.add(TableBitmapRenderer.render(
                 MatchScorecardBuilder.inningsHeading(match, 1) + " — Batting",
@@ -58,9 +54,7 @@ public final class MatchImageExporter {
         parts.add(TableBitmapRenderer.render(
                 MatchScorecardBuilder.bowlingHeading(match, 1) + " — Bowling",
                 MatchScorecardBuilder.bowlingTable(match, 1)));
-
         if (match.getSecondInnings() != null) {
-            // ── 2nd Innings ──
             parts.add(makeInningsBanner("2nd Innings"));
             parts.add(TableBitmapRenderer.render(
                     MatchScorecardBuilder.inningsHeading(match, 2) + " — Batting",
@@ -69,12 +63,43 @@ public final class MatchImageExporter {
                     MatchScorecardBuilder.bowlingHeading(match, 2) + " — Bowling",
                     MatchScorecardBuilder.bowlingTable(match, 2)));
         }
+        return parts;
+    }
 
+    public static File exportSummary(Context ctx, Match match, String outFileName)
+            throws IOException {
+        File dir = ensureDir(ctx);
+        File out = new File(dir, outFileName);
+        List<Bitmap> parts = buildSummaryParts(match);
         Bitmap composite = TableBitmapRenderer.stack(parts.toArray(new Bitmap[0]));
         writeBitmap(composite, out);
         recycleAll(parts);
         composite.recycle();
         return out;
+    }
+
+    /** Builds the in-depth composite bitmap (for side-by-side merge). */
+    public static Bitmap buildInDepthBitmap(Context ctx, Match match) {
+        List<Bitmap> parts = buildInDepthParts(ctx, match);
+        return TableBitmapRenderer.stack(parts.toArray(new Bitmap[0]));
+    }
+
+    private static List<Bitmap> buildInDepthParts(Context ctx, Match match) {
+        List<Bitmap> parts = new ArrayList<>();
+        parts.add(makeBanner("In-depth Statistics —  "
+                + safe(match.getHomeTeamName()) + " vs " + safe(match.getAwayTeamName())));
+        parts.add(ChartBitmapRenderer.renderRunRateChart(ctx, match));
+        parts.add(ChartBitmapRenderer.renderOverBarChart(ctx, match, 1));
+        parts.add(TableBitmapRenderer.render(
+                MatchScorecardBuilder.inningsHeading(match, 1) + " — Over by over",
+                MatchScorecardBuilder.overByOverTable(match, 1)));
+        if (match.getSecondInnings() != null) {
+            parts.add(ChartBitmapRenderer.renderOverBarChart(ctx, match, 2));
+            parts.add(TableBitmapRenderer.render(
+                    MatchScorecardBuilder.inningsHeading(match, 2) + " — Over by over",
+                    MatchScorecardBuilder.overByOverTable(match, 2)));
+        }
+        return parts;
     }
 
     /**
@@ -84,28 +109,7 @@ public final class MatchImageExporter {
             throws IOException {
         File dir = ensureDir(ctx);
         File out = new File(dir, outFileName);
-
-        List<Bitmap> parts = new ArrayList<>();
-
-        parts.add(makeBanner("In-depth Statistics —  "
-                + safe(match.getHomeTeamName()) + " vs " + safe(match.getAwayTeamName())));
-
-        // Cumulative runs line chart
-        parts.add(ChartBitmapRenderer.renderRunRateChart(ctx, match));
-
-        // Innings 1: over-by-over chart then data table
-        parts.add(ChartBitmapRenderer.renderOverBarChart(ctx, match, 1));
-        parts.add(TableBitmapRenderer.render(
-                MatchScorecardBuilder.inningsHeading(match, 1) + " — Over by over",
-                MatchScorecardBuilder.overByOverTable(match, 1)));
-
-        if (match.getSecondInnings() != null) {
-            parts.add(ChartBitmapRenderer.renderOverBarChart(ctx, match, 2));
-            parts.add(TableBitmapRenderer.render(
-                    MatchScorecardBuilder.inningsHeading(match, 2) + " — Over by over",
-                    MatchScorecardBuilder.overByOverTable(match, 2)));
-        }
-
+        List<Bitmap> parts = buildInDepthParts(ctx, match);
         Bitmap composite = TableBitmapRenderer.stack(parts.toArray(new Bitmap[0]));
         writeBitmap(composite, out);
         recycleAll(parts);

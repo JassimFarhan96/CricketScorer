@@ -117,19 +117,34 @@ public final class ShareDispatcher {
         progress.show();
 
         new Thread(() -> {
-            File summary = null, indepth = null;
+            File merged = null;
             Exception err = null;
             try {
+                // Build both bitmaps in memory then merge side-by-side
+                // → single file → single WhatsApp message (was two before)
+                android.graphics.Bitmap summary =
+                        MatchImageExporter.buildSummaryBitmap(match);
+                android.graphics.Bitmap indepth =
+                        MatchImageExporter.buildInDepthBitmap(activity, match);
+                android.graphics.Bitmap combined =
+                        TableBitmapRenderer.sideBySide(summary, indepth);
+                summary.recycle();
+                indepth.recycle();
+
                 String ts = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
-                String base = safeFileBase(match) + "_" + ts;
-                summary = MatchImageExporter.exportSummary(activity, match, base + "_summary.png");
-                indepth = MatchImageExporter.exportInDepth(activity, match, base + "_indepth.png");
+                String name = safeFileBase(match) + "_" + ts + "_combined.png";
+                File dir = new File(activity.getExternalCacheDir(), "exports");
+                if (!dir.exists()) dir.mkdirs();
+                merged = new File(dir, name);
+                try (java.io.FileOutputStream fos = new java.io.FileOutputStream(merged)) {
+                    combined.compress(android.graphics.Bitmap.CompressFormat.PNG, 95, fos);
+                }
+                combined.recycle();
             } catch (Exception e) {
                 err = e;
                 AppLogger.e("ShareDispatcher", "PNG export failed", e);
             }
-            final File summaryFinal = summary;
-            final File indepthFinal = indepth;
+            final File mergedFinal = merged;
             final Exception errFinal = err;
             activity.runOnUiThread(() -> {
                 progress.dismiss();
@@ -140,8 +155,7 @@ public final class ShareDispatcher {
                     return;
                 }
                 ArrayList<File> files = new ArrayList<>();
-                if (summaryFinal != null) files.add(summaryFinal);
-                if (indepthFinal != null) files.add(indepthFinal);
+                if (mergedFinal != null) files.add(mergedFinal);
                 launchShareIntent(activity, files, "image/png", match);
             });
         }).start();

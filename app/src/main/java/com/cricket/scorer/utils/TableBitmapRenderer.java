@@ -135,6 +135,43 @@ public final class TableBitmapRenderer {
      * Composes multiple labeled tables (and optional bitmaps) vertically
      * into a single Bitmap. Used to assemble the in-depth-stats PNG.
      */
+    /**
+     * Places two bitmaps side by side horizontally with a small gap.
+     * Both are scaled to the same height (the taller one wins).
+     * Background is white.
+     */
+    public static Bitmap sideBySide(Bitmap left, Bitmap right) {
+        if (left == null)  return right;
+        if (right == null) return left;
+
+        int gap    = 24;
+        int height = Math.max(left.getHeight(), right.getHeight());
+
+        // Scale each to fill the target height, preserving aspect ratio
+        float leftScale  = (float) height / left.getHeight();
+        float rightScale = (float) height / right.getHeight();
+        int leftW  = Math.round(left.getWidth()  * leftScale);
+        int rightW = Math.round(right.getWidth() * rightScale);
+        int totalW = leftW + gap + rightW;
+
+        Bitmap out = Bitmap.createBitmap(totalW, height, Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(out);
+        c.drawColor(Color.WHITE);
+
+        // Draw left scaled
+        android.graphics.Matrix ml = new android.graphics.Matrix();
+        ml.setScale(leftScale, leftScale);
+        c.drawBitmap(left,  ml, null);
+
+        // Draw right scaled, offset by leftW + gap
+        android.graphics.Matrix mr = new android.graphics.Matrix();
+        mr.setScale(rightScale, rightScale);
+        mr.postTranslate(leftW + gap, 0);
+        c.drawBitmap(right, mr, null);
+
+        return out;
+    }
+
     public static Bitmap stack(Bitmap... parts) {
         int totalH = 0, maxW = 0;
         int gap = 32;
