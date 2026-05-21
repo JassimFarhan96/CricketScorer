@@ -125,15 +125,16 @@ public final class MatchScorecardBuilder {
     public static String[][] bowlingTable(Match match, int innings) {
         Innings inn = innings == 1 ? match.getFirstInnings() : match.getSecondInnings();
         if (inn == null) return new String[][]{
-                { "Bowler", "O", "R", "W", "Econ" }
+                { "Bowler", "O", "R", "Ext", "W", "Econ" }
         };
         List<String[]> rows = new ArrayList<>();
-        rows.add(new String[]{ "Bowler", "O", "R", "W", "Econ" });
+        rows.add(new String[]{ "Bowler", "O", "R", "Ext", "W", "Econ" });
         for (BowlerStat bs : inn.getBowlerStats()) {
             rows.add(new String[]{
                     safe(bs.getName()),
                     bs.getOversString(),
                     String.valueOf(bs.getRuns()),
+                    String.valueOf(bs.getExtras()),
                     String.valueOf(bs.getWickets()),
                     String.format(Locale.US, "%.2f", bs.getEconomy())
             });

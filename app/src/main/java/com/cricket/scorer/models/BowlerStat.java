@@ -23,13 +23,15 @@ public class BowlerStat implements Serializable {
     private final int    balls;
     private final int    runs;
     private final int    wickets;
+    private final int    extras;  // wides + no-ball penalties given by this bowler
 
-    public BowlerStat(String name, int overs, int balls, int runs, int wickets) {
+    public BowlerStat(String name, int overs, int balls, int runs, int wickets, int extras) {
         this.name    = name;
         this.overs   = overs;
         this.balls   = balls;
         this.runs    = runs;
         this.wickets = wickets;
+        this.extras  = extras;
     }
 
     public String getName()    { return name; }
@@ -37,6 +39,7 @@ public class BowlerStat implements Serializable {
     public int    getBalls()   { return balls; }
     public int    getRuns()    { return runs; }
     public int    getWickets() { return wickets; }
+    public int    getExtras()  { return extras; }
 
     /**
      * Overs string in cricket notation: e.g. "3.2" means 3 complete overs + 2 balls.

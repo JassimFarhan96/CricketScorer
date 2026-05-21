@@ -70,6 +70,7 @@ public class Innings implements Serializable {
     private Map<String, Integer> bowlerRunsMap    = new HashMap<>();
     private Map<String, Integer> bowlerWicketsMap = new HashMap<>();
     private Map<String, Integer> bowlerBallsMap   = new HashMap<>();
+    private Map<String, Integer> bowlerExtrasMap  = new HashMap<>(); // wides + NB penalties
 
     // ─── Constructor ──────────────────────────────────────────────────────────
 
@@ -81,6 +82,7 @@ public class Innings implements Serializable {
         bowlerRunsMap     = new HashMap<>();
         bowlerWicketsMap  = new HashMap<>();
         bowlerBallsMap    = new HashMap<>();
+        bowlerExtrasMap   = new HashMap<>();
         strikerIndex     = 0;
         nonStrikerIndex  = singleBatsmanMode ? -1 : 1;
         nextBatsmanIndex = singleBatsmanMode ?  1 :  2;
@@ -181,7 +183,10 @@ public class Innings implements Serializable {
         currentOver.addBall(Ball.wide());
         totalRuns += 1;
         String bowler = getActiveBowlerName();
-        if (!bowler.isEmpty()) addToMap(bowlerRunsMap, bowler, 1);
+        if (!bowler.isEmpty()) {
+            addToMap(bowlerRunsMap,   bowler, 1);
+            addToMap(bowlerExtrasMap, bowler, 1); // 1 wide penalty
+        }
     }
 
     /**
@@ -215,7 +220,10 @@ public class Innings implements Serializable {
         this.totalRuns += wideTotal;
         if (!singleBatsmanMode && extraRuns % 2 == 1) swapStrike();
         String bowler = getActiveBowlerName();
-        if (!bowler.isEmpty()) addToMap(bowlerRunsMap, bowler, wideTotal);
+        if (!bowler.isEmpty()) {
+            addToMap(bowlerRunsMap,   bowler, wideTotal);
+            addToMap(bowlerExtrasMap, bowler, wideTotal); // all wide runs are extras
+        }
     }
 
     /**
@@ -233,6 +241,7 @@ public class Innings implements Serializable {
         if (!bowler.isEmpty()) {
             addToMap(bowlerRunsMap,    bowler, wideTotal);
             addToMap(bowlerWicketsMap, bowler, 1);
+            addToMap(bowlerExtrasMap,  bowler, wideTotal); // all wide runs are extras
             // bowlerBallsMap NOT incremented — wide is not a valid ball
         }
     }
@@ -241,7 +250,10 @@ public class Innings implements Serializable {
         currentOver.addBall(Ball.noBall());
         totalRuns += 1;
         String bowler = getActiveBowlerName();
-        if (!bowler.isEmpty()) addToMap(bowlerRunsMap, bowler, 1);
+        if (!bowler.isEmpty()) {
+            addToMap(bowlerRunsMap,   bowler, 1);
+            addToMap(bowlerExtrasMap, bowler, 1); // 1 NB penalty
+        }
     }
 
     public void recordNoBallWithRuns(Player striker, int batsmanRuns) {
@@ -251,7 +263,10 @@ public class Innings implements Serializable {
         if (batsmanRuns > 0) striker.addRuns(batsmanRuns);
         if (!singleBatsmanMode && batsmanRuns % 2 == 1) swapStrike();
         String bowler = getActiveBowlerName();
-        if (!bowler.isEmpty()) addToMap(bowlerRunsMap, bowler, total);
+        if (!bowler.isEmpty()) {
+            addToMap(bowlerRunsMap,   bowler, total);
+            addToMap(bowlerExtrasMap, bowler, 1); // 1 NB penalty is the only extra
+        }
     }
 
     public void recordNoBallRunOut(Player striker, Player outPlayer, int batsmanRuns) {
@@ -266,6 +281,7 @@ public class Innings implements Serializable {
         if (!bowler.isEmpty()) {
             addToMap(bowlerRunsMap,    bowler, total);
             addToMap(bowlerWicketsMap, bowler, 1);
+            addToMap(bowlerExtrasMap,  bowler, 1); // 1 NB penalty is the only extra
         }
     }
 
@@ -342,13 +358,20 @@ public class Innings implements Serializable {
                     if (!bowler.isEmpty()) {
                         subtractFromMap(bowlerRunsMap,    bowler, removed.getRuns());
                         subtractFromMap(bowlerWicketsMap, bowler, 1);
+                        subtractFromMap(bowlerExtrasMap,  bowler, 1); // NB penalty only
                     }
                 } else if (removed.isNoBallWithExtras()) {
                     int batsmanRuns = removed.getRuns() - 1;
                     if (!singleBatsmanMode && batsmanRuns % 2 == 1) swapStrike();
-                    if (!bowler.isEmpty()) subtractFromMap(bowlerRunsMap, bowler, removed.getRuns());
+                    if (!bowler.isEmpty()) {
+                        subtractFromMap(bowlerRunsMap,   bowler, removed.getRuns());
+                        subtractFromMap(bowlerExtrasMap, bowler, 1); // NB penalty only
+                    }
                 } else {
-                    if (!bowler.isEmpty()) subtractFromMap(bowlerRunsMap, bowler, 1);
+                    if (!bowler.isEmpty()) {
+                        subtractFromMap(bowlerRunsMap,   bowler, 1);
+                        subtractFromMap(bowlerExtrasMap, bowler, 1);
+                    }
                 }
                 break;
             case WICKET:
@@ -439,7 +462,8 @@ public class Innings implements Serializable {
             int balls   = bowlerBallsMap.containsKey(name)   ? bowlerBallsMap.get(name)   : 0;
             int runs    = bowlerRunsMap.containsKey(name)    ? bowlerRunsMap.get(name)    : 0;
             int wickets = bowlerWicketsMap.containsKey(name) ? bowlerWicketsMap.get(name) : 0;
-            stats.add(new BowlerStat(name, overs, balls, runs, wickets));
+            int extras  = bowlerExtrasMap.containsKey(name)  ? bowlerExtrasMap.get(name)  : 0;
+            stats.add(new BowlerStat(name, overs, balls, runs, wickets, extras));
         }
         return stats;
     }
