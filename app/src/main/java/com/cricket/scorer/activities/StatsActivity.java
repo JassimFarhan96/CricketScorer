@@ -294,7 +294,7 @@ public class StatsActivity extends BaseNavActivity {
         for (BowlerStat s : stats) {
             addBowlingRow(table, new String[]{s.getName(),
                     String.valueOf(s.getOvers()), String.valueOf(s.getBalls()),
-                    String.valueOf(s.getRuns()), String.valueOf(s.getExtras()),
+                    String.valueOf(s.getRuns()), s.getExtrasDisplay(),
                     String.valueOf(s.getWickets()),
                     String.format(Locale.US,"%.2f",s.getEconomy())}, false);
         }
@@ -305,7 +305,7 @@ public class StatsActivity extends BaseNavActivity {
         row.setLayoutParams(new TableRow.LayoutParams(
                 TableRow.LayoutParams.MATCH_PARENT, TableRow.LayoutParams.WRAP_CONTENT));
         if (hdr) row.setBackgroundColor(col(R.color.c_row_header_bg));
-        int[] w = {200,55,55,55,55,55,75};
+        int[] w = {200,55,55,55,110,55,75};
         for (int i=0;i<cells.length;i++) {
             TextView tv = new TextView(this);
             tv.setLayoutParams(new TableRow.LayoutParams(dp(w[i]),TableRow.LayoutParams.WRAP_CONTENT));

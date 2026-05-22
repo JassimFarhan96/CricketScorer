@@ -108,6 +108,12 @@ public final class MatchScorecardBuilder {
                     String.format(Locale.US, "%.1f", p.getStrikeRate())
             });
         }
+        // Extras row
+        rows.add(new String[]{
+                "Extras",
+                inn.getInningsExtrasDisplay(),
+                "", "", "", "", ""
+        });
         // Footer total row
         rows.add(new String[]{
                 "TOTAL",
@@ -134,7 +140,7 @@ public final class MatchScorecardBuilder {
                     safe(bs.getName()),
                     bs.getOversString(),
                     String.valueOf(bs.getRuns()),
-                    String.valueOf(bs.getExtras()),
+                    bs.getExtrasDisplay(),
                     String.valueOf(bs.getWickets()),
                     String.format(Locale.US, "%.2f", bs.getEconomy())
             });

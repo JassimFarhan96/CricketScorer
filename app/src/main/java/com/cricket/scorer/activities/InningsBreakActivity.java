@@ -263,7 +263,7 @@ public class InningsBreakActivity extends AppCompatActivity {
                         String.valueOf(s.getOvers()),
                         String.valueOf(s.getBalls()),
                         String.valueOf(s.getRuns()),
-                        String.valueOf(s.getExtras()),
+                        s.getExtrasDisplay(),
                         String.valueOf(s.getWickets()),
                         String.format(Locale.US, "%.2f", s.getEconomy()));
             }
@@ -350,7 +350,7 @@ public class InningsBreakActivity extends AppCompatActivity {
         String[] cols = {"Bowler","O","B","R","Ext","W","Econ"};
         TableRow row  = new TableRow(this);
         row.setBackgroundColor(col(R.color.c_row_header_bg));
-        int[] widths = {190,50,50,50,50,50,75};
+        int[] widths = {190,50,50,50,110,50,75};
         for (int i = 0; i < cols.length; i++) {
             TextView tv = cell(cols[i], widths[i]);
             tv.setTextColor(col(R.color.c_row_header_text));
@@ -364,7 +364,7 @@ public class InningsBreakActivity extends AppCompatActivity {
                                 String r, String ext, String w, String econ) {
         TableRow row = new TableRow(this);
         String[] vals = {name, o, b, r, ext, w, econ};
-        int[] widths   = {190, 50, 50, 50, 50, 50, 75};
+        int[] widths   = {190, 50, 50, 50, 110, 50, 75};
         for (String v : new String[]{}) {} // no-op to please compiler
         for (int i = 0; i < vals.length; i++) {
             TextView tv = cell(vals[i], widths[i]);

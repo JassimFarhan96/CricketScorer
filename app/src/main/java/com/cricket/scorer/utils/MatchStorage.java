@@ -250,6 +250,8 @@ public class MatchStorage {
         o.put("bowlerRunsMap",    intMapToJson(inn.getBowlerRunsMap()));
         o.put("bowlerWicketsMap", intMapToJson(inn.getBowlerWicketsMap()));
         o.put("bowlerBallsMap",   intMapToJson(inn.getBowlerBallsMap()));
+        o.put("bowlerWidesMap",   intMapToJson(inn.getBowlerWidesMap()));
+        o.put("bowlerNoBallsMap", intMapToJson(inn.getBowlerNoBallsMap()));
 
         // ── Overs (completed + current partial) ───────────────────────────
         JSONArray overs = new JSONArray();
@@ -343,6 +345,8 @@ public class MatchStorage {
         inn.setBowlerRunsMap(jsonToIntMap(o.optJSONObject("bowlerRunsMap")));
         inn.setBowlerWicketsMap(jsonToIntMap(o.optJSONObject("bowlerWicketsMap")));
         inn.setBowlerBallsMap(jsonToIntMap(o.optJSONObject("bowlerBallsMap")));
+        inn.setBowlerWidesMap(jsonToIntMap(o.optJSONObject("bowlerWidesMap")));
+        inn.setBowlerNoBallsMap(jsonToIntMap(o.optJSONObject("bowlerNoBallsMap")));
 
         // ── Restore overs ─────────────────────────────────────────────────
         JSONArray overs = o.optJSONArray("overs");
