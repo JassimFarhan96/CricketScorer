@@ -379,13 +379,14 @@ public class MatchEngine {
             }
         } else if (undoBall != null && undoBall.getType() == Ball.BallType.NO_BALL
                 && undoBall.isNoBallWithExtras() && !undoBall.isRunOutWicket()) {
-            // NB + batsman runs (no wicket): reverse player stats
+            // NB + batsman runs (no wicket): reverse player run stats only.
+            // ballsFaced was NOT incremented on record (no-ball is not a valid delivery)
+            // so we must NOT decrement it here either.
             int batsmanRuns = undoBall.getRuns() - 1;
             if (batsmanRuns > 0) {
                 Player s = getStriker(); // swap already reversed inside undoLastBall
                 if (s != null) {
                     s.setRunsScored(s.getRunsScored() - batsmanRuns);
-                    if (s.getBallsFaced() > 0) s.setBallsFaced(s.getBallsFaced() - 1);
                     if (batsmanRuns == 4 && s.getFours() > 0) s.setFours(s.getFours() - 1);
                     if (batsmanRuns == 6 && s.getSixes() > 0) s.setSixes(s.getSixes() - 1);
                 }

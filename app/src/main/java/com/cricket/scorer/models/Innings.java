@@ -268,7 +268,7 @@ public class Innings implements Serializable {
         int total = 1 + batsmanRuns;
         currentOver.addBall(Ball.noBallWithRuns(batsmanRuns));
         this.totalRuns += total;
-        if (batsmanRuns > 0) striker.addRuns(batsmanRuns);
+        if (batsmanRuns > 0) striker.addRunsNoBall(batsmanRuns); // NB: not a valid ball, so ballsFaced must NOT increment
         if (!singleBatsmanMode && batsmanRuns % 2 == 1) swapStrike();
         String bowler = getActiveBowlerName();
         if (!bowler.isEmpty()) {
@@ -283,7 +283,7 @@ public class Innings implements Serializable {
         currentOver.addBall(Ball.noBallRunOut(batsmanRuns));
         this.totalRuns += total;
         totalWickets   += 1;
-        if (batsmanRuns > 0) striker.addRuns(batsmanRuns);
+        if (batsmanRuns > 0) striker.addRunsNoBall(batsmanRuns); // NB: not a valid ball, so ballsFaced must NOT increment
         if (!singleBatsmanMode && batsmanRuns % 2 == 1) swapStrike();
         outPlayer.dismiss("run out");
         String bowler = getActiveBowlerName();

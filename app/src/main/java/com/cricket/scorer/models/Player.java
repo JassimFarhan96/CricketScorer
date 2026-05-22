@@ -49,6 +49,18 @@ public class Player implements Serializable {
         if (runs == 6) this.sixes++;
     }
 
+    /**
+     * Credits runs to the batsman WITHOUT incrementing ballsFaced.
+     * Used for no-ball deliveries: the batsman can score off the bat
+     * but a no-ball is not a valid delivery so it must not count
+     * as a ball faced.
+     */
+    public void addRunsNoBall(int runs) {
+        this.runsScored += runs;
+        if (runs == 4) this.fours++;
+        if (runs == 6) this.sixes++;
+    }
+
     public void addBallFaced() { this.ballsFaced++; }
 
     public void dismiss(String info) {
