@@ -30,11 +30,12 @@
             android:orientation="horizontal" android:gravity="center_vertical"
             android:padding="16dp" android:background="?attr/selectableItemBackground"
             android:clickable="true" android:focusable="true">
-          <LinearLayout android:layout_width="52dp" android:layout_height="52dp"
-              android:gravity="center" android:background="@drawable/bg_menu_icon_amber">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="&#9201;" android:textSize="24sp"/>
-          </LinearLayout>
+          <ImageView
+              android:layout_width="52dp"
+              android:layout_height="52dp"
+              android:src="@drawable/ic_menu_recent_matches"
+              android:scaleType="fitCenter"
+              android:contentDescription="Recent matches icon"/>
           <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
               android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="16dp">
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
@@ -46,7 +47,7 @@
                 android:layout_marginTop="2dp"/>
           </LinearLayout>
           <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-              android:text="&#8250;" android:textSize="24sp" android:textColor="@color/c_text_hint"/>
+              android:text="›" android:textSize="24sp" android:textColor="@color/c_text_hint"/>
         </LinearLayout>
 
         <View android:layout_width="match_parent" android:layout_height="0.5dp"
@@ -59,11 +60,12 @@
             android:orientation="horizontal" android:gravity="center_vertical"
             android:padding="16dp" android:background="?attr/selectableItemBackground"
             android:clickable="true" android:focusable="true">
-          <LinearLayout android:layout_width="52dp" android:layout_height="52dp"
-              android:gravity="center" android:background="@drawable/bg_menu_icon_green">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="&#127942;" android:textSize="24sp"/>
-          </LinearLayout>
+          <ImageView
+              android:layout_width="52dp"
+              android:layout_height="52dp"
+              android:src="@drawable/ic_menu_recent_tournaments"
+              android:scaleType="fitCenter"
+              android:contentDescription="Recent tournaments icon"/>
           <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
               android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="16dp">
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
@@ -75,7 +77,7 @@
                 android:layout_marginTop="2dp"/>
           </LinearLayout>
           <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-              android:text="&#8250;" android:textSize="24sp" android:textColor="@color/c_text_hint"/>
+              android:text="›" android:textSize="24sp" android:textColor="@color/c_text_hint"/>
         </LinearLayout>
 
       </LinearLayout>
