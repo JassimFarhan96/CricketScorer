@@ -295,6 +295,103 @@ public class Innings implements Serializable {
         }
     }
 
+    /** No-ball where additional runs are byes — NOT credited to batsman. NB not a valid ball. */
+    public void recordNoBallBye(Player striker, int byeRuns) {
+        currentOver.addBall(Ball.noBallBye(byeRuns));
+        int total = 1 + byeRuns;
+        this.totalRuns += total;
+        // ballsFaced NOT incremented — no-ball is not a valid delivery
+        if (!singleBatsmanMode && byeRuns % 2 == 1) swapStrike();
+        String bowler = getActiveBowlerName();
+        if (!bowler.isEmpty()) {
+            addToMap(bowlerRunsMap,    bowler, total);
+            addToMap(bowlerExtrasMap,  bowler, 1); // only NB penalty is bowler's extra
+            addToMap(bowlerNoBallsMap, bowler, 1);
+        }
+    }
+
+    /** No-ball where additional runs are leg-byes — NOT credited to batsman. NB not a valid ball. */
+    public void recordNoBallLegBye(Player striker, int legByeRuns) {
+        currentOver.addBall(Ball.noBallLegBye(legByeRuns));
+        int total = 1 + legByeRuns;
+        this.totalRuns += total;
+        if (!singleBatsmanMode && legByeRuns % 2 == 1) swapStrike();
+        String bowler = getActiveBowlerName();
+        if (!bowler.isEmpty()) {
+            addToMap(bowlerRunsMap,    bowler, total);
+            addToMap(bowlerExtrasMap,  bowler, 1);
+            addToMap(bowlerNoBallsMap, bowler, 1);
+        }
+    }
+
+    /** No-ball + bye runs + run-out wicket. */
+    public void recordNoBallByeRunOut(Player striker, Player outPlayer, int byeRuns) {
+        currentOver.addBall(Ball.noBallByeRunOut(byeRuns));
+        int total = 1 + byeRuns;
+        this.totalRuns += total;
+        totalWickets   += 1;
+        if (!singleBatsmanMode && byeRuns % 2 == 1) swapStrike();
+        outPlayer.dismiss("run out");
+        String bowler = getActiveBowlerName();
+        if (!bowler.isEmpty()) {
+            addToMap(bowlerRunsMap,    bowler, total);
+            addToMap(bowlerWicketsMap, bowler, 1);
+            addToMap(bowlerExtrasMap,  bowler, 1);
+            addToMap(bowlerNoBallsMap, bowler, 1);
+        }
+    }
+
+    /** No-ball + leg-bye runs + run-out wicket. */
+    public void recordNoBallLegByeRunOut(Player striker, Player outPlayer, int legByeRuns) {
+        currentOver.addBall(Ball.noBallLegByeRunOut(legByeRuns));
+        int total = 1 + legByeRuns;
+        this.totalRuns += total;
+        totalWickets   += 1;
+        if (!singleBatsmanMode && legByeRuns % 2 == 1) swapStrike();
+        outPlayer.dismiss("run out");
+        String bowler = getActiveBowlerName();
+        if (!bowler.isEmpty()) {
+            addToMap(bowlerRunsMap,    bowler, total);
+            addToMap(bowlerWicketsMap, bowler, 1);
+            addToMap(bowlerExtrasMap,  bowler, 1);
+            addToMap(bowlerNoBallsMap, bowler, 1);
+        }
+    }
+
+    /** Run-out where completed runs were byes — NOT credited to batsman. Valid ball. */
+    public void recordRunOutWicketBye(Player striker, Player outPlayer, int byeRuns) {
+        currentOver.addBall(Ball.runOutWicketBye(byeRuns));
+        this.totalRuns  += byeRuns;
+        totalValidBalls += 1;
+        totalWickets    += 1;
+        striker.addBallFaced();
+        if (!singleBatsmanMode && byeRuns % 2 == 1) swapStrike();
+        outPlayer.dismiss("run out");
+        String bowler = getActiveBowlerName();
+        if (!bowler.isEmpty()) {
+            addToMap(bowlerRunsMap,    bowler, byeRuns);
+            addToMap(bowlerBallsMap,   bowler, 1);
+            addToMap(bowlerWicketsMap, bowler, 1);
+        }
+    }
+
+    /** Run-out where completed runs were leg-byes — NOT credited to batsman. Valid ball. */
+    public void recordRunOutWicketLegBye(Player striker, Player outPlayer, int legByeRuns) {
+        currentOver.addBall(Ball.runOutWicketLegBye(legByeRuns));
+        this.totalRuns  += legByeRuns;
+        totalValidBalls += 1;
+        totalWickets    += 1;
+        striker.addBallFaced();
+        if (!singleBatsmanMode && legByeRuns % 2 == 1) swapStrike();
+        outPlayer.dismiss("run out");
+        String bowler = getActiveBowlerName();
+        if (!bowler.isEmpty()) {
+            addToMap(bowlerRunsMap,    bowler, legByeRuns);
+            addToMap(bowlerBallsMap,   bowler, 1);
+            addToMap(bowlerWicketsMap, bowler, 1);
+        }
+    }
+
     /**
      * Bye: runs credited to team extras only. Striker gets ballsFaced++.
      * Valid ball. Strike swaps if odd runs.

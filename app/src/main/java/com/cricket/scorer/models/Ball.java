@@ -116,6 +116,74 @@ public class Ball implements Serializable {
         return b;
     }
 
+    /** No-ball + bye runs (not credited to batsman). Total = 1 NB penalty + byeRuns. */
+    public static Ball noBallBye(int byeRuns) {
+        Ball b = new Ball();
+        b.type = BallType.NO_BALL;
+        b.runs = 1 + byeRuns;
+        b.isValid = false;
+        b.noBallWithExtras = byeRuns > 0;
+        b.bye = true;
+        return b;
+    }
+
+    /** No-ball + leg-bye runs (not credited to batsman). Total = 1 NB penalty + legByeRuns. */
+    public static Ball noBallLegBye(int legByeRuns) {
+        Ball b = new Ball();
+        b.type = BallType.NO_BALL;
+        b.runs = 1 + legByeRuns;
+        b.isValid = false;
+        b.noBallWithExtras = legByeRuns > 0;
+        b.legBye = true;
+        return b;
+    }
+
+    /** No-ball + bye runs + run-out. Total = 1 NB penalty + byeRuns. */
+    public static Ball noBallByeRunOut(int byeRuns) {
+        Ball b = new Ball();
+        b.type = BallType.NO_BALL;
+        b.runs = 1 + byeRuns;
+        b.isValid = false;
+        b.noBallWithExtras = true;
+        b.bye = true;
+        b.runOutWicket = true;
+        return b;
+    }
+
+    /** No-ball + leg-bye runs + run-out. Total = 1 NB penalty + legByeRuns. */
+    public static Ball noBallLegByeRunOut(int legByeRuns) {
+        Ball b = new Ball();
+        b.type = BallType.NO_BALL;
+        b.runs = 1 + legByeRuns;
+        b.isValid = false;
+        b.noBallWithExtras = true;
+        b.legBye = true;
+        b.runOutWicket = true;
+        return b;
+    }
+
+    /** Run-out wicket where runs before dismissal were byes (not batsman credit). Valid ball. */
+    public static Ball runOutWicketBye(int byeRuns) {
+        Ball b = new Ball();
+        b.type = BallType.WICKET;
+        b.runs = byeRuns;
+        b.isValid = true;
+        b.runOutWicket = true;
+        b.bye = true;
+        return b;
+    }
+
+    /** Run-out wicket where runs before dismissal were leg-byes (not batsman credit). Valid ball. */
+    public static Ball runOutWicketLegBye(int legByeRuns) {
+        Ball b = new Ball();
+        b.type = BallType.WICKET;
+        b.runs = legByeRuns;
+        b.isValid = true;
+        b.runOutWicket = true;
+        b.legBye = true;
+        return b;
+    }
+
     /** Bye: valid ball, runs = extras only, striker gets ballsFaced++ but no runs credited. */
     public static Ball bye(int runs) {
         Ball b = new Ball(); b.type = BallType.NORMAL;
@@ -158,10 +226,25 @@ public class Ball implements Serializable {
                 if (wideWithExtras) return runs + "Wd";
                 return "Wd";
             case NO_BALL:
-                if (runOutWicket) return runs + "NB+W";
-                if (noBallWithExtras) return runs + "NB";
-                return "NB";
-            case WICKET:  return runOutWicket && runs > 0 ? runs + "+W" : "W";
+                int nbExtra = runs - 1; // additional runs beyond the NB penalty
+                if (bye) {
+                    if (runOutWicket) return "Nb+" + (nbExtra > 0 ? nbExtra + "B" : "") + "W";
+                    return nbExtra > 0 ? "Nb+" + nbExtra + "B" : "Nb";
+                }
+                if (legBye) {
+                    if (runOutWicket) return "Nb+" + (nbExtra > 0 ? nbExtra + "Lb" : "") + "W";
+                    return nbExtra > 0 ? "Nb+" + nbExtra + "Lb" : "Nb";
+                }
+                if (runOutWicket) return runs + "Nb+W";
+                if (noBallWithExtras) return runs + "Nb";
+                return "Nb";
+            case WICKET:
+                if (runOutWicket && runs > 0) {
+                    if (bye)    return runs + "B+W";
+                    if (legBye) return runs + "Lb+W";
+                    return runs + "+W";
+                }
+                return "W";
             case NORMAL:
                 if (bye)    return runOutWicket ? runs + "B+W" : runs + "B";
                 if (legBye) return runOutWicket ? runs + "LB+W" : runs + "LB";

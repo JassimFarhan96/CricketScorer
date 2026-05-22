@@ -826,15 +826,42 @@ public class InningsActivity extends AppCompatActivity {
         Player nonStriker = engine.getNonStriker();
         if (striker == null) return;
 
-        int dp = (int) (getResources().getDisplayMetrics().density * 16);
+        int dp   = (int) (getResources().getDisplayMetrics().density * 16);
+        int dpSm = (int) (getResources().getDisplayMetrics().density * 8);
         android.widget.LinearLayout body = new android.widget.LinearLayout(this);
         body.setOrientation(android.widget.LinearLayout.VERTICAL);
         body.setPadding(dp, dp, dp, 0);
 
+        // ── Run type ─────────────────────────────────────────────────────────
+        android.widget.TextView lblType = new android.widget.TextView(this);
+        lblType.setText("How were the runs scored?");
+        body.addView(lblType);
+        android.widget.RadioGroup rgType = new android.widget.RadioGroup(this);
+        rgType.setOrientation(android.widget.RadioGroup.HORIZONTAL);
+        android.widget.RadioButton rbBatsman = new android.widget.RadioButton(this);
+        rbBatsman.setText("Batsman"); rbBatsman.setId(android.view.View.generateViewId());
+        android.widget.RadioButton rbBye = new android.widget.RadioButton(this);
+        rbBye.setText("Bye"); rbBye.setId(android.view.View.generateViewId());
+        android.widget.RadioButton rbLegBye = new android.widget.RadioButton(this);
+        rbLegBye.setText("Leg-bye"); rbLegBye.setId(android.view.View.generateViewId());
+        rgType.addView(rbBatsman); rgType.addView(rbBye); rgType.addView(rbLegBye);
+        rbBatsman.setChecked(true);
+        android.widget.LinearLayout.LayoutParams typeLp = new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        typeLp.topMargin = dpSm;
+        rgType.setLayoutParams(typeLp);
+        body.addView(rgType);
+
+        // ── Runs ─────────────────────────────────────────────────────────────
         android.widget.TextView lblRuns = new android.widget.TextView(this);
         lblRuns.setText("Runs completed before run-out:");
+        android.widget.LinearLayout.LayoutParams runsLp = new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        runsLp.topMargin = dp;
+        lblRuns.setLayoutParams(runsLp);
         body.addView(lblRuns);
-
         android.widget.Spinner spRuns = new android.widget.Spinner(this);
         android.widget.ArrayAdapter<String> runsAdapter = new android.widget.ArrayAdapter<>(this,
                 android.R.layout.simple_spinner_item, new String[]{"0", "1", "2", "3", "4"});
@@ -843,6 +870,7 @@ public class InningsActivity extends AppCompatActivity {
         spRuns.setSelection(2);
         body.addView(spRuns);
 
+        // ── Who is out ────────────────────────────────────────────────────────
         android.widget.TextView lblWho = new android.widget.TextView(this);
         lblWho.setText("Who is run out?");
         android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(
@@ -851,7 +879,6 @@ public class InningsActivity extends AppCompatActivity {
         lp.topMargin = dp;
         lblWho.setLayoutParams(lp);
         body.addView(lblWho);
-
         android.widget.RadioGroup rg = new android.widget.RadioGroup(this);
         rg.setOrientation(android.widget.RadioGroup.VERTICAL);
         android.widget.RadioButton rbStriker = new android.widget.RadioButton(this);
@@ -871,10 +898,49 @@ public class InningsActivity extends AppCompatActivity {
                 .setTitle("Run-out with runs")
                 .setView(body)
                 .setPositiveButton("Next", (d, w) -> {
-                    int runs = spRuns.getSelectedItemPosition();
+                    int     runs       = spRuns.getSelectedItemPosition();
+                    boolean isBye      = (rgType.getCheckedRadioButtonId() == rbBye.getId());
+                    boolean isLegBye   = (rgType.getCheckedRadioButtonId() == rbLegBye.getId());
                     boolean strikerOut = (rg.getCheckedRadioButtonId() == rbStriker.getId())
                             || match.isSingleBatsmanMode();
-                    chooseIncomingForRunOut(runs, strikerOut);
+                    if (isBye)         chooseIncomingForRunOutBye(runs, strikerOut, false);
+                    else if (isLegBye) chooseIncomingForRunOutBye(runs, strikerOut, true);
+                    else               chooseIncomingForRunOut(runs, strikerOut);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    /** Step 2 of long-press Wicket run-out where runs were bye/leg-bye: pick incoming batsman. */
+    private void chooseIncomingForRunOutBye(int runsCompleted, boolean strikerOut, boolean isLegBye) {
+        List<Player> available = engine.getAvailableBatsmen();
+        List<Player> filtered  = new ArrayList<>();
+        for (Player p : available) {
+            if (match.hasJoker() && match.getJokerName().equals(p.getName())
+                    && match.isJokerBowling()) continue;
+            filtered.add(p);
+        }
+        if (filtered.isEmpty()) {
+            if (isLegBye) handleMatchState(engine.deliverRunOutWicketLegBye(runsCompleted, strikerOut, engine.getNextBatsmanIndex()));
+            else          handleMatchState(engine.deliverRunOutWicketBye(runsCompleted, strikerOut, engine.getNextBatsmanIndex()));
+            return;
+        }
+        String[] names = new String[filtered.size()];
+        List<Player> batters = match.getCurrentBattingPlayers();
+        for (int i = 0; i < filtered.size(); i++) {
+            boolean isJoker = match.hasJoker() && match.getJokerName().equals(filtered.get(i).getName());
+            names[i] = (i + 1) + ". " + filtered.get(i).getName() + (isJoker ? " ⚡ Joker" : "");
+        }
+        final int[] ch = {0};
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Run-out — choose next batsman")
+                .setSingleChoiceItems(names, 0, (d, w) -> ch[0] = w)
+                .setPositiveButton("Confirm", (d, w) -> {
+                    Player incoming = filtered.get(ch[0]);
+                    if (match.hasJoker() && match.getJokerName().equals(incoming.getName()))
+                        match.setJokerBatting();
+                    if (isLegBye) handleMatchState(engine.deliverRunOutWicketLegBye(runsCompleted, strikerOut, batters.indexOf(incoming)));
+                    else          handleMatchState(engine.deliverRunOutWicketBye(runsCompleted, strikerOut, batters.indexOf(incoming)));
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
@@ -1042,12 +1108,41 @@ public class InningsActivity extends AppCompatActivity {
         Player striker    = engine.getStriker();
         Player nonStriker = engine.getNonStriker();
         if (striker == null) return;
-        int dp = (int) (getResources().getDisplayMetrics().density * 16);
+        int dp   = (int) (getResources().getDisplayMetrics().density * 16);
+        int dpSm = (int) (getResources().getDisplayMetrics().density * 8);
         android.widget.LinearLayout body = new android.widget.LinearLayout(this);
         body.setOrientation(android.widget.LinearLayout.VERTICAL);
         body.setPadding(dp, dp, dp, 0);
+
+        // ── Run type ─────────────────────────────────────────────────────────
+        android.widget.TextView lblType = new android.widget.TextView(this);
+        lblType.setText("How were the runs scored?");
+        body.addView(lblType);
+        android.widget.RadioGroup rgType = new android.widget.RadioGroup(this);
+        rgType.setOrientation(android.widget.RadioGroup.HORIZONTAL);
+        android.widget.RadioButton rbBatsman = new android.widget.RadioButton(this);
+        rbBatsman.setText("Batsman"); rbBatsman.setId(android.view.View.generateViewId());
+        android.widget.RadioButton rbBye = new android.widget.RadioButton(this);
+        rbBye.setText("Bye"); rbBye.setId(android.view.View.generateViewId());
+        android.widget.RadioButton rbLegBye = new android.widget.RadioButton(this);
+        rbLegBye.setText("Leg-bye"); rbLegBye.setId(android.view.View.generateViewId());
+        rgType.addView(rbBatsman); rgType.addView(rbBye); rgType.addView(rbLegBye);
+        rbBatsman.setChecked(true);
+        android.widget.LinearLayout.LayoutParams typeLp = new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        typeLp.topMargin = dpSm;
+        rgType.setLayoutParams(typeLp);
+        body.addView(rgType);
+
+        // ── Runs ─────────────────────────────────────────────────────────────
         android.widget.TextView lblRuns = new android.widget.TextView(this);
-        lblRuns.setText("Runs scored by batsman off this no-ball:");
+        lblRuns.setText("Additional runs (besides no-ball penalty):");
+        android.widget.LinearLayout.LayoutParams runsLp = new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        runsLp.topMargin = dp;
+        lblRuns.setLayoutParams(runsLp);
         body.addView(lblRuns);
         android.widget.Spinner spRuns = new android.widget.Spinner(this);
         android.widget.ArrayAdapter<String> runsAdapter = new android.widget.ArrayAdapter<>(this,
@@ -1057,6 +1152,8 @@ public class InningsActivity extends AppCompatActivity {
         spRuns.setAdapter(runsAdapter);
         spRuns.setSelection(0);
         body.addView(spRuns);
+
+        // ── Run-out ───────────────────────────────────────────────────────────
         android.widget.CheckBox chkRunOut = new android.widget.CheckBox(this);
         chkRunOut.setText("Run-out on this no-ball?");
         android.widget.LinearLayout.LayoutParams cbLp = new android.widget.LinearLayout.LayoutParams(
@@ -1071,42 +1168,86 @@ public class InningsActivity extends AppCompatActivity {
         android.widget.TextView lblWho = new android.widget.TextView(this);
         lblWho.setText("Who is run out?");
         whoLayout.addView(lblWho);
-        android.widget.RadioGroup rg = new android.widget.RadioGroup(this);
-        rg.setOrientation(android.widget.RadioGroup.VERTICAL);
+        android.widget.RadioGroup rgWho = new android.widget.RadioGroup(this);
+        rgWho.setOrientation(android.widget.RadioGroup.VERTICAL);
         android.widget.RadioButton rbStriker = new android.widget.RadioButton(this);
         rbStriker.setText("Striker — " + striker.getName());
         rbStriker.setId(android.view.View.generateViewId());
-        rg.addView(rbStriker);
+        rgWho.addView(rbStriker);
         android.widget.RadioButton rbNon = new android.widget.RadioButton(this);
         if (nonStriker != null && !match.isSingleBatsmanMode()) {
             rbNon.setText("Non-striker — " + nonStriker.getName());
             rbNon.setId(android.view.View.generateViewId());
-            rg.addView(rbNon);
+            rgWho.addView(rbNon);
         }
         rbStriker.setChecked(true);
-        whoLayout.addView(rg);
+        whoLayout.addView(rgWho);
         body.addView(whoLayout);
         chkRunOut.setOnCheckedChangeListener((btn, checked) ->
                 whoLayout.setVisibility(checked ? android.view.View.VISIBLE : android.view.View.GONE));
+
         new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("No Ball — extra runs")
                 .setView(body)
                 .setPositiveButton("Record", (d, w) -> {
-                    int batsmanRuns = spRuns.getSelectedItemPosition();
-                    boolean isRunOut = chkRunOut.isChecked();
-                    if (!isRunOut) {
-                        handleMatchState(engine.deliverNoBallWithRuns(batsmanRuns));
+                    int     extraRuns  = spRuns.getSelectedItemPosition();
+                    boolean isBye      = (rgType.getCheckedRadioButtonId() == rbBye.getId());
+                    boolean isLegBye   = (rgType.getCheckedRadioButtonId() == rbLegBye.getId());
+                    boolean isRunOut   = chkRunOut.isChecked();
+                    boolean strikerOut = (rgWho.getCheckedRadioButtonId() == rbStriker.getId())
+                            || match.isSingleBatsmanMode();
+                    if (isBye) {
+                        if (!isRunOut) handleMatchState(engine.deliverNoBallBye(extraRuns));
+                        else           chooseIncomingForNoBallByeRunOut(extraRuns, strikerOut, false);
+                    } else if (isLegBye) {
+                        if (!isRunOut) handleMatchState(engine.deliverNoBallLegBye(extraRuns));
+                        else           chooseIncomingForNoBallByeRunOut(extraRuns, strikerOut, true);
                     } else {
-                        boolean strikerOut = (rg.getCheckedRadioButtonId() == rbStriker.getId())
-                                || match.isSingleBatsmanMode();
-                        chooseIncomingForNoBallRunOut(batsmanRuns, strikerOut);
+                        if (!isRunOut) handleMatchState(engine.deliverNoBallWithRuns(extraRuns));
+                        else           chooseIncomingForNoBallBatsmanRunOut(extraRuns, strikerOut);
                     }
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
     }
 
-    private void chooseIncomingForNoBallRunOut(int batsmanRuns, boolean strikerOut) {
+    /** NoBall + bye/leg-bye run-out: pick incoming batsman. */
+    private void chooseIncomingForNoBallByeRunOut(int extraRuns, boolean strikerOut, boolean isLegBye) {
+        List<Player> available = engine.getAvailableBatsmen();
+        List<Player> filtered  = new ArrayList<>();
+        for (Player p : available) {
+            if (match.hasJoker() && match.getJokerName().equals(p.getName())
+                    && match.isJokerBowling()) continue;
+            filtered.add(p);
+        }
+        if (filtered.isEmpty()) {
+            if (isLegBye) handleMatchState(engine.deliverNoBallLegByeRunOut(extraRuns, strikerOut, engine.getNextBatsmanIndex()));
+            else          handleMatchState(engine.deliverNoBallByeRunOut(extraRuns, strikerOut, engine.getNextBatsmanIndex()));
+            return;
+        }
+        String[] names = new String[filtered.size()];
+        List<Player> batters = match.getCurrentBattingPlayers();
+        for (int i = 0; i < filtered.size(); i++) {
+            boolean isJoker = match.hasJoker() && match.getJokerName().equals(filtered.get(i).getName());
+            names[i] = (i + 1) + ". " + filtered.get(i).getName() + (isJoker ? " ⚡ Joker" : "");
+        }
+        final int[] ch = {0};
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("No Ball run-out — choose next batsman")
+                .setSingleChoiceItems(names, 0, (d2, w2) -> ch[0] = w2)
+                .setPositiveButton("Confirm", (d2, w2) -> {
+                    Player incoming = filtered.get(ch[0]);
+                    if (match.hasJoker() && match.getJokerName().equals(incoming.getName()))
+                        match.setJokerBatting();
+                    if (isLegBye) handleMatchState(engine.deliverNoBallLegByeRunOut(extraRuns, strikerOut, batters.indexOf(incoming)));
+                    else          handleMatchState(engine.deliverNoBallByeRunOut(extraRuns, strikerOut, batters.indexOf(incoming)));
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    /** NoBall + batsman runs + run-out: pick incoming batsman. */
+    private void chooseIncomingForNoBallBatsmanRunOut(int batsmanRuns, boolean strikerOut) {
         List<Player> available = engine.getAvailableBatsmen();
         List<Player> filtered  = new ArrayList<>();
         for (Player p : available) {
@@ -1130,9 +1271,8 @@ public class InningsActivity extends AppCompatActivity {
                 .setSingleChoiceItems(names, 0, (d, w) -> ch[0] = w)
                 .setPositiveButton("Confirm", (d, w) -> {
                     Player incoming = filtered.get(ch[0]);
-                    if (match.hasJoker() && match.getJokerName().equals(incoming.getName())) {
+                    if (match.hasJoker() && match.getJokerName().equals(incoming.getName()))
                         match.setJokerBatting();
-                    }
                     handleMatchState(engine.deliverNoBallRunOut(batsmanRuns, strikerOut, batters.indexOf(incoming)));
                 })
                 .setNegativeButton("Cancel", null)

@@ -91,6 +91,112 @@ public class MatchEngine {
         return MatchState.BALL_RECORDED;
     }
 
+    /** No-ball where additional runs are byes (not credited to batsman). */
+    public MatchState deliverNoBallBye(int byeRuns) {
+        Player striker = getStriker();
+        if (striker == null) return MatchState.BALL_RECORDED;
+        striker.setHasNotBatted(false);
+        match.getCurrentInningsData().recordNoBallBye(striker, byeRuns);
+        return MatchState.BALL_RECORDED;
+    }
+
+    /** No-ball where additional runs are leg-byes (not credited to batsman). */
+    public MatchState deliverNoBallLegBye(int legByeRuns) {
+        Player striker = getStriker();
+        if (striker == null) return MatchState.BALL_RECORDED;
+        striker.setHasNotBatted(false);
+        match.getCurrentInningsData().recordNoBallLegBye(striker, legByeRuns);
+        return MatchState.BALL_RECORDED;
+    }
+
+    /** No-ball + bye runs + run-out. */
+    public MatchState deliverNoBallByeRunOut(int byeRuns, boolean strikerOut, int newBatsmanIndex) {
+        Innings      innings    = match.getCurrentInningsData();
+        Player       striker    = getStriker();
+        Player       nonStriker = getNonStriker();
+        List<Player> batters    = match.getCurrentBattingPlayers();
+        Player       outPlayer  = strikerOut ? striker : nonStriker;
+        striker.setHasNotBatted(false);
+        if (nonStriker != null) nonStriker.setHasNotBatted(false);
+        innings.setLastDeliveryStrikerIndex(innings.getStrikerIndex());
+        innings.recordNoBallByeRunOut(striker, outPlayer, byeRuns);
+        if (match.isJoker(outPlayer.getName())) match.clearJokerRole();
+        if (isAllOut(innings, batters)) return handleAllOut(innings, batters);
+        int dismissedIdx = batters.indexOf(outPlayer);
+        if (innings.getStrikerIndex() == dismissedIdx)         innings.setStrikerIndex(newBatsmanIndex);
+        else if (innings.getNonStrikerIndex() == dismissedIdx) innings.setNonStrikerIndex(newBatsmanIndex);
+        innings.setLastIncomingBatsmanIndex(newBatsmanIndex);
+        if (newBatsmanIndex < batters.size()) batters.get(newBatsmanIndex).setHasNotBatted(false);
+        if (innings.getNextBatsmanIndex() <= newBatsmanIndex) innings.setNextBatsmanIndex(newBatsmanIndex + 1);
+        return MatchState.BALL_RECORDED;
+    }
+
+    /** No-ball + leg-bye runs + run-out. */
+    public MatchState deliverNoBallLegByeRunOut(int legByeRuns, boolean strikerOut, int newBatsmanIndex) {
+        Innings      innings    = match.getCurrentInningsData();
+        Player       striker    = getStriker();
+        Player       nonStriker = getNonStriker();
+        List<Player> batters    = match.getCurrentBattingPlayers();
+        Player       outPlayer  = strikerOut ? striker : nonStriker;
+        striker.setHasNotBatted(false);
+        if (nonStriker != null) nonStriker.setHasNotBatted(false);
+        innings.setLastDeliveryStrikerIndex(innings.getStrikerIndex());
+        innings.recordNoBallLegByeRunOut(striker, outPlayer, legByeRuns);
+        if (match.isJoker(outPlayer.getName())) match.clearJokerRole();
+        if (isAllOut(innings, batters)) return handleAllOut(innings, batters);
+        int dismissedIdx = batters.indexOf(outPlayer);
+        if (innings.getStrikerIndex() == dismissedIdx)         innings.setStrikerIndex(newBatsmanIndex);
+        else if (innings.getNonStrikerIndex() == dismissedIdx) innings.setNonStrikerIndex(newBatsmanIndex);
+        innings.setLastIncomingBatsmanIndex(newBatsmanIndex);
+        if (newBatsmanIndex < batters.size()) batters.get(newBatsmanIndex).setHasNotBatted(false);
+        if (innings.getNextBatsmanIndex() <= newBatsmanIndex) innings.setNextBatsmanIndex(newBatsmanIndex + 1);
+        return MatchState.BALL_RECORDED;
+    }
+
+    /** Run-out wicket where completed runs were byes (not credited to batsman). */
+    public MatchState deliverRunOutWicketBye(int byeRuns, boolean strikerOut, int newBatsmanIndex) {
+        Innings      innings    = match.getCurrentInningsData();
+        Player       striker    = getStriker();
+        Player       nonStriker = getNonStriker();
+        List<Player> batters    = match.getCurrentBattingPlayers();
+        Player       outPlayer  = strikerOut ? striker : nonStriker;
+        striker.setHasNotBatted(false);
+        if (nonStriker != null) nonStriker.setHasNotBatted(false);
+        innings.setLastDeliveryStrikerIndex(innings.getStrikerIndex());
+        innings.recordRunOutWicketBye(striker, outPlayer, byeRuns);
+        if (match.isJoker(outPlayer.getName())) match.clearJokerRole();
+        if (isAllOut(innings, batters)) return handleAllOut(innings, batters);
+        int dismissedIdx = batters.indexOf(outPlayer);
+        if (innings.getStrikerIndex() == dismissedIdx)         innings.setStrikerIndex(newBatsmanIndex);
+        else if (innings.getNonStrikerIndex() == dismissedIdx) innings.setNonStrikerIndex(newBatsmanIndex);
+        innings.setLastIncomingBatsmanIndex(newBatsmanIndex);
+        if (newBatsmanIndex < batters.size()) batters.get(newBatsmanIndex).setHasNotBatted(false);
+        if (innings.getNextBatsmanIndex() <= newBatsmanIndex) innings.setNextBatsmanIndex(newBatsmanIndex + 1);
+        return MatchState.BALL_RECORDED;
+    }
+
+    /** Run-out wicket where completed runs were leg-byes (not credited to batsman). */
+    public MatchState deliverRunOutWicketLegBye(int legByeRuns, boolean strikerOut, int newBatsmanIndex) {
+        Innings      innings    = match.getCurrentInningsData();
+        Player       striker    = getStriker();
+        Player       nonStriker = getNonStriker();
+        List<Player> batters    = match.getCurrentBattingPlayers();
+        Player       outPlayer  = strikerOut ? striker : nonStriker;
+        striker.setHasNotBatted(false);
+        if (nonStriker != null) nonStriker.setHasNotBatted(false);
+        innings.setLastDeliveryStrikerIndex(innings.getStrikerIndex());
+        innings.recordRunOutWicketLegBye(striker, outPlayer, legByeRuns);
+        if (match.isJoker(outPlayer.getName())) match.clearJokerRole();
+        if (isAllOut(innings, batters)) return handleAllOut(innings, batters);
+        int dismissedIdx = batters.indexOf(outPlayer);
+        if (innings.getStrikerIndex() == dismissedIdx)         innings.setStrikerIndex(newBatsmanIndex);
+        else if (innings.getNonStrikerIndex() == dismissedIdx) innings.setNonStrikerIndex(newBatsmanIndex);
+        innings.setLastIncomingBatsmanIndex(newBatsmanIndex);
+        if (newBatsmanIndex < batters.size()) batters.get(newBatsmanIndex).setHasNotBatted(false);
+        if (innings.getNextBatsmanIndex() <= newBatsmanIndex) innings.setNextBatsmanIndex(newBatsmanIndex + 1);
+        return MatchState.BALL_RECORDED;
+    }
+
     /** Bye: extras only, valid ball. */
     public MatchState deliverBye(int runs) {
         Innings innings = match.getCurrentInningsData();
@@ -338,10 +444,15 @@ public class MatchEngine {
             if (removed != null && removed.isRunOutWicket() && originalStriker != null) {
                 if (removed.getType() == Ball.BallType.WIDE) {
                     // Wide: all extras, nothing on player stats
-                } else if (removed.getType() == Ball.BallType.NORMAL && removed.isByeOrLegBye()) {
-                    // Bye/LegBye runOut: only ballsFaced reversed, no runsScored credited
-                    if (originalStriker.getBallsFaced() > 0)
+                } else if (removed.isByeOrLegBye()) {
+                    // Bye/LegBye run-out on ANY ball type (NORMAL, WICKET, NO_BALL):
+                    // runs were never credited to batsman so nothing to reverse on runsScored.
+                    // For NORMAL/WICKET: ballsFaced was incremented on record → reverse it.
+                    // For NO_BALL: ballsFaced was NOT incremented (NB not a valid ball) → skip.
+                    if (removed.getType() != Ball.BallType.NO_BALL
+                            && originalStriker.getBallsFaced() > 0) {
                         originalStriker.setBallsFaced(originalStriker.getBallsFaced() - 1);
+                    }
                 } else {
                     int rc = removed.getType() == Ball.BallType.NO_BALL
                             ? removed.getRuns() - 1 : removed.getRuns();
@@ -379,16 +490,20 @@ public class MatchEngine {
             }
         } else if (undoBall != null && undoBall.getType() == Ball.BallType.NO_BALL
                 && undoBall.isNoBallWithExtras() && !undoBall.isRunOutWicket()) {
-            // NB + batsman runs (no wicket): reverse player run stats only.
-            // ballsFaced was NOT incremented on record (no-ball is not a valid delivery)
-            // so we must NOT decrement it here either.
-            int batsmanRuns = undoBall.getRuns() - 1;
-            if (batsmanRuns > 0) {
-                Player s = getStriker(); // swap already reversed inside undoLastBall
-                if (s != null) {
-                    s.setRunsScored(s.getRunsScored() - batsmanRuns);
-                    if (batsmanRuns == 4 && s.getFours() > 0) s.setFours(s.getFours() - 1);
-                    if (batsmanRuns == 6 && s.getSixes() > 0) s.setSixes(s.getSixes() - 1);
+            // NB + extra runs (no wicket): reverse player run stats only.
+            // ballsFaced was NOT incremented on record (no-ball is not a valid delivery).
+            // IMPORTANT: only reverse runs when they were batsman runs.
+            // If the extras were bye or leg-bye, runs were NEVER credited to the
+            // batsman — subtracting them would produce a negative score.
+            if (!undoBall.isByeOrLegBye()) {
+                int batsmanRuns = undoBall.getRuns() - 1;
+                if (batsmanRuns > 0) {
+                    Player s = getStriker(); // swap already reversed inside undoLastBall
+                    if (s != null) {
+                        s.setRunsScored(s.getRunsScored() - batsmanRuns);
+                        if (batsmanRuns == 4 && s.getFours() > 0) s.setFours(s.getFours() - 1);
+                        if (batsmanRuns == 6 && s.getSixes() > 0) s.setSixes(s.getSixes() - 1);
+                    }
                 }
             }
         }
