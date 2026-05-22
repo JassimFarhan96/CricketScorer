@@ -43,8 +43,10 @@
             android:clickable="true" android:focusable="true">
           <LinearLayout android:layout_width="52dp" android:layout_height="52dp"
               android:gravity="center" android:background="@drawable/bg_menu_icon_green">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="&#127951;" android:textSize="24sp"/>
+            <ImageView android:layout_width="46dp" android:layout_height="46dp"
+                android:src="@drawable/ic_home_matches"
+                android:scaleType="fitCenter"
+                android:contentDescription="Matches"/>
           </LinearLayout>
           <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
               android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="16dp">
@@ -72,8 +74,10 @@
             android:clickable="true" android:focusable="true">
           <LinearLayout android:layout_width="52dp" android:layout_height="52dp"
               android:gravity="center" android:background="@drawable/bg_menu_icon_green">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="&#127942;" android:textSize="24sp"/>
+            <ImageView android:layout_width="46dp" android:layout_height="46dp"
+                android:src="@drawable/ic_home_tournament"
+                android:scaleType="fitCenter"
+                android:contentDescription="Tournaments"/>
           </LinearLayout>
           <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
               android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="16dp">
@@ -130,8 +134,10 @@
             android:clickable="true" android:focusable="true">
           <LinearLayout android:layout_width="52dp" android:layout_height="52dp"
               android:gravity="center" android:background="@drawable/bg_menu_icon_green">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="&#128027;" android:textSize="24sp"/>
+            <ImageView android:layout_width="46dp" android:layout_height="46dp"
+                android:src="@drawable/ic_home_bug"
+                android:scaleType="fitCenter"
+                android:contentDescription="Report a bug"/>
           </LinearLayout>
           <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
               android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="16dp">
