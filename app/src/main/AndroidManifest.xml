@@ -27,6 +27,10 @@
             android:exported="false" android:label="Tournaments"
             android:parentActivityName=".activities.HomeActivity"/>
 
+        <activity android:name=".activities.HelpTourActivity"
+            android:exported="false" android:label="Quick tour"
+            android:parentActivityName=".activities.HomeActivity"/>
+
         <activity android:name=".activities.PlayerCountActivity"
             android:exported="false" android:label="Team Size"
             android:parentActivityName=".activities.HomeActivity"/>
