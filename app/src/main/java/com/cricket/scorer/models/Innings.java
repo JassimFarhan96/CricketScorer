@@ -809,7 +809,7 @@ public class Innings implements Serializable {
         totalByes    = Math.max(0, totalByes);
         totalLegByes = Math.max(0, totalLegByes);
         int total = totalByes + totalLegByes;
-        if (total == 0) return "0";
+        if (total == 0) return "-";
         if (totalByes > 0 && totalLegByes > 0)
             return total + " (" + totalByes + "B," + totalLegByes + "Lb)";
         else if (totalByes > 0)

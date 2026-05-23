@@ -212,7 +212,6 @@ public class InningsBreakActivity extends AppCompatActivity {
                     ? String.format(Locale.US, "%.1f", p.getStrikeRate()) : "-";
             addBattingRow(table, p.getName(),
                     String.valueOf(p.getRunsScored()),
-                    "",   // Ext is a team total, not per-batsman
                     String.valueOf(p.getBallsFaced()),
                     String.valueOf(p.getFours()),
                     String.valueOf(p.getSixes()),
@@ -294,10 +293,10 @@ public class InningsBreakActivity extends AppCompatActivity {
     // ─── Table helpers ────────────────────────────────────────────────────────
 
     private void addBattingHeader(TableLayout t) {
-        String[] cols = {"Batsman","R","Ext","B","4s","6s","SR","Status"};
+        String[] cols = {"Batsman","R","B","4s","6s","SR","Status"};
         TableRow row  = new TableRow(this);
         row.setBackgroundColor(col(R.color.c_row_header_bg));
-        int[] widths = {240,55,110,55,55,55,75,90};
+        int[] widths = {240,55,55,55,55,75,90};
         for (int i = 0; i < cols.length; i++) {
             TextView tv = cell(cols[i], widths[i]);
             tv.setTextColor(col(R.color.c_row_header_text));
@@ -307,12 +306,12 @@ public class InningsBreakActivity extends AppCompatActivity {
         t.addView(row);
     }
 
-    private void addBattingRow(TableLayout t, String name, String r, String ext, String b,
+    private void addBattingRow(TableLayout t, String name, String r, String b,
                                 String fs, String sx, String sr, String status,
                                 boolean isOut, boolean isRH) {
         TableRow row = new TableRow(this);
-        String[] vals = {name, r, ext, b, fs, sx, sr, status};
-        int[] widths   = {240, 55, 110, 55, 55, 55, 75, 90};
+        String[] vals = {name, r, b, fs, sx, sr, status};
+        int[] widths   = {240, 55, 55, 55, 55, 75, 90};
         for (int i = 0; i < vals.length; i++) {
             TextView tv = cell(vals[i], widths[i]);
             if (isOut) {
@@ -331,14 +330,14 @@ public class InningsBreakActivity extends AppCompatActivity {
     private void addBattingExtrasRow(TableLayout t, Innings inn) {
         TableRow row = new TableRow(this);
         row.setBackgroundColor(col(R.color.c_row_alt_bg));
-        // Columns: Batsman | R | Ext | B | 4s | 6s | SR | Status
+        // Columns: Batsman | R | B | 4s | 6s | SR | Status
+        // Extras value shown under R column
         String[] vals = {
                 "Extras",
-                "",
                 inn.getBattingExtrasDisplay(),
                 "", "", "", "", ""
         };
-        int[] widths = {240, 55, 110, 55, 55, 55, 75, 90};
+        int[] widths = {240, 55, 55, 55, 55, 75, 90};
         for (int i = 0; i < vals.length; i++) {
             TextView tv = cell(vals[i], widths[i]);
             tv.setTypeface(null, Typeface.BOLD);
@@ -358,10 +357,9 @@ public class InningsBreakActivity extends AppCompatActivity {
                 "",
                 "",
                 "",
-                "",
                 inn.getScoreString() + " (" + inn.getOversString() + " ov)"
         };
-        int[] widths = {240, 55, 110, 55, 55, 55, 75, 90};
+        int[] widths = {240, 55, 55, 55, 55, 75, 90};
         for (int i = 0; i < vals.length; i++) {
             TextView tv = cell(vals[i], widths[i]);
             tv.setTypeface(null, Typeface.BOLD);
