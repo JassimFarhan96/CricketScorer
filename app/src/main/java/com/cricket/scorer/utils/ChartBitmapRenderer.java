@@ -240,9 +240,11 @@ public final class ChartBitmapRenderer {
             c.drawText(String.valueOf(Math.round(maxRuns * i / 5f)), axisL - 8, y + 8, yLbl);
         }
 
-        // Bars — centres distributed from axisL to axisR so over 1 aligns with Y-axis
-        float barSlot = n > 1 ? (axisR - axisL) / (float) (n - 1) : (axisR - axisL);
-        float barW    = Math.min(barSlot * 0.65f, 60);
+        // Bars — divide the plot area into n equal slots, centre each bar in its slot.
+        // This ensures the first bar is offset right of the Y-axis and the last bar
+        // is offset left of the right edge, not touching either boundary.
+        float slotW  = (axisR - axisL) / (float) n;
+        float barW   = Math.min(slotW * 0.65f, 60);
         Paint barPaint = makePaint(COLOR_GREEN, 0, false);
         Paint wktPaint = makePaint(COLOR_RED, 0, false);
 
@@ -251,8 +253,8 @@ public final class ChartBitmapRenderer {
         int xStep = n <= 10 ? 1 : (n <= 20 ? 2 : 5);
 
         for (int i = 0; i < n; i++) {
-            float cx = n == 1 ? (axisL + axisR) / 2f
-                    : axisL + (axisR - axisL) * (i / (float) (n - 1));
+            // Centre of slot i: left edge of slot + half slot width
+            float cx = axisL + slotW * i + slotW / 2f;
             float h  = (axisB - axisT) * (runsPerOver[i] / (float) maxRuns);
             RectF r  = new RectF(cx - barW / 2, axisB - h, cx + barW / 2, axisB);
             c.drawRoundRect(r, 4, 4, barPaint);
