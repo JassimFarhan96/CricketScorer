@@ -235,7 +235,9 @@ public class StatsActivity extends BaseNavActivity {
         List<Player> bat2P = homeFirst ? match.getAwayPlayers() : match.getHomePlayers();
 
         buildBattingTable(tableFirstBatting,  bat1P);
+        addBattingExtrasAndTotal(tableFirstBatting,  i1);
         buildBattingTable(tableSecondBatting, bat2P);
+        addBattingExtrasAndTotal(tableSecondBatting, i2);
         if (i1 != null) buildBowlingTable(tableFirstBowling,  i1.getBowlerStats());
         if (i2 != null) buildBowlingTable(tableSecondBowling, i2.getBowlerStats());
 
@@ -258,16 +260,30 @@ public class StatsActivity extends BaseNavActivity {
 
     private void buildBattingTable(TableLayout table, List<Player> players) {
         table.removeAllViews();
-        addBattingRow(table, new String[]{"Batsman","R","B","4s","6s","SR","Status"}, true);
+        addBattingRow(table, new String[]{"Batsman","R","Ext","B","4s","6s","SR","Status"}, true);
         for (Player p : players) {
             if (p.isHasNotBatted() && p.getBallsFaced()==0 && p.getRunsScored()==0) continue;
             String sr = p.getBallsFaced()>0
                     ? String.format(Locale.US,"%.1f",p.getStrikeRate()) : "-";
             addBattingRow(table, new String[]{p.getName(),
-                    String.valueOf(p.getRunsScored()), String.valueOf(p.getBallsFaced()),
+                    String.valueOf(p.getRunsScored()),
+                    "",   // Ext is team total, not per-batsman
+                    String.valueOf(p.getBallsFaced()),
                     String.valueOf(p.getFours()), String.valueOf(p.getSixes()),
                     sr, p.isOut()?"Out":"Not out"}, false);
         }
+    }
+
+    /** Appends Extras + TOTAL rows to a batting table for the given innings. */
+    private void addBattingExtrasAndTotal(TableLayout table, Innings inn) {
+        if (inn == null) return;
+        addBattingRow(table, new String[]{
+                "Extras", "", inn.getBattingExtrasDisplay(), "", "", "", "", ""}, false);
+        addBattingRow(table, new String[]{
+                "TOTAL",
+                String.valueOf(inn.getTotalRuns()), "",
+                String.valueOf(inn.getTotalValidBalls()), "", "",
+                inn.getScoreString() + " (" + inn.getOversString() + " ov)", ""}, false);
     }
 
     private void addBattingRow(TableLayout table, String[] cells, boolean hdr) {
@@ -275,7 +291,8 @@ public class StatsActivity extends BaseNavActivity {
         row.setLayoutParams(new TableRow.LayoutParams(
                 TableRow.LayoutParams.MATCH_PARENT, TableRow.LayoutParams.WRAP_CONTENT));
         if (hdr) row.setBackgroundColor(col(R.color.c_row_header_bg));
-        int[] w = {280,60,60,60,60,80,100};
+        // Columns: Batsman | R | Ext | B | 4s | 6s | SR | Status
+        int[] w = {280,60,110,60,60,60,80,100};
         for (int i=0;i<cells.length;i++) {
             TextView tv = new TextView(this);
             tv.setLayoutParams(new TableRow.LayoutParams(dp(w[i]),TableRow.LayoutParams.WRAP_CONTENT));

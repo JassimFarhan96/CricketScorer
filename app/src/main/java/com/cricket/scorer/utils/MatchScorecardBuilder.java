@@ -89,7 +89,7 @@ public final class MatchScorecardBuilder {
                 : (homeFirst ? match.getAwayPlayers() : match.getHomePlayers());
 
         List<String[]> rows = new ArrayList<>();
-        rows.add(new String[]{ "Batter", "Status", "R", "B", "4s", "6s", "SR" });
+        rows.add(new String[]{ "Batter", "Status", "R", "Ext", "B", "4s", "6s", "SR" });
         if (players == null) return rows.toArray(new String[0][]);
 
         for (Player p : players) {
@@ -102,26 +102,25 @@ public final class MatchScorecardBuilder {
                     safe(p.getName()),
                     status,
                     String.valueOf(p.getRunsScored()),
+                    "",   // Ext is team total, not per-batsman
                     String.valueOf(p.getBallsFaced()),
                     String.valueOf(p.getFours()),
                     String.valueOf(p.getSixes()),
                     String.format(Locale.US, "%.1f", p.getStrikeRate())
             });
         }
-        // Extras row
+        // Batting extras row (byes + leg-byes)
         rows.add(new String[]{
-                "Extras",
-                inn.getInningsExtrasDisplay(),
-                "", "", "", "", ""
+                "Extras", "", "", inn.getBattingExtrasDisplay(), "", "", "", ""
         });
         // Footer total row
         rows.add(new String[]{
                 "TOTAL",
                 inn.getScoreString() + " in " + inn.getOversString() + " ov",
                 String.valueOf(inn.getTotalRuns()),
+                "",
                 String.valueOf(inn.getTotalValidBalls()),
-                "", "",
-                String.format(Locale.US, "%.2f", inn.getCurrentRunRate())
+                "", "", ""
         });
         return rows.toArray(new String[0][]);
     }

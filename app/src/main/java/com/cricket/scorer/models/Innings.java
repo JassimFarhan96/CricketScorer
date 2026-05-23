@@ -777,4 +777,44 @@ public class Innings implements Serializable {
         else
             return total + " (" + totalNoBalls + "Nb)";
     }
+
+    /**
+     * Batting team extras: byes + leg-byes accumulated across all balls in this innings.
+     * These are extras conceded by the bowling team but credited to the batting team's total,
+     * NOT to any individual batsman.
+     *
+     * Format mirrors bowler extras: "5 (3B,2Lb)", "3 (3B)", "2 (2Lb)", or "0".
+     */
+    public String getBattingExtrasDisplay() {
+        int totalByes    = 0;
+        int totalLegByes = 0;
+        for (Over over : getAllOvers()) {
+            for (com.cricket.scorer.models.Ball ball : over.getBalls()) {
+                if (ball.isBye())    totalByes    += ball.getRuns();
+                if (ball.isLegBye()) totalLegByes += ball.getRuns();
+            }
+        }
+        // For NoBall+Bye / NoBall+LegBye balls the bye runs are (total - 1 NB penalty)
+        // Ball.isBye()/isLegBye() flags are set on those balls too, but getRuns() includes
+        // the NB penalty. Subtract 1 for each such ball so we only count the bye portion.
+        for (Over over : getAllOvers()) {
+            for (com.cricket.scorer.models.Ball ball : over.getBalls()) {
+                if (ball.getType() == com.cricket.scorer.models.Ball.BallType.NO_BALL) {
+                    if (ball.isBye())    totalByes    -= 1; // subtract NB penalty
+                    if (ball.isLegBye()) totalLegByes -= 1; // subtract NB penalty
+                }
+            }
+        }
+        // Ensure non-negative (safety guard)
+        totalByes    = Math.max(0, totalByes);
+        totalLegByes = Math.max(0, totalLegByes);
+        int total = totalByes + totalLegByes;
+        if (total == 0) return "0";
+        if (totalByes > 0 && totalLegByes > 0)
+            return total + " (" + totalByes + "B," + totalLegByes + "Lb)";
+        else if (totalByes > 0)
+            return total + " (" + totalByes + "B)";
+        else
+            return total + " (" + totalLegByes + "Lb)";
+    }
 }
