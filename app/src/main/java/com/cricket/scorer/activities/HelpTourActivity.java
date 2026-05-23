@@ -520,17 +520,31 @@ public class HelpTourActivity extends AppCompatActivity {
                     "Wicket. Long-press for run-out with completed runs."));
             c.addView(balls);
 
-            // Action button grid
-            LinearLayout grid = new LinearLayout(a);
-            grid.setOrientation(LinearLayout.HORIZONTAL);
-            grid.setPadding(0, a.dp(6), 0, 0);
-            grid.addView(weightedPill(a, "0",   0xFF333333, Color.WHITE,
-                    "Dot ball — tap to record."));
-            grid.addView(weightedPill(a, "4",   0xFF0E5DAA, Color.WHITE,
-                    "4-run boundary."));
-            grid.addView(weightedPill(a, "6",   0xFF0E5DAA, Color.WHITE,
-                    "6-run boundary."));
-            c.addView(grid);
+            // Action button grids - run values (DOT + 1-6). Long-press hints
+            // call out the bye / leg-bye flow on every run button.
+            LinearLayout runRow1 = new LinearLayout(a);
+            runRow1.setOrientation(LinearLayout.HORIZONTAL);
+            runRow1.setPadding(0, a.dp(6), 0, 0);
+            runRow1.addView(weightedPill(a, "DOT", 0xFF333333, Color.WHITE,
+                    "Dot ball — no runs taken. Long-press for bye / leg-bye (i.e. dot ball but the batsmen ran extras)."));
+            runRow1.addView(weightedPill(a, "1",   0xFF333333, Color.WHITE,
+                    "1 run off the bat. Long-press to record 1 bye or 1 leg-bye instead."));
+            runRow1.addView(weightedPill(a, "2",   0xFF333333, Color.WHITE,
+                    "2 runs off the bat. Long-press to record 2 byes or 2 leg-byes instead."));
+            runRow1.addView(weightedPill(a, "3",   0xFF333333, Color.WHITE,
+                    "3 runs off the bat. Long-press to record 3 byes or 3 leg-byes instead."));
+            c.addView(runRow1);
+
+            LinearLayout runRow2 = new LinearLayout(a);
+            runRow2.setOrientation(LinearLayout.HORIZONTAL);
+            runRow2.setPadding(0, a.dp(8), 0, 0);
+            runRow2.addView(weightedPill(a, "4",   0xFF0E5DAA, Color.WHITE,
+                    "4-run boundary. Long-press to record 4 byes or 4 leg-byes instead."));
+            runRow2.addView(weightedPill(a, "5",   0xFF333333, Color.WHITE,
+                    "5 runs (rare — overthrow etc). Long-press for 5 byes or 5 leg-byes."));
+            runRow2.addView(weightedPill(a, "6",   0xFF0E5DAA, Color.WHITE,
+                    "6-run boundary. Long-press to record 6 byes or 6 leg-byes instead."));
+            c.addView(runRow2);
 
             LinearLayout grid2 = new LinearLayout(a);
             grid2.setOrientation(LinearLayout.HORIZONTAL);
@@ -643,7 +657,7 @@ public class HelpTourActivity extends AppCompatActivity {
             row.setOrientation(LinearLayout.VERTICAL);
             row.setPadding(a.dp(12), a.dp(10), a.dp(12), a.dp(10));
             GradientDrawable bg = new GradientDrawable();
-            bg.setColor(Color.WHITE);
+            bg.setColor(a.color(R.color.c_bg_card));
             bg.setCornerRadius(a.dp(8));
             bg.setStroke(1, a.color(R.color.c_divider));
             row.setBackground(bg);
@@ -737,7 +751,7 @@ public class HelpTourActivity extends AppCompatActivity {
             col.setGravity(Gravity.CENTER);
             col.setPadding(a.dp(8), a.dp(10), a.dp(8), a.dp(10));
             GradientDrawable bg = new GradientDrawable();
-            bg.setColor(Color.WHITE);
+            bg.setColor(a.color(R.color.c_bg_card));
             bg.setCornerRadius(a.dp(8));
             bg.setStroke(1, a.color(R.color.c_divider));
             col.setBackground(bg);
@@ -781,7 +795,7 @@ public class HelpTourActivity extends AppCompatActivity {
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setPadding(a.dp(12), a.dp(10), a.dp(12), a.dp(10));
             GradientDrawable bg = new GradientDrawable();
-            bg.setColor(Color.WHITE);
+            bg.setColor(a.color(R.color.c_bg_card));
             bg.setCornerRadius(a.dp(8));
             bg.setStroke(1, a.color(R.color.c_divider));
             row.setBackground(bg);
@@ -863,7 +877,7 @@ public class HelpTourActivity extends AppCompatActivity {
             row.setPadding(a.dp(8), a.dp(8), a.dp(8), a.dp(8));
             row.setGravity(Gravity.CENTER_VERTICAL);
             GradientDrawable bg = new GradientDrawable();
-            bg.setColor(Color.WHITE);
+            bg.setColor(a.color(R.color.c_bg_card));
             bg.setCornerRadius(a.dp(6));
             bg.setStroke(1, a.color(R.color.c_divider));
             row.setBackground(bg);
@@ -947,7 +961,7 @@ public class HelpTourActivity extends AppCompatActivity {
             row.setGravity(Gravity.CENTER_VERTICAL);
             row.setPadding(a.dp(12), a.dp(10), a.dp(12), a.dp(10));
             GradientDrawable bg = new GradientDrawable();
-            bg.setColor(Color.WHITE);
+            bg.setColor(a.color(R.color.c_bg_card));
             bg.setCornerRadius(a.dp(8));
             bg.setStroke(1, a.color(R.color.c_divider));
             row.setBackground(bg);
