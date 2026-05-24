@@ -563,7 +563,7 @@ public class HelpTourActivity extends AppCompatActivity {
             grid3.addView(weightedPill(a, "RET. HURT", 0xFFCC7B17, Color.WHITE,
                     "Retire the striker hurt. You can recall them later."));
             grid3.addView(weightedPill(a, "UNDO", 0xFF0E5DAA, Color.WHITE,
-                    "Reverses the last ball. You can also shake the phone to undo."));
+                    "Reverses the last ball. Undo can be done only till start of over."));
             c.addView(grid3);
 
             container.addView(c);
@@ -571,7 +571,7 @@ public class HelpTourActivity extends AppCompatActivity {
         @Override void buildBody(HelpTourActivity a, LinearLayout container) {
             a.addBullet(container, "Live batting & bowling tables update after every ball");
             a.addBullet(container, "Edit overs mid-match if the captains agree on a shorter game");
-            a.addBullet(container, "Shake the phone any time to undo the last ball");
+            a.addBullet(container, "Undo the last ball. Can be done only till starting of that over. Cannot undo previous over");
         }
         private View weightedPill(HelpTourActivity a, String label, int bg, int fg, String hint) {
             View v = a.makePill(label, bg, fg, hint);
@@ -786,8 +786,8 @@ public class HelpTourActivity extends AppCompatActivity {
             container.addView(c);
         }
         @Override void buildBody(HelpTourActivity a, LinearLayout container) {
-            a.addBullet(container, "Tap → reopen the scorecard");
-            a.addBullet(container, "Long-press → delete the saved match");
+            a.addBullet(container, "View → reopen the scorecard");
+            a.addBullet(container, "Delete → delete the saved match");
             a.addBullet(container, "Tournament matches live in Recent tournaments, not here");
         }
         private View matchRow(HelpTourActivity a, String teams, String result, String when, String hint) {
