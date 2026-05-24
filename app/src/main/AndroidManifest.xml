@@ -31,6 +31,10 @@
             android:exported="false" android:label="Quick tour"
             android:parentActivityName=".activities.HomeActivity"/>
 
+        <activity android:name=".activities.BackupRestoreMenuActivity"
+            android:exported="false" android:label="Backup / Restore"
+            android:parentActivityName=".activities.HomeActivity"/>
+
         <activity android:name=".activities.PlayerCountActivity"
             android:exported="false" android:label="Team Size"
             android:parentActivityName=".activities.HomeActivity"/>

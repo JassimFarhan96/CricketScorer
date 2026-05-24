@@ -67,16 +67,20 @@ public class DataExportUtils {
      */
     public static Result exportAll(Context ctx) {
         String ts = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
-        String fileName = "CricketScorer_Export_" + ts + ".zip";
+        // .cscbak — encrypted Cricket Scorer Backup. Plain to the app, opaque to the user.
+        String fileName = "CricketScorer_Backup_" + ts + ".cscbak";
 
         // Build the ZIP into a temp file inside the app's cache dir first,
-        // then copy it out to Downloads. This works the same way on every
-        // Android version and avoids partial writes if zipping fails.
-        File tempZip = new File(ctx.getCacheDir(), fileName);
+        // then encrypt it into a second temp file, then copy the encrypted
+        // file out to Downloads. The intermediate zip is deleted before
+        // exiting so unencrypted data never lingers on disk.
+        File tempZip = new File(ctx.getCacheDir(), "backup_plain_" + ts + ".zip");
+        File tempEnc = new File(ctx.getCacheDir(), fileName);
         int fileCount;
         try {
             fileCount = buildZip(ctx, tempZip);
         } catch (IOException e) {
+            tempZip.delete();
             return new Result(false, null, null, 0,
                     "Failed to build zip: " + e.getMessage());
         }
@@ -92,13 +96,27 @@ public class DataExportUtils {
                     "No data to export yet — play a match or tournament first.");
         }
 
-        // Move the zip into Downloads
+        // Encrypt the plain zip into the .cscbak temp file
         try {
-            String displayPath = copyToDownloads(ctx, tempZip, fileName);
-            tempZip.delete();
-            return new Result(true, fileName, displayPath, fileCount, null);
+            BackupCrypto.encryptToFile(tempZip, tempEnc);
         } catch (IOException e) {
             tempZip.delete();
+            tempEnc.delete();
+            return new Result(false, null, null, fileCount,
+                    "Failed to encrypt backup: " + e.getMessage());
+        } finally {
+            // Always delete the plain zip — even on failure — so the
+            // unencrypted bundle never lingers in cacheDir.
+            tempZip.delete();
+        }
+
+        // Move the encrypted file into Downloads
+        try {
+            String displayPath = copyToDownloads(ctx, tempEnc, fileName);
+            tempEnc.delete();
+            return new Result(true, fileName, displayPath, fileCount, null);
+        } catch (IOException e) {
+            tempEnc.delete();
             return new Result(false, null, null, fileCount,
                     "Failed to write to Downloads: " + e.getMessage());
         }
@@ -183,7 +201,7 @@ public class DataExportUtils {
             ContentResolver resolver = ctx.getContentResolver();
             ContentValues values = new ContentValues();
             values.put(MediaStore.Downloads.DISPLAY_NAME, fileName);
-            values.put(MediaStore.Downloads.MIME_TYPE,    "application/zip");
+            values.put(MediaStore.Downloads.MIME_TYPE,    "application/octet-stream");
             values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
             Uri uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
             if (uri == null) throw new IOException("MediaStore insert returned null");
