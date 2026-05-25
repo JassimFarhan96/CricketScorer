@@ -333,7 +333,7 @@ public class HelpTourActivity extends AppCompatActivity {
                     "Tap this to score individual matches or browse past ones."));
             c.addView(makeRow(a, "🏆", "Tournaments", "Run multi-team competitions",
                     "Round-robin schedules, points tables and full archives."));
-            c.addView(makeRow(a, "📤", "Export data", "Save all matches & tournaments as JSON",
+            c.addView(makeRow(a, "📤", "Backup/Restore data", "Backup all matches & tournaments data. Restore the backed-up data whenever required.",
                     "Use this for backups before a phone reset or app reinstall."));
             c.addView(makeRow(a, "?",  "Quick tour / Help", "This walkthrough",
                     "You can reopen this tour any time from here."));
@@ -946,9 +946,9 @@ public class HelpTourActivity extends AppCompatActivity {
             c.addView(exportRow(a, "📊", "Excel",
                     "Multi-sheet workbook",
                     "Full .xlsx file with batting, bowling, summary and chart sheets. Open in Excel / Google Sheets."));
-            c.addView(exportRow(a, "💾", "Export all data",
-                    "From home menu — backup as JSON",
-                    "Saves every match + tournament as JSON into Downloads. Use before phone reset or app reinstall."));
+            c.addView(exportRow(a, "💾", "Backup/Restore",
+                    "From home menu — use to take backup before phone reset or app re-install",
+                    "Saves every match and tournament data into Downloads after backup. Select the saved file to restore the data."));
             container.addView(c);
         }
         @Override void buildBody(HelpTourActivity a, LinearLayout container) {

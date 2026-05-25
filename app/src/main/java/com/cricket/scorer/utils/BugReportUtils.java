@@ -49,7 +49,7 @@ import java.util.Locale;
 public final class BugReportUtils {
 
     /** Change this to your real support email before shipping. */
-    private static final String REPORT_EMAIL = "your-support@example.com";
+    private static final String REPORT_EMAIL = "cricketscorer.support@gmail.com";
 
     /** FileProvider authority — must match the one declared in AndroidManifest. */
     private static final String FP_AUTHORITY = "com.cricket.scorer.fileprovider";
