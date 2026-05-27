@@ -306,7 +306,7 @@ public class HelpTourActivity extends AppCompatActivity {
             c.addView(icon);
 
             TextView tag = new TextView(a);
-            tag.setText("Built for backyard, club &\ntournament cricket");
+            tag.setText("Built for backyard, club, turf &\ntournament cricket");
             tag.setGravity(Gravity.CENTER);
             tag.setTextColor(a.color(R.color.c_text_secondary));
             tag.setTextSize(13f);
@@ -317,7 +317,10 @@ public class HelpTourActivity extends AppCompatActivity {
         }
         @Override void buildBody(HelpTourActivity a, LinearLayout container) {
             a.addBullet(container, "Track every ball with extras, byes and run-outs");
-            a.addBullet(container, "Auto-saved matches and tournaments");
+            a.addBullet(container, "Undo the last ball. Can be done only till start of over");
+            a.addBullet(container, "Edit the number of overs during 1st innings");
+            a.addBullet(container, "Joker player - this player is common to both teams and cannot bat and bowl at the same time.");
+            a.addBullet(container, "Save matches and tournaments data");
             a.addBullet(container, "Share scorecards as text, image or Excel");
             a.addBullet(container, "Works fully offline — no account needed");
         }
@@ -340,8 +343,8 @@ public class HelpTourActivity extends AppCompatActivity {
             container.addView(c);
         }
         @Override void buildBody(HelpTourActivity a, LinearLayout container) {
-            a.addBullet(container, "Shake the phone any time to report a bug");
-            a.addBullet(container, "If a match is in progress, resume dialog appears on launch");
+            a.addBullet(container, "Shake the phone any time and select Gmail option to report a bug to cricketscorer.support@gmail.com");
+            a.addBullet(container, "If a match is in progress and if the app got closed, resume dialog appears on app re-launch");
         }
         private View makeRow(HelpTourActivity a, String icon, String title, String sub, String hint) {
             LinearLayout row = new LinearLayout(a);
@@ -570,7 +573,7 @@ public class HelpTourActivity extends AppCompatActivity {
         }
         @Override void buildBody(HelpTourActivity a, LinearLayout container) {
             a.addBullet(container, "Live batting & bowling tables update after every ball");
-            a.addBullet(container, "Edit overs mid-match if the captains agree on a shorter game");
+            a.addBullet(container, "Edit overs mid-match if the captains agree on a shorter/longer game");
             a.addBullet(container, "Undo the last ball. Can be done only till starting of that over. Cannot undo previous over");
         }
         private View weightedPill(HelpTourActivity a, String label, int bg, int fg, String hint) {
@@ -1014,8 +1017,8 @@ public class HelpTourActivity extends AppCompatActivity {
             container.addView(c);
         }
         @Override void buildBody(HelpTourActivity a, LinearLayout container) {
-            a.addBullet(container, "Found a bug? Shake your phone to report it");
-            a.addBullet(container, "Need backups? Use Export data from the home menu");
+            a.addBullet(container, "Found a bug? Shake your phone to report it to cricketscorer.support@gmail.com");
+            a.addBullet(container, "Need to restore data from backup file? Use Bacup/Restore option from the home menu");
             a.addBullet(container, "Want this tour again? Tap Quick tour / Help on home");
         }
     }

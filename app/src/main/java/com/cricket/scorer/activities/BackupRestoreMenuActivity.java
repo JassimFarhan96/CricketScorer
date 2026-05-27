@@ -140,7 +140,7 @@ public class BackupRestoreMenuActivity extends BaseNavActivity {
                     msg.append(" from the selected backup.");
                     if (result.filesSkipped > 0) {
                         msg.append("\n\n").append(result.filesSkipped)
-                           .append(" non-JSON or unsafe entries were skipped.");
+                           .append(" non-match data or unsafe entries were skipped.");
                     }
                     msg.append("\n\nYour matches and tournaments are now available "
                             + "from the Recent screens.");

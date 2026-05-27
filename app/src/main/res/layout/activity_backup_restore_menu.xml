@@ -85,7 +85,7 @@
 
     <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
         android:layout_marginStart="20dp" android:layout_marginEnd="20dp"
-        android:text="Backup files are plain JSON inside a zip — you can open them with any text editor or unzip tool. Restoring will merge entries; matches with the same filename will be replaced by the backup version."
+        android:text="Backup files are stored in .cscbak format in Downloads folder. During Restore, select the correct .cscbak file. Restoring will merge entries; matches with the same filename will be replaced by the backup version."
         android:textSize="12sp" android:textColor="@color/c_text_secondary"
         android:lineSpacingMultiplier="1.3"/>
 
