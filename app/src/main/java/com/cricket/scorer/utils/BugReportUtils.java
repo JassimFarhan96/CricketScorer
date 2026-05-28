@@ -59,6 +59,15 @@ public final class BugReportUtils {
     /**
      * Builds the bug report bundle and launches an email chooser.
      * Call this from any Activity context.
+     *
+     * Attachments sent:
+     *   screenshot.png          — plain image (readable, intentional)
+     *   bug_report_<ts>.csclog  — AES-256-GCM encrypted zip containing:
+     *                               app_log.txt, app_log.1.txt,
+     *                               live_match.json, tournament_tracker.json
+     *
+     * The .csclog file is opaque to the user. Use DecryptLogTool.java
+     * on your PC to decrypt and read the contents.
      */
     public static void launch(Activity activity) {
         try {
@@ -70,34 +79,30 @@ public final class BugReportUtils {
 
             ArrayList<Uri> attachments = new ArrayList<>();
 
-            // 1. Screenshot of the current screen
+            // 1. Screenshot — sent as plain PNG (dev needs to see the screen)
             File screenshot = new File(bundleDir, "screenshot.png");
             if (captureScreenshot(activity, screenshot)) {
                 attachments.add(toFpUri(activity, screenshot));
             }
 
-            // 2. Persistent logs (Layer 1's AppLogger output)
-            File curLog = new File(activity.getFilesDir(), "app_log.txt");
-            if (curLog.isFile()) {
-                File copy = copyToBundle(curLog, new File(bundleDir, "app_log.txt"));
-                if (copy != null) attachments.add(toFpUri(activity, copy));
-            }
-            File rotLog = new File(activity.getFilesDir(), "app_log.1.txt");
-            if (rotLog.isFile()) {
-                File copy = copyToBundle(rotLog, new File(bundleDir, "app_log.1.txt"));
-                if (copy != null) attachments.add(toFpUri(activity, copy));
-            }
+            // 2. Collect all log and state files into a plain zip in cache,
+            //    then encrypt it into a .csclog file and attach that.
+            //    The plain zip is deleted immediately after encryption.
+            File tempZip = new File(bundleDir, "logs_plain.zip");
+            int logFileCount = bundleLogsToZip(activity, tempZip);
 
-            // 3. Live state JSONs (only present if a match/tournament is active)
-            File liveMatch = new File(activity.getFilesDir(), "live_match.json");
-            if (liveMatch.isFile()) {
-                File copy = copyToBundle(liveMatch, new File(bundleDir, "live_match.json"));
-                if (copy != null) attachments.add(toFpUri(activity, copy));
-            }
-            File tracker = new File(activity.getFilesDir(), "tournament_tracker.json");
-            if (tracker.isFile()) {
-                File copy = copyToBundle(tracker, new File(bundleDir, "tournament_tracker.json"));
-                if (copy != null) attachments.add(toFpUri(activity, copy));
+            if (logFileCount > 0) {
+                File encLog = new File(bundleDir, "bug_report_" + ts + ".csclog");
+                try {
+                    BackupCrypto.encryptToFile(tempZip, encLog);
+                    attachments.add(toFpUri(activity, encLog));
+                } catch (IOException e) {
+                    AppLogger.e("BugReportUtils", "log encryption failed", e);
+                    // Fall back: attach plain zip if encryption fails unexpectedly
+                    attachments.add(toFpUri(activity, tempZip));
+                } finally {
+                    tempZip.delete(); // always delete unencrypted zip
+                }
             }
 
             launchEmailIntent(activity, attachments, ts);
@@ -108,6 +113,41 @@ public final class BugReportUtils {
                     "Failed to prepare bug report: " + e.getMessage(),
                     android.widget.Toast.LENGTH_LONG).show();
         }
+    }
+
+    /**
+     * Zips all log and live-state files into a single plain zip.
+     * Returns the number of files added.
+     */
+    private static int bundleLogsToZip(Activity activity, File outZip) {
+        int count = 0;
+        try (java.util.zip.ZipOutputStream zos =
+                     new java.util.zip.ZipOutputStream(
+                             new java.io.BufferedOutputStream(
+                                     new java.io.FileOutputStream(outZip)))) {
+
+            String[] candidates = {
+                    "app_log.txt",
+                    "app_log.1.txt",
+                    "live_match.json",
+                    "tournament_tracker.json"
+            };
+            for (String name : candidates) {
+                File src = new File(activity.getFilesDir(), name);
+                if (!src.isFile()) continue;
+                zos.putNextEntry(new java.util.zip.ZipEntry(name));
+                try (java.io.FileInputStream fis = new java.io.FileInputStream(src)) {
+                    byte[] buf = new byte[8192];
+                    int n;
+                    while ((n = fis.read(buf)) != -1) zos.write(buf, 0, n);
+                }
+                zos.closeEntry();
+                count++;
+            }
+        } catch (IOException e) {
+            AppLogger.e("BugReportUtils", "bundleLogsToZip failed", e);
+        }
+        return count;
     }
 
     // ─── Screenshot ───────────────────────────────────────────────────────────
@@ -142,19 +182,6 @@ public final class BugReportUtils {
     }
 
     // ─── File helpers ────────────────────────────────────────────────────────
-
-    private static File copyToBundle(File src, File dst) {
-        try (java.io.FileInputStream in  = new java.io.FileInputStream(src);
-             java.io.FileOutputStream out = new java.io.FileOutputStream(dst)) {
-            byte[] buf = new byte[8192];
-            int n;
-            while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
-            return dst;
-        } catch (IOException e) {
-            AppLogger.e("BugReportUtils", "copy failed: " + src.getName(), e);
-            return null;
-        }
-    }
 
     private static Uri toFpUri(Context ctx, File f) {
         return FileProvider.getUriForFile(ctx, FP_AUTHORITY, f);
