@@ -75,7 +75,7 @@ public class MatchStorage {
     // TournamentDetailsActivity (loads from recent_tournaments/) can find them.
 
     public static File saveTournamentMatch(Context context, Match match) {
-        return saveMatchToDir(match, getTournamentStorageDir(context));
+        return saveMatchToDir(context, match, getTournamentStorageDir(context));
     }
 
     /** Loads a tournament match by file name from recent_tournaments/. */
@@ -99,7 +99,7 @@ public class MatchStorage {
     }
 
     /** Internal: write a Match to JSON in the given target directory. */
-    private static File saveMatchToDir(Match match, File targetDir) {
+    private static File saveMatchToDir(Context context, Match match, File targetDir) {
         try {
             JSONObject root = matchToJson(match);
             String ts       = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
@@ -113,6 +113,8 @@ public class MatchStorage {
             fw.flush();
             fw.close();
             AppLogger.d(TAG, "Match saved: " + file.getAbsolutePath());
+            // Incrementally merge this match's players into the suggestion cache
+            PlayerNameSuggestionsUtil.mergeMatchNames(context, match);
             return file;
         } catch (Exception e) {
             AppLogger.e(TAG, "saveMatchToDir failed", e);
@@ -136,6 +138,8 @@ public class MatchStorage {
             fw.flush();
             fw.close();
             AppLogger.d(TAG, "Match saved: " + file.getAbsolutePath());
+            // Incrementally merge this match's players into the suggestion cache
+            PlayerNameSuggestionsUtil.mergeMatchNames(context, match);
             return file;
         } catch (Exception e) {
             AppLogger.e(TAG, "saveMatch failed", e);

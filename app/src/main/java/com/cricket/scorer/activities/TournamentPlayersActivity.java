@@ -56,6 +56,10 @@ public class TournamentPlayersActivity extends BaseNavActivity {
 
     private void buildPlayerInputs(Tournament t) {
         int playersPerTeam = t.getPlayersPerTeam();
+
+        // Collect all fields across all teams for one bulk suggestion load
+        List<EditText> allFields = new ArrayList<>();
+
         for (int ti = 0; ti < t.getTeams().size(); ti++) {
             TournamentTeam team = t.getTeams().get(ti);
 
@@ -113,6 +117,7 @@ public class TournamentPlayersActivity extends BaseNavActivity {
                         LinearLayout.LayoutParams.WRAP_CONTENT));
                 col.addView(et);
                 fields.add(et);
+                allFields.add(et);
                 playerRow.addView(col);
             }
             playerFieldGrid.add(fields);
@@ -121,6 +126,9 @@ public class TournamentPlayersActivity extends BaseNavActivity {
             teamCard.addView(hScroll);
             teamsContainer.addView(teamCard);
         }
+
+        // Attach player name suggestions (loads once, shared across all fields)
+        com.cricket.scorer.utils.PlayerAutoCompleteHelper.loadAndAttach(this, allFields);
     }
 
     private void onContinue() {

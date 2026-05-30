@@ -89,7 +89,7 @@ public class BackupRestoreMenuActivity extends BaseNavActivity {
     private void confirmAndLaunchRestorePicker() {
         new AlertDialog.Builder(this)
                 .setTitle("Restore from backup")
-                .setMessage("Select a Cricket Scorer backup file (.cscbak) to restore.\n\n"
+                .setMessage("Select a Cricket Scorer backup zip to restore.\n\n"
                         + "Matches and tournaments with the same name as those in the backup "
                         + "will be replaced. Existing matches not present in the backup will "
                         + "remain untouched.\n\nContinue?")
@@ -99,15 +99,12 @@ public class BackupRestoreMenuActivity extends BaseNavActivity {
     }
 
     private void launchRestorePicker() {
-        // .cscbak files are written with application/octet-stream MIME.
-        // We also accept application/zip for backups produced by older
-        // versions of the app (pre-encryption), though those will fail
-        // decryption gracefully and surface the standard error dialog.
+        // Accept .zip MIME types. application/octet-stream is included as a fallback
+        // because some file managers report zip files with a generic mime.
         String[] mimes = {
-                "application/octet-stream",
                 "application/zip",
                 "application/x-zip-compressed",
-                "*/*"
+                "application/octet-stream"
         };
         try {
             restorePickerLauncher.launch(mimes);
@@ -134,13 +131,16 @@ public class BackupRestoreMenuActivity extends BaseNavActivity {
             runOnUiThread(() -> {
                 progress.dismiss();
                 if (result.success) {
+                    // Force a full cache rebuild so restored players appear in suggestions
+                    com.cricket.scorer.utils.PlayerNameSuggestionsUtil.forceRebuild(
+                            BackupRestoreMenuActivity.this);
                     StringBuilder msg = new StringBuilder();
                     msg.append("Restored ").append(result.filesRestored).append(" file");
                     if (result.filesRestored != 1) msg.append("s");
                     msg.append(" from the selected backup.");
                     if (result.filesSkipped > 0) {
                         msg.append("\n\n").append(result.filesSkipped)
-                           .append(" non-match data or unsafe entries were skipped.");
+                           .append(" non-JSON or unsafe entries were skipped.");
                     }
                     msg.append("\n\nYour matches and tournaments are now available "
                             + "from the Recent screens.");

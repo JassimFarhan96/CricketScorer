@@ -88,6 +88,8 @@ public class TournamentStorage {
             try (FileOutputStream fos = new FileOutputStream(trackerFile(ctx))) {
                 fos.write(root.toString(2).getBytes());
             }
+            // Incrementally merge this tournament's players into the suggestion cache
+            PlayerNameSuggestionsUtil.mergeTournamentNames(ctx, t);
         } catch (Exception e) {
             e.printStackTrace();
         }

@@ -156,6 +156,9 @@ public class SetupActivity extends AppCompatActivity {
             homePlayerFields[i]=createField(i+1); containerHomePlayers.addView(homePlayerFields[i]);
             awayPlayerFields[i]=createField(i+1); containerAwayPlayers.addView(awayPlayerFields[i]);
         }
+        // Attach player name suggestions from recent matches/tournaments
+        com.cricket.scorer.utils.PlayerAutoCompleteHelper.loadAndAttach(this, homePlayerFields);
+        com.cricket.scorer.utils.PlayerAutoCompleteHelper.loadAndAttach(this, awayPlayerFields);
     }
 
     private EditText createField(int n) {
