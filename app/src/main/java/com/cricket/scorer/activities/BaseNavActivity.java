@@ -32,6 +32,7 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 public abstract class BaseNavActivity extends AppCompatActivity {
 
     protected BottomNavigationView bottomNav;
+    private android.widget.ImageButton btnReportBug;
 
     /**
      * Stored listener — extracted as a field so onResume can detach it
@@ -123,10 +124,24 @@ public abstract class BaseNavActivity extends AppCompatActivity {
      */
     protected void setNavContentView(@LayoutRes int childLayoutRes) {
         setContentView(R.layout.activity_base_nav);
-        // Inflate the child layout into the content container
         getLayoutInflater().inflate(childLayoutRes,
                 findViewById(R.id.nav_content_frame), true);
         setupBottomNav();
+        setupBugReportButton();
+    }
+
+    private void setupBugReportButton() {
+        btnReportBug = findViewById(R.id.btn_report_bug);
+        if (btnReportBug == null) return;
+
+        // Show on every screen except the home menu — which already has
+        // the dedicated "Report a bug" menu row and the shake gesture.
+        if (this instanceof HomeActivity) {
+            btnReportBug.setVisibility(android.view.View.GONE);
+        } else {
+            btnReportBug.setVisibility(android.view.View.VISIBLE);
+            btnReportBug.setOnClickListener(v -> BugReportUtils.launch(this));
+        }
     }
 
     private void setupBottomNav() {
