@@ -266,8 +266,20 @@ public class InningsActivity extends AppCompatActivity {
      * renders correctly across all Android themes and versions.
      */
     private void showBabyOverDialog() {
-        Innings      inn     = match.getCurrentInningsData();
-        List<Player> bowlers = getBowlingTeamPlayers();
+        Innings      inn          = match.getCurrentInningsData();
+        List<Player> allBowlers   = getBowlingTeamPlayers();
+
+        // Exclude joker if they are currently batting —
+        // a player cannot bowl and bat simultaneously.
+        List<Player> bowlers = new ArrayList<>();
+        for (Player p : allBowlers) {
+            if (match.hasJoker()
+                    && match.getJokerName().equals(p.getName())
+                    && match.isJokerBatting()) {
+                continue;
+            }
+            bowlers.add(p);
+        }
 
         // Build display labels: "1. PlayerName  (2 ov)" or "1. PlayerName ← current"
         String[] names = new String[bowlers.size()];
@@ -475,7 +487,17 @@ public class InningsActivity extends AppCompatActivity {
         int          si         = innings.getStrikerIndex();
         int          nsi        = innings.getNonStrikerIndex();
 
-        List<Player> eligible = new ArrayList<>(available);
+        List<Player> eligible = new ArrayList<>();
+        for (Player p : available) {
+            // Exclude joker if they are currently bowling this over —
+            // a player cannot bat and bowl simultaneously.
+            if (match.hasJoker()
+                    && match.getJokerName().equals(p.getName())
+                    && match.isJokerBowling()) {
+                continue;
+            }
+            eligible.add(p);
+        }
         // Add retired-hurt players (excluding the striker, who is the one retiring now)
         for (int i = 0; i < batters.size(); i++) {
             Player p = batters.get(i);
@@ -506,10 +528,13 @@ public class InningsActivity extends AppCompatActivity {
                     if (p.isRetiredHurt()) {
                         p.setRetiredHurt(false);
                         p.setDismissalInfo("");
-                        // If returning player is the joker, restore batting role
-                        if (match.hasJoker() && match.getJokerName().equals(p.getName())) {
-                            match.setJokerBatting();
-                        }
+                    }
+                    // Mark joker as batting whenever they come in as replacement —
+                    // whether returning from retired hurt OR coming in fresh.
+                    // Without this, isJokerBatting() stays false and the baby over
+                    // bowler list incorrectly includes the joker while they are batting.
+                    if (match.hasJoker() && match.getJokerName().equals(p.getName())) {
+                        match.setJokerBatting();
                     }
                     int idx = batters.indexOf(p);
                     handleMatchState(engine.deliverRetiredHurt(idx));
