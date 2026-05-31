@@ -328,6 +328,8 @@ public class MatchEngine {
         Player       striker = getStriker();
         List<Player> batters = match.getCurrentBattingPlayers();
 
+        int retiringIndex = innings.getStrikerIndex();
+
         striker.setHasNotBatted(false);
         striker.retireHurt();
 
@@ -335,6 +337,12 @@ public class MatchEngine {
         if (match.isJoker(striker.getName())) {
             match.clearJokerRole();
         }
+
+        // Record the retirement so undo can reverse it later. The position is
+        // the running valid-ball count at this instant — i.e. before the
+        // replacement batsman faces any ball.
+        innings.pushRetirementEvent(innings.getTotalValidBalls(),
+                retiringIndex, newBatsmanIndex);
 
         innings.setStrikerIndex(newBatsmanIndex);
         if (newBatsmanIndex < batters.size()) batters.get(newBatsmanIndex).setHasNotBatted(false);
@@ -464,6 +472,7 @@ public class MatchEngine {
                     }
                 }
             }
+            reverseRetirementIfAtBoundary(innings, batters);
             return true;
         }
 
@@ -507,7 +516,48 @@ public class MatchEngine {
                 }
             }
         }
+        reverseRetirementIfAtBoundary(innings, batters);
         return true;
+    }
+
+    /**
+     * After a ball has been removed during undo, check whether the running
+     * valid-ball count has fallen back to a point where a retired-hurt event
+     * was recorded. If so, reverse that retirement:
+     *   - restore the retired player as striker
+     *   - clear their retired-hurt flag
+     *   - reset the replacement batsman to "not batted"
+     *   - roll back nextBatsmanIndex if the replacement had advanced it
+     *
+     * A while-loop handles the rare case of multiple retirements recorded at
+     * the same ball position (e.g. a replacement who retired without facing
+     * a ball). Events are reversed in LIFO order.
+     */
+    private void reverseRetirementIfAtBoundary(Innings innings, List<Player> batters) {
+        int pos = innings.getTotalValidBalls();
+        Innings.RetirementEvent ev;
+        while ((ev = innings.popRetirementEventAt(pos)) != null) {
+            // Restore the retired player as the active striker
+            if (ev.retiringIndex >= 0 && ev.retiringIndex < batters.size()) {
+                Player retiring = batters.get(ev.retiringIndex);
+                retiring.setRetiredHurt(false);
+                retiring.setDismissalInfo("");
+                // If the retiring player was the joker, restore their batting role
+                if (match.isJoker(retiring.getName())) match.setJokerBatting();
+                innings.setStrikerIndex(ev.retiringIndex);
+            }
+            // Reset the replacement batsman to "not batted"
+            if (ev.incomingIndex >= 0 && ev.incomingIndex < batters.size()) {
+                Player incoming = batters.get(ev.incomingIndex);
+                incoming.setHasNotBatted(true);
+                // If the replacement was the joker, clear their batting role —
+                // they are no longer at the crease after this retirement is reversed.
+                if (match.isJoker(incoming.getName())) match.clearJokerRole();
+                if (innings.getNextBatsmanIndex() > ev.incomingIndex) {
+                    innings.setNextBatsmanIndex(ev.incomingIndex);
+                }
+            }
+        }
     }
 
     // ─── All-out helpers ──────────────────────────────────────────────────────

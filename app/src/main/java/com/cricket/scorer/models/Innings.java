@@ -52,6 +52,34 @@ public class Innings implements Serializable {
     private int lastDeliveryStrikerIndex = -1; // striker index captured BEFORE delivery swap
     private int nextBatsmanIndex;
 
+    /**
+     * Retired-hurt event stack.
+     *
+     * Each entry records a retirement that happened BETWEEN deliveries:
+     *   positionValidBalls — totalValidBalls at the instant the player retired
+     *                        (i.e. how many valid balls had been bowled before
+     *                         the replacement batsman came in)
+     *   retiringIndex      — batting-list index of the player who retired hurt
+     *   incomingIndex      — batting-list index of the replacement batsman
+     *
+     * Because deliverRetiredHurt() records NO ball in the over, undo cannot
+     * otherwise detect that a retirement occurred. On undo, when the running
+     * ball count falls back to a recorded position, the retirement is reversed:
+     * the retired player is restored as striker and the replacement is reset
+     * to "not batted".
+     */
+    public static class RetirementEvent implements Serializable {
+        public int positionValidBalls;
+        public int retiringIndex;
+        public int incomingIndex;
+        public RetirementEvent(int pos, int retiring, int incoming) {
+            this.positionValidBalls = pos;
+            this.retiringIndex      = retiring;
+            this.incomingIndex      = incoming;
+        }
+    }
+    private List<RetirementEvent> retirementEvents = new ArrayList<>();
+
     private boolean isComplete;
 
     // ── First bowler for current over ────────────────────────────────────────
@@ -720,6 +748,31 @@ public class Innings implements Serializable {
     public void    setLastIncomingBatsmanIndex(int v){ lastIncomingBatsmanIndex = v; }
     public int     getLastDeliveryStrikerIndex()     { return lastDeliveryStrikerIndex; }
     public void    setLastDeliveryStrikerIndex(int v){ lastDeliveryStrikerIndex = v; }
+
+    // ── Retirement event stack ────────────────────────────────────────────────
+
+    /** Records a retirement that occurred at the given running valid-ball count. */
+    public void pushRetirementEvent(int positionValidBalls, int retiringIndex, int incomingIndex) {
+        retirementEvents.add(new RetirementEvent(positionValidBalls, retiringIndex, incomingIndex));
+    }
+
+    /**
+     * If a retirement was recorded at exactly this valid-ball position, removes
+     * and returns it (LIFO). Returns null if no event matches the position.
+     */
+    public RetirementEvent popRetirementEventAt(int positionValidBalls) {
+        for (int i = retirementEvents.size() - 1; i >= 0; i--) {
+            if (retirementEvents.get(i).positionValidBalls == positionValidBalls) {
+                return retirementEvents.remove(i);
+            }
+        }
+        return null;
+    }
+
+    public List<RetirementEvent> getRetirementEvents()                 { return retirementEvents; }
+    public void setRetirementEvents(List<RetirementEvent> events)      {
+        this.retirementEvents = (events != null) ? events : new ArrayList<>();
+    }
     public void    setStrikerIndex(int v)            { strikerIndex = v; }
     public int     getNonStrikerIndex()              { return nonStrikerIndex; }
     public void    setNonStrikerIndex(int v)         { nonStrikerIndex = v; }

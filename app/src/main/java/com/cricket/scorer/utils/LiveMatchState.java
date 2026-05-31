@@ -128,6 +128,18 @@ public class LiveMatchState {
         o.put("currentOverNum", inn.getCurrentOver() != null
                 ? inn.getCurrentOver().getOverNumber()
                 : inn.getCompletedOvers().size() + 1);
+
+        // Retired-hurt event stack — needed so undo can reverse retirements
+        // after the live match is persisted and reloaded.
+        JSONArray reArr = new JSONArray();
+        for (Innings.RetirementEvent ev : inn.getRetirementEvents()) {
+            JSONObject ro = new JSONObject();
+            ro.put("pos",      ev.positionValidBalls);
+            ro.put("retiring", ev.retiringIndex);
+            ro.put("incoming", ev.incomingIndex);
+            reArr.put(ro);
+        }
+        o.put("retirementEvents", reArr);
         return o;
     }
 
@@ -255,6 +267,20 @@ public class LiveMatchState {
             }
         }
         if (inn.getCurrentOver() == null) inn.startNewOver();
+
+        // Retired-hurt event stack
+        JSONArray reArr = o.optJSONArray("retirementEvents");
+        if (reArr != null) {
+            java.util.List<Innings.RetirementEvent> events = new java.util.ArrayList<>();
+            for (int i = 0; i < reArr.length(); i++) {
+                JSONObject ro = reArr.getJSONObject(i);
+                events.add(new Innings.RetirementEvent(
+                        ro.optInt("pos", 0),
+                        ro.optInt("retiring", -1),
+                        ro.optInt("incoming", -1)));
+            }
+            inn.setRetirementEvents(events);
+        }
         return inn;
     }
 
